@@ -1,0 +1,37 @@
+.claim-row {
+  border-bottom: 1px solid var(--border);
+  padding: 18px 22px;
+}
+
+.claim-row:last-child {
+  border-bottom: none;
+}
+
+.claim-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.claim-index {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 7px;
+}
+
+.claim-body {
+  margin-top: 4px;
+}
+
+.deny-form {
+  margin-top: 16px;
+  padding: 16px;
+  background: var(--color-danger-light);
+  border: 1px solid #fca5a5;
+  border-radius: var(--radius-sm);
+}

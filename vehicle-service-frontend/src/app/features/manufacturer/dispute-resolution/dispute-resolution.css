@@ -1,0 +1,58 @@
+.dispute-row {
+  border-bottom: 1px solid var(--border);
+  padding: 20px 22px;
+}
+
+.dispute-row:last-child {
+  border-bottom: none;
+}
+
+.dispute-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.dispute-index {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 7px;
+}
+
+.resolve-form {
+  margin-top: 16px;
+  padding: 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid;
+}
+
+.resolve-approve {
+  background: #f0fdf4;
+  border-color: #86efac;
+}
+
+.resolve-reject {
+  background: var(--color-danger-light);
+  border-color: #fca5a5;
+}
+
+.resolve-form-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 12px;
+  color: var(--text);
+}
+
+.resolve-form-title svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}

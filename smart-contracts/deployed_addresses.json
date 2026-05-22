@@ -1,0 +1,21 @@
+{
+  "network": "localhost",
+  "timestamp": "2026-05-20T19:46:53.966Z",
+  "contracts": {
+    "VehicleRegistry": "0x27b3Dd1d62f3593aF1112412CB450D9c8D225256",
+    "ServiceLog": "0xFC1Df3fEa2491b42D9D4ebC5636894250D61eF1A",
+    "WarrantyTracker": "0x3fdC9EcE2aE20ab3fba1A187310Db7DA699E9012"
+  },
+  "accounts": {
+    "deployer": "0x8e8Ea94c8C889D51924A4b4F465271EaBc805941",
+    "manufacturer": "0xc53431D096b3767B1c3acE07cAF6A0666E3Cfab6",
+    "serviceCenter": "0x7c02751Fa3f60b54184F261d5Da05d4F5171da78",
+    "owner1": "0xC0a9f865a7DE350700BB012927CF7E2342c778E0",
+    "owner2": "0x944bE603293925a7A69B19961D315e8461f65e2a"
+  },
+  "roles": {
+    "MANUFACTURER_ROLE": "0xc53431D096b3767B1c3acE07cAF6A0666E3Cfab6",
+    "SERVICE_CENTER_ROLE": "0x7c02751Fa3f60b54184F261d5Da05d4F5171da78",
+    "OWNER_ROLE": "Auto-granted on vehicle registration"
+  }
+}

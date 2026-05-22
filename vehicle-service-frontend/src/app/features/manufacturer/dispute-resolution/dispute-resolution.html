@@ -1,0 +1,207 @@
+<div class="page">
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Dispute Resolution</h1>
+      <p class="page-subtitle">Review and resolve owner-disputed service records</p>
+    </div>
+  </div>
+
+  <!-- Search -->
+  <div class="card mb-24">
+    <div class="card-body">
+      <form [formGroup]="searchForm" (ngSubmit)="onSearch()">
+        <div class="search-bar" style="margin-bottom:0;">
+          <div class="search-input-wrap">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+            </svg>
+            <input
+              type="text"
+              formControlName="vin"
+              class="form-control"
+              [class.is-invalid]="f['vin'].invalid && f['vin'].touched"
+              placeholder="Enter 17-character VIN"
+              maxlength="17"
+              style="text-transform:uppercase;"
+            />
+          </div>
+          <button type="submit" class="btn btn-primary" [disabled]="loading">
+            <span *ngIf="loading" class="spinner"></span>
+            <span *ngIf="!loading">Search</span>
+          </button>
+        </div>
+        <div *ngIf="f['vin'].invalid && f['vin'].touched" class="invalid-feedback" style="margin-top:6px;">
+          Enter a valid 17-character VIN
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Error -->
+  <div *ngIf="error" class="alert alert-danger">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+    </svg>
+    {{ error }}
+  </div>
+
+  <!-- Action feedback -->
+  <div *ngIf="actionSuccess" class="alert alert-success">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+    </svg>
+    {{ actionSuccess }}
+  </div>
+
+  <div *ngIf="actionError" class="alert alert-danger">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+    </svg>
+    {{ actionError }}
+  </div>
+
+  <!-- Disputed records -->
+  <div *ngIf="currentVin && !loading">
+    <div class="card" *ngIf="disputedRecords.length > 0">
+      <div class="card-header">
+        <div>
+          <h3 class="card-title">Disputed Records</h3>
+          <div class="mono text-muted" style="font-size:12px;margin-top:2px;">VIN: {{ currentVin }}</div>
+        </div>
+        <span class="badge badge-disputed">{{ disputedRecords.length }} disputed</span>
+      </div>
+      <div class="card-body" style="padding:0;">
+        <div *ngFor="let record of disputedRecords; let i = index" class="dispute-row">
+          <div class="dispute-header">
+            <div class="flex items-center gap-8">
+              <span class="dispute-index">#{{ i + 1 }}</span>
+              <span class="badge badge-disputed">
+                <span class="dot"></span>
+                Disputed
+              </span>
+            </div>
+            <div *ngIf="resolvingIndex !== i" class="flex" style="gap:8px;">
+              <button
+                class="btn btn-success btn-sm"
+                (click)="startResolve(i, 'approve')"
+                [disabled]="actionLoading"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                </svg>
+                Approve Record
+              </button>
+              <button
+                class="btn btn-danger btn-sm"
+                (click)="startResolve(i, 'reject')"
+                [disabled]="actionLoading"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                </svg>
+                Reject Record
+              </button>
+            </div>
+          </div>
+
+          <!-- Dispute reason -->
+          <div class="info-box" style="margin-bottom:12px;" *ngIf="record.dispute_reason">
+            <strong>Owner's Dispute Reason:</strong> {{ record.dispute_reason }}
+          </div>
+
+          <div class="detail-grid">
+            <div class="detail-item">
+              <div class="detail-label">Service Type</div>
+              <div class="detail-value">{{ record.metadata?.service_type || '—' }}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">Service Date</div>
+              <div class="detail-value">{{ formatDateTime(record.metadata?.service_date || '') }}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">Mileage</div>
+              <div class="detail-value">{{ record.metadata?.mileage ? (record.metadata?.mileage + ' km') : '—' }}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">Technician</div>
+              <div class="detail-value">{{ record.metadata?.technician_name || '—' }}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">Submitted On</div>
+              <div class="detail-value">{{ formatDate(record.timestamp) }}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">Record Hash</div>
+              <div class="detail-value mono text-muted" style="font-size:11px;">{{ record.metadata_hash.slice(0, 20) }}…</div>
+            </div>
+          </div>
+
+          <!-- Resolve form (inline) -->
+          <div *ngIf="resolvingIndex === i" class="resolve-form" [class.resolve-approve]="resolvingDecision === 'approve'" [class.resolve-reject]="resolvingDecision === 'reject'">
+            <div class="resolve-form-title">
+              <svg *ngIf="resolvingDecision === 'approve'" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+              </svg>
+              <svg *ngIf="resolvingDecision === 'reject'" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+              </svg>
+              {{ resolvingDecision === 'approve' ? 'Approve Record' : 'Reject Record' }} — Add Resolution Notes
+            </div>
+            <form [formGroup]="resolveForm" (ngSubmit)="confirmResolve()">
+              <div class="form-group mb-16">
+                <label class="form-label">Resolution Notes <span class="required">*</span></label>
+                <textarea
+                  formControlName="resolution_notes"
+                  class="form-control"
+                  rows="3"
+                  placeholder="Explain your resolution decision (stored on-chain)…"
+                  [class.is-invalid]="resolveForm.controls['resolution_notes'].invalid && resolveForm.controls['resolution_notes'].touched"
+                ></textarea>
+                <div *ngIf="resolveForm.controls['resolution_notes'].invalid && resolveForm.controls['resolution_notes'].touched" class="invalid-feedback">
+                  Resolution notes are required
+                </div>
+              </div>
+              <div style="display:flex;gap:8px;">
+                <button type="button" class="btn btn-secondary btn-sm" (click)="cancelResolve()">Cancel</button>
+                <button type="submit" class="btn btn-sm" [class.btn-success]="resolvingDecision === 'approve'" [class.btn-danger]="resolvingDecision === 'reject'" [disabled]="actionLoading">
+                  <span *ngIf="actionLoading" class="spinner"></span>
+                  <span *ngIf="!actionLoading">Confirm {{ resolvingDecision === 'approve' ? 'Approval' : 'Rejection' }}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- No disputes after search -->
+    <div *ngIf="disputedRecords.length === 0 && !error" class="card">
+      <div class="card-body">
+        <div class="empty-state">
+          <div class="empty-state-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+            </svg>
+          </div>
+          <h3>No Disputed Records</h3>
+          <p>No disputed service records found for VIN {{ currentVin }}.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Initial state -->
+  <div *ngIf="!currentVin && !loading" class="card">
+    <div class="card-body">
+      <div class="empty-state">
+        <div class="empty-state-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+          </svg>
+        </div>
+        <h3>Search by VIN</h3>
+        <p>Enter a vehicle VIN to view its disputed service records</p>
+      </div>
+    </div>
+  </div>
+</div>

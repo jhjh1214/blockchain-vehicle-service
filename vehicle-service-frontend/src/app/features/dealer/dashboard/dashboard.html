@@ -1,0 +1,100 @@
+<div class="page">
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Dashboard</h1>
+      <p class="page-subtitle">Welcome back, {{ currentUser?.name }}</p>
+    </div>
+    <div class="chain-badge">
+      <span class="dot"></span>
+      Blockchain Connected
+    </div>
+  </div>
+
+  <div class="stat-grid">
+    <a routerLink="/dealer/vehicle-lookup" class="stat-card" style="text-decoration:none;">
+      <div class="stat-icon blue">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+        </svg>
+      </div>
+      <div>
+        <div class="stat-label">Vehicle Lookup</div>
+        <div class="stat-desc">Search and verify vehicle records on blockchain</div>
+      </div>
+    </a>
+
+    <a routerLink="/dealer/submit-service" class="stat-card" style="text-decoration:none;">
+      <div class="stat-icon green">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+        </svg>
+      </div>
+      <div>
+        <div class="stat-label">Submit Service</div>
+        <div class="stat-desc">Log service records for owner verification</div>
+      </div>
+    </a>
+
+    <a routerLink="/dealer/pending-records" class="stat-card" style="text-decoration:none;">
+      <div class="stat-icon amber">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+        </svg>
+      </div>
+      <div>
+        <div class="stat-label">Pending Records</div>
+        <div class="stat-desc">Services awaiting owner verification</div>
+      </div>
+    </a>
+
+    <div class="stat-card no-action">
+      <div class="stat-icon slate">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+        </svg>
+      </div>
+      <div>
+        <div class="stat-label">Two-Stage Verification</div>
+        <div class="stat-desc">All records need owner approval before blockchain finalization</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title">How It Works</h3>
+    </div>
+    <div class="card-body">
+      <div class="steps">
+        <div class="step">
+          <div class="step-number">1</div>
+          <div>
+            <p class="step-title">Submit Service</p>
+            <p class="step-desc">Log completed service with mileage, parts replaced, and technician notes</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-number">2</div>
+          <div>
+            <p class="step-title">Pending State</p>
+            <p class="step-desc">Record stored as pending — owner is notified to review</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-number">3</div>
+          <div>
+            <p class="step-title">Owner Verification</p>
+            <p class="step-desc">Vehicle owner reviews and approves or disputes the service record</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-number">4</div>
+          <div>
+            <p class="step-title">Blockchain Finalization</p>
+            <p class="step-desc">Approved records are permanently and immutably stored on-chain</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
