@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { AuthService } from '../../../core/services/auth';
+import { MY_CITIES, MYCity, getStateForCity } from '../../../shared/constants/my-cities';
 
 function passwordStrength(control: AbstractControl): ValidationErrors | null {
   const v: string = control.value || '';
@@ -39,6 +40,18 @@ export class RegisterComponent {
     { value: 'SERVICE_CENTER', label: 'Service Center' },
   ];
 
+  cities: MYCity[] = MY_CITIES;
+
+  get isServiceCenter(): boolean {
+    return this.f['role'].value === 'SERVICE_CENTER';
+  }
+
+  onCityChange(): void {
+    const city = this.f['city']?.value ?? '';
+    const state = getStateForCity(city);
+    this.registerForm.patchValue({ state });
+  }
+
   requirements = [
     { key: 'minLength',  label: 'At least 8 characters' },
     { key: 'uppercase',  label: 'One uppercase letter (A–Z)' },
@@ -55,6 +68,10 @@ export class RegisterComponent {
     this.registerForm = this.fb.group({
       email:           ['', [Validators.required, Validators.email]],
       role:            ['SERVICE_CENTER', Validators.required],
+      name:            [''],
+      phone:           [''],
+      city:            [''],
+      state:           [''],
       password:        ['', [Validators.required, passwordStrength]],
       confirmPassword: ['', Validators.required],
     }, { validators: passwordMatch });
@@ -100,7 +117,12 @@ export class RegisterComponent {
     this.loading = true;
     this.error   = '';
 
-    const { confirmPassword, ...userData } = this.registerForm.value;
+    // Strip SC fields if role is MANUFACTURER (keep payload clean)
+    const raw = this.registerForm.value;
+    const { confirmPassword, ...rest } = raw;
+    const userData = this.isServiceCenter
+      ? rest
+      : { email: rest.email, role: rest.role, name: rest.name, password: rest.password };
     this.authService.register(userData).subscribe({
       next: r => {
         if (r.user.role === 'MANUFACTURER') {

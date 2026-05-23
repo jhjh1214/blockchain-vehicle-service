@@ -15,6 +15,8 @@ import { ManufacturerDashboardComponent } from './features/manufacturer/dashboar
 import { RegisterVehicleComponent } from './features/manufacturer/register-vehicle/register-vehicle';
 import { WarrantyClaimsComponent } from './features/manufacturer/warranty-claims/warranty-claims';
 import { DisputeResolutionComponent } from './features/manufacturer/dispute-resolution/dispute-resolution';
+import { ServiceCentersComponent } from './features/manufacturer/service-centers/service-centers';
+import { ScDetailComponent } from './features/manufacturer/service-centers/detail/sc-detail';
 
 export const routes: Routes = [
   { path: '', redirectTo: '/login', pathMatch: 'full' },
@@ -47,7 +49,9 @@ export const routes: Routes = [
       { path: 'dashboard', component: ManufacturerDashboardComponent },
       { path: 'register-vehicle', component: RegisterVehicleComponent },
       { path: 'warranty-claims', component: WarrantyClaimsComponent },
-      { path: 'dispute-resolution', component: DisputeResolutionComponent }
+      { path: 'dispute-resolution', component: DisputeResolutionComponent },
+      { path: 'service-centers', component: ServiceCentersComponent },
+      { path: 'service-centers/:id', component: ScDetailComponent },
     ]
   },
 

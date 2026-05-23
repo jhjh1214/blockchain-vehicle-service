@@ -56,6 +56,24 @@
   /* Motion */
   --transition: 150ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-md: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Semantic status colors (used by SC management) */
+  --status-green:  #16a34a;
+  --status-yellow: #b45309;
+  --status-red:    #dc2626;
+
+  /* Surface hover */
+  --surface-hover: #f8fafc;
+
+  /* Shorthand aliases for convenience */
+  --primary:        var(--color-primary);
+  --text-primary:   var(--text);
+  --radius-md:      var(--radius);
+  --radius-sm:      8px;
+  --transition-fast: 100ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* mb-20 utility */
+  --mb20: 20px;
 }
 
 /* ─── Reset & Base ───────────────────────────────────────── */
@@ -1517,6 +1535,11 @@ tbody tr:hover {
   --color-danger: #f87171;
   --color-danger-light: rgba(248, 113, 113, 0.12);
 
+  --status-green:   #22c55e;
+  --status-yellow:  #f59e0b;
+  --status-red:     #f87171;
+  --surface-hover:  rgba(255, 255, 255, 0.04);
+
   --color-info: #0ea5e9;
   --color-info-light: rgba(14, 165, 233, 0.12);
 
@@ -1724,6 +1747,7 @@ tbody tr:hover {
 /* ─── Spacing utilities ─── */
 .mb-8  { margin-bottom: 8px; }
 .mb-12 { margin-bottom: 12px; }
+.mb-20 { margin-bottom: 20px; }
 
 /* ─── Password field with eye toggle ─── */
 .input-password-wrap {

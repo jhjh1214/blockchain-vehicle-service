@@ -1,0 +1,192 @@
+<div class="page">
+
+  <!-- Back nav -->
+  <div class="back-nav">
+    <button class="btn btn-ghost btn-sm" (click)="goBack()">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+      </svg>
+      Back to Network
+    </button>
+  </div>
+
+  @if (loading) {
+    <div class="empty-state" style="min-height:300px;">
+      <span class="spinner"></span>
+      <p>Loading…</p>
+    </div>
+  } @else if (error) {
+    <div class="alert alert-danger">{{ error }}</div>
+  } @else if (sc) {
+
+    <!-- Header card -->
+    <div class="card mb-20">
+      <div class="sc-header">
+        <div class="sc-header-avatar">{{ (sc.name || sc.email)[0].toUpperCase() }}</div>
+        <div class="sc-header-info">
+          <h2 class="sc-header-name">{{ sc.name || sc.email }}</h2>
+          <div class="sc-header-email">{{ sc.email }}</div>
+          @if (sc.city) {
+            <div class="sc-header-location">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+              </svg>
+              {{ sc.city }}, {{ sc.state }}
+            </div>
+          }
+        </div>
+        <div class="sc-header-badge">
+          <span class="sc-status-badge" [class]="statusClass">{{ statusLabel }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Action feedback -->
+    @if (actionMsg) {
+      <div class="alert alert-success mb-16">{{ actionMsg }}</div>
+    }
+    @if (actionError) {
+      <div class="alert alert-danger mb-16">{{ actionError }}</div>
+    }
+
+    <div class="detail-layout">
+
+      <!-- Left: profile info -->
+      <div>
+        <div class="card mb-20">
+          <div class="card-header">
+            <h3 class="card-title">Profile Information</h3>
+          </div>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <div class="detail-label">Company Name</div>
+              <div class="detail-value">{{ sc.name || '—' }}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">Email</div>
+              <div class="detail-value">{{ sc.email }}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">Phone</div>
+              <div class="detail-value">{{ sc.phone || '—' }}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">City</div>
+              <div class="detail-value">{{ sc.city || '—' }}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">State</div>
+              <div class="detail-value">{{ sc.state || '—' }}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">Registered</div>
+              <div class="detail-value">{{ sc.created_at | date:'d MMM y' }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Blockchain card -->
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
+              </svg>
+              Blockchain Wallet
+            </h3>
+          </div>
+          <div class="detail-grid">
+            <div class="detail-item" style="grid-column: 1/-1;">
+              <div class="detail-label">Address</div>
+              <div class="detail-value mono">{{ sc.blockchain_address }}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">ETH Balance</div>
+              <div class="detail-value">
+                @if (sc.eth_balance !== null) {
+                  <span class="balance-value" [class.balance-low]="(sc.eth_balance ?? 0) < 0.05">
+                    {{ sc.eth_balance?.toFixed(4) }} ETH
+                  </span>
+                } @else {
+                  <span class="text-muted">Unavailable</span>
+                }
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: admin actions -->
+      <div>
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Administration</h3>
+          </div>
+          <div class="card-body">
+
+            <!-- Status actions -->
+            <div class="admin-section">
+              <div class="admin-section-label">Account Status</div>
+              <div class="admin-action-group">
+                @if (sc.status !== 'active') {
+                  <button class="btn btn-success btn-block" (click)="activate()" [disabled]="actionLoading">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                    </svg>
+                    Activate Account
+                  </button>
+                }
+                @if (sc.status !== 'suspended') {
+                  <button class="btn btn-danger btn-block" (click)="suspend()" [disabled]="actionLoading">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636" />
+                    </svg>
+                    Suspend Account
+                  </button>
+                }
+              </div>
+              <p class="admin-hint">
+                @if (sc.status === 'pending') { Activate to allow this SC to submit service records on-chain. }
+                @else if (sc.status === 'active') { Suspend to temporarily revoke service submission rights. }
+                @else if (sc.status === 'suspended') { Reactivate to restore service submission rights. }
+              </p>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- Fund wallet -->
+            <div class="admin-section">
+              <div class="admin-section-label">Wallet Funding</div>
+              @if (!showFundPanel) {
+                <button class="btn btn-primary btn-block" (click)="showFundPanel = true">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                  </svg>
+                  Fund Wallet
+                </button>
+              } @else {
+                <div class="fund-panel">
+                  <div class="form-group mb-12">
+                    <label class="form-label">Amount (ETH)</label>
+                    <input type="number" class="form-control" [(ngModel)]="fundAmount"
+                           min="0.01" max="10" step="0.1" />
+                  </div>
+                  <div class="fund-panel-actions">
+                    <button class="btn btn-primary" (click)="fund()" [disabled]="actionLoading">
+                      @if (actionLoading) { <span class="spinner"></span> }
+                      @else { Send {{ fundAmount }} ETH }
+                    </button>
+                    <button class="btn btn-ghost" (click)="showFundPanel = false">Cancel</button>
+                  </div>
+                </div>
+              }
+              <p class="admin-hint">Funds are sent from the system deployer account. Used to pay gas fees for on-chain service log submissions.</p>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+</div>
