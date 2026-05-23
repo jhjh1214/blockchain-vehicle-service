@@ -1,5 +1,5 @@
 <div class="auth-page">
-  <div class="auth-card" style="max-width: 460px; max-height: 92vh; overflow-y: auto;">
+  <div class="auth-card">
     <div class="auth-card-header">
       <div class="auth-logo">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -12,20 +12,6 @@
 
     <div class="auth-card-body">
       <form [formGroup]="registerForm" (ngSubmit)="onSubmit()">
-        <div class="form-group mb-16">
-          <label class="form-label" for="name">Full Name <span class="required">*</span></label>
-          <input
-            type="text"
-            id="name"
-            formControlName="name"
-            class="form-control"
-            [class.is-invalid]="f['name'].invalid && f['name'].touched"
-            placeholder="Enter your full name"
-          />
-          <div *ngIf="f['name'].invalid && f['name'].touched" class="invalid-feedback">
-            Name is required
-          </div>
-        </div>
 
         <div class="form-group mb-16">
           <label class="form-label" for="email">Email Address <span class="required">*</span></label>
@@ -38,28 +24,19 @@
             placeholder="you@company.com"
             autocomplete="email"
           />
-          <div *ngIf="f['email'].invalid && f['email'].touched" class="invalid-feedback">
-            Please enter a valid email
-          </div>
+          @if (f['email'].invalid && f['email'].touched) {
+            <div class="invalid-feedback">Please enter a valid email address</div>
+          }
         </div>
 
         <div class="form-group mb-16">
           <label class="form-label" for="role">Account Type <span class="required">*</span></label>
           <select id="role" formControlName="role" class="form-control">
-            <option *ngFor="let role of roles" [value]="role.value">{{ role.label }}</option>
+            @for (r of roles; track r.value) {
+              <option [value]="r.value">{{ r.label }}</option>
+            }
           </select>
           <div class="form-hint">Vehicle owners register through the mobile app</div>
-        </div>
-
-        <div class="form-group mb-16">
-          <label class="form-label" for="phone">Phone Number</label>
-          <input
-            type="tel"
-            id="phone"
-            formControlName="phone"
-            class="form-control"
-            placeholder="+60 12-345 6789"
-          />
         </div>
 
         <div class="form-group mb-16">
@@ -73,9 +50,9 @@
             placeholder="Minimum 6 characters"
             autocomplete="new-password"
           />
-          <div *ngIf="f['password'].invalid && f['password'].touched" class="invalid-feedback">
-            Password must be at least 6 characters
-          </div>
+          @if (f['password'].invalid && f['password'].touched) {
+            <div class="invalid-feedback">Password must be at least 6 characters</div>
+          }
         </div>
 
         <div class="form-group mb-24">
@@ -85,31 +62,43 @@
             id="confirmPassword"
             formControlName="confirmPassword"
             class="form-control"
-            [class.is-invalid]="(f['confirmPassword'].touched && registerForm.errors?.['mismatch'])"
+            [class.is-invalid]="f['confirmPassword'].touched && registerForm.errors?.['mismatch']"
             placeholder="Re-enter your password"
             autocomplete="new-password"
           />
-          <div *ngIf="registerForm.errors?.['mismatch'] && f['confirmPassword'].touched" class="invalid-feedback">
-            Passwords do not match
-          </div>
+          @if (registerForm.errors?.['mismatch'] && f['confirmPassword'].touched) {
+            <div class="invalid-feedback">Passwords do not match</div>
+          }
         </div>
 
-        <div *ngIf="error" class="alert alert-danger mb-16">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
-          </svg>
-          {{ error }}
-        </div>
+        @if (error) {
+          <div class="alert alert-danger mb-16">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+            </svg>
+            {{ error }}
+          </div>
+        }
 
         <button
           type="submit"
           class="btn btn-primary btn-block"
           [disabled]="loading || registerForm.invalid"
         >
-          <span *ngIf="loading" class="spinner"></span>
-          <span *ngIf="!loading">Create Account</span>
+          @if (loading) {
+            <span class="spinner"></span>
+          } @else {
+            Create Account
+          }
         </button>
       </form>
+
+      <div class="auth-note">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
+        </svg>
+        For Manufacturers and Service Centers only
+      </div>
 
       <div class="auth-footer-link">
         Already have an account? <a routerLink="/login">Sign in here</a>

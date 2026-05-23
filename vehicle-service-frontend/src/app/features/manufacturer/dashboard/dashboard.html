@@ -4,9 +4,12 @@
       <h1 class="page-title">Manufacturer Dashboard</h1>
       <p class="page-subtitle">Welcome back, {{ currentUser?.name }}</p>
     </div>
-    <div class="chain-badge">
+    <div class="chain-badge"
+         [class.connected]="isConnected === true"
+         [class.offline]="isConnected === false"
+         [class.checking]="isConnected === null">
       <span class="dot"></span>
-      Blockchain Connected
+      {{ isConnected === null ? 'Connecting…' : isConnected ? 'Blockchain Online' : 'Node Offline' }}
     </div>
   </div>
 
