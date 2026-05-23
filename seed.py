@@ -56,9 +56,9 @@ DIM = "\033[2m"
 BOLD = "\033[1m"
 NC = "\033[0m"    # reset
 
-def ok(msg):   print(f"  {G}✓{NC} {msg}")
-def skip(msg): print(f"  {Y}→{NC} {DIM}{msg}{NC}")
-def err(msg):  print(f"  {R}✗{NC} {msg}")
+def ok(msg):   print(f"  {G}[OK]{NC} {msg}")
+def skip(msg): print(f"  {Y}[--]{NC} {DIM}{msg}{NC}")
+def err(msg):  print(f"  {R}[!!]{NC} {msg}")
 def hdr(msg):  print(f"\n{BOLD}{B}{msg}{NC}")
 def sub(msg):  print(f"  {DIM}{msg}{NC}")
 
@@ -180,7 +180,7 @@ def main():
             "year":          v["year"],
         })
         if r.status_code == 200:
-            ok(f"Registered {label} → {v['owner']}")
+            ok(f"Registered {label} -> {v['owner']}")
             registered_vins.add(v["vin"])
         elif "already" in r.text.lower() or "exists" in r.text.lower():
             skip(f"{label} already on-chain")
@@ -307,12 +307,12 @@ def main():
         time.sleep(0.4)
 
     # ── Summary ───────────────────────────────────────────────
-    print(f"\n{'─'*58}")
-    print(f"{BOLD}Seed complete — login credentials{NC}")
-    print(f"{'─'*58}")
+    print(f"\n{'-'*58}")
+    print(f"{BOLD}Seed complete - login credentials{NC}")
+    print(f"{'-'*58}")
     rows = [
         ("Role",            "Email",                          "Password"),
-        ("─"*15,            "─"*32,                          "─"*10),
+        ("-"*15,            "-"*32,                          "-"*10),
         ("Manufacturer",    "manufacturer@vehiclechain.com",  PASSWORD),
         ("Service Center",  "service@autofix.com",            PASSWORD),
         ("Owner (alice)",   "alice@owner.com",                PASSWORD),
@@ -321,14 +321,14 @@ def main():
     for role, email, pw in rows:
         print(f"  {role:<16}  {email:<33}  {pw}")
     print(f"\n{BOLD}VINs to test with{NC}")
-    print(f"{'─'*58}")
+    print(f"{'-'*58}")
     for v in VEHICLES:
         print(f"  {v['vin']}  {v['year']} {v['make']} {v['model']:<12}  owner: {v['owner']}")
     print(f"\n{BOLD}Dashboard test coverage{NC}")
-    print(f"{'─'*58}")
-    print(f"  Manufacturer  — 1 pending claim, 1 approved, 1 denied, 1 disputed record")
-    print(f"  Service Center — 2 pending records, 2 finalized, 1 disputed")
-    print(f"  Vehicle lookup — all 5 VINs above are registered on-chain")
+    print(f"{'-'*58}")
+    print(f"  Manufacturer   - 1 pending claim, 1 approved, 1 denied, 1 disputed record")
+    print(f"  Service Center - 2 pending records, 2 finalized, 1 disputed")
+    print(f"  Vehicle lookup - all 5 VINs above are registered on-chain")
     print()
 
 if __name__ == "__main__":
