@@ -15,16 +15,36 @@ def create_app():
 
     with app.app_context():
         db.create_all()
-        # Migrate: add service_center_address to service_metadata if absent
+        # Inline schema migrations for columns added after initial deploy
         from sqlalchemy import inspect, text
         try:
-            cols = [c['name'] for c in inspect(db.engine).get_columns('service_metadata')]
-            if 'service_center_address' not in cols:
+            inspector = inspect(db.engine)
+
+            svc_cols = [c['name'] for c in inspector.get_columns('service_metadata')]
+            if 'service_center_address' not in svc_cols:
                 with db.engine.connect() as conn:
                     conn.execute(text(
                         "ALTER TABLE service_metadata ADD COLUMN service_center_address VARCHAR(42)"
                     ))
                     conn.commit()
+
+            vin_cols = [c['name'] for c in inspector.get_columns('vehicle_vin_mapping')]
+            if 'registered_by' not in vin_cols:
+                with db.engine.connect() as conn:
+                    conn.execute(text(
+                        "ALTER TABLE vehicle_vin_mapping ADD COLUMN registered_by VARCHAR(42)"
+                    ))
+                    conn.commit()
+                # Backfill existing rows: attribute them to the first MANUFACTURER user
+                from db.models import User
+                mfr = User.query.filter_by(role='MANUFACTURER').first()
+                if mfr:
+                    with db.engine.connect() as conn:
+                        conn.execute(text(
+                            "UPDATE vehicle_vin_mapping SET registered_by = :addr "
+                            "WHERE registered_by IS NULL"
+                        ), {'addr': mfr.blockchain_address})
+                        conn.commit()
         except Exception:
             pass
 

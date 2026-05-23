@@ -152,6 +152,7 @@ class VehicleVINMapping(db.Model):
     vin = db.Column(db.String(17), unique=True, nullable=False, index=True)
     vin_hash = db.Column(db.String(66), unique=True, nullable=False, index=True)
     owner_address = db.Column(db.String(42), nullable=False, index=True)
+    registered_by = db.Column(db.String(42), nullable=True, index=True)
     make = db.Column(db.String(50))
     model = db.Column(db.String(50))
     year = db.Column(db.Integer)

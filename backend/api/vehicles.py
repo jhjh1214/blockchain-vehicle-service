@@ -38,7 +38,8 @@ def register_vehicle():
             make=make,
             model=model,
             year=year,
-            from_address=Config.DEPLOYER_ADDRESS  # deployer holds MANUFACTURER_ROLE
+            from_address=Config.DEPLOYER_ADDRESS,        # deployer signs on-chain
+            registered_by=request.user['blockchain_address']  # who made the request
         )
         return jsonify(result), 200
     except (ValueError, LookupError) as e:
@@ -101,8 +102,10 @@ def get_vehicle(vin):
 @vehicle_bp.route('/fleet', methods=['GET'])
 @role_required('MANUFACTURER')
 def get_fleet():
-    """Paginated list of all registered vehicles (DB-backed, no blockchain call)."""
-    all_vehicles = VehicleVINMapping.query.order_by(VehicleVINMapping.created_at.desc()).all()
+    """Paginated list of vehicles registered by this manufacturer."""
+    mfr_address = request.user['blockchain_address']
+    query = VehicleVINMapping.query.filter_by(registered_by=mfr_address)
+    all_vehicles = query.order_by(VehicleVINMapping.created_at.desc()).all()
     items = [v.to_dict() for v in all_vehicles]
     result = paginate(items, request.args)
     result['vehicles'] = result.pop('items')
@@ -112,17 +115,18 @@ def get_fleet():
 @vehicle_bp.route('/stats', methods=['GET'])
 @role_required('MANUFACTURER')
 def get_manufacturer_stats():
-    total_vehicles     = VehicleVINMapping.query.count()
-    sc_total           = user_repo.count_by_role('SERVICE_CENTER')
-    sc_active          = user_repo.count_by_role_status('SERVICE_CENTER', 'active')
-    sc_pending         = user_repo.count_by_role_status('SERVICE_CENTER', 'pending')
-    warranty_claims    = WarrantyClaimMetadata.query.count()
+    mfr_address    = request.user['blockchain_address']
+    total_vehicles = VehicleVINMapping.query.filter_by(registered_by=mfr_address).count()
+    sc_total       = user_repo.count_by_role('SERVICE_CENTER')
+    sc_active      = user_repo.count_by_role_status('SERVICE_CENTER', 'active')
+    sc_pending     = user_repo.count_by_role_status('SERVICE_CENTER', 'pending')
+    warranty_claims = WarrantyClaimMetadata.query.count()
     return jsonify({
-        'total_vehicles':     total_vehicles,
-        'sc_total':           sc_total,
-        'sc_active':          sc_active,
-        'sc_pending':         sc_pending,
-        'warranty_claims':    warranty_claims,
+        'total_vehicles':  total_vehicles,
+        'sc_total':        sc_total,
+        'sc_active':       sc_active,
+        'sc_pending':      sc_pending,
+        'warranty_claims': warranty_claims,
     }), 200
 
 

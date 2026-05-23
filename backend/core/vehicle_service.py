@@ -5,7 +5,8 @@ from db.repositories import vehicles as vehicle_repo, users as user_repo
 
 
 def register_vehicle(vin: str, owner_email: str, warranty_years: int,
-                     make: str, model: str, year: int, from_address: str) -> dict:
+                     make: str, model: str, year: int,
+                     from_address: str, registered_by: str = None) -> dict:
     if len(vin) != 17:
         raise ValueError('VIN must be 17 characters')
 
@@ -18,7 +19,8 @@ def register_vehicle(vin: str, owner_email: str, warranty_years: int,
 
     result = vehicle_registry.register_vehicle(vin, owner.blockchain_address, warranty_expiry, from_address)
     vehicle_repo.create(vin=vin, vin_hash=vin_hash, owner_address=owner.blockchain_address,
-                        make=make, model=model, year=year, warranty_expiry=warranty_expiry)
+                        make=make, model=model, year=year, warranty_expiry=warranty_expiry,
+                        registered_by=registered_by or from_address)
 
     return {
         'message': 'Vehicle registered successfully',

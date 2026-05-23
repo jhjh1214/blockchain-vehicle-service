@@ -15,8 +15,10 @@ def find_by_owner(owner_address: str) -> list:
 
 def create(vin: str, vin_hash: str, owner_address: str,
            make: str = None, model: str = None, year: int = None,
-           warranty_expiry: int = None) -> VehicleVINMapping:
+           warranty_expiry: int = None,
+           registered_by: str = None) -> VehicleVINMapping:
     mapping = VehicleVINMapping(vin=vin, vin_hash=vin_hash, owner_address=owner_address,
+                                registered_by=registered_by,
                                 make=make, model=model, year=year,
                                 warranty_expiry=warranty_expiry)
     db.session.add(mapping)

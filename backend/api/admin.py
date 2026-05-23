@@ -96,6 +96,7 @@ def fix_ownership():
                 owner_address=new_owner.blockchain_address,
                 make=make, model=model,
                 year=int(year) if year else None,
+                registered_by=request.user['blockchain_address'],
             )
     except Exception as e:
         return jsonify({'error': f'DB sync failed: {str(e)}'}), 500
