@@ -19,6 +19,8 @@
       <div class="kpi-label">Services Submitted</div>
       @if (statsLoading) {
         <div class="kpi-skeleton"></div>
+      } @else if (statsError) {
+        <div class="kpi-value kpi-muted">—</div>
       } @else {
         <div class="kpi-value">{{ stats?.services_submitted ?? '—' }}</div>
       }
@@ -27,6 +29,8 @@
       <div class="kpi-label">ETH Balance</div>
       @if (statsLoading) {
         <div class="kpi-skeleton"></div>
+      } @else if (statsError) {
+        <div class="kpi-value kpi-muted">—</div>
       } @else if (stats?.eth_balance !== null && stats?.eth_balance !== undefined) {
         <div class="kpi-value" [class.kpi-warn]="(stats?.eth_balance ?? 0) < 0.1">
           {{ stats!.eth_balance!.toFixed(4) }} ETH

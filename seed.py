@@ -8,13 +8,20 @@ Usage:
     python seed.py                           # default http://localhost:5000
     python seed.py --url http://HOST:5000    # custom backend URL
 
+Runs a full reset on every invocation:
+  • Wipes all DB tables (users, vehicles, service records, warranty claims)
+  • Prunes keystore to deployer only
+  • Re-seeds everything from scratch
+  • If vehicles are already on-chain with stale owners, ownership is
+    force-transferred via the deployer's admin role (no Ganache restart needed)
+
 What gets created
 ─────────────────
 Accounts
-  manufacturer@vehiclechain.com  /  Password1!   (MANUFACTURER)
-  service@autofix.com            /  Password1!   (SERVICE_CENTER)
-  alice@owner.com                /  Password1!   (OWNER)
-  bob@owner.com                  /  Password1!   (OWNER)
+  manufacturer@vehiclechain.com  /  VChain2024#   (MANUFACTURER)
+  service@autofix.com            /  VChain2024#   (SERVICE_CENTER)
+  alice@owner.com                /  VChain2024#   (OWNER)
+  bob@owner.com                  /  VChain2024#   (OWNER)
 
 Vehicles  (registered by manufacturer)
   1HGCM82633A004352  Toyota Camry    2023  → alice
@@ -63,7 +70,7 @@ def hdr(msg):  print(f"\n{BOLD}{B}{msg}{NC}")
 def sub(msg):  print(f"  {DIM}{msg}{NC}")
 
 # ── Seed data ─────────────────────────────────────────────────
-PASSWORD = "Password1!"
+PASSWORD = "VChain2024#"
 
 ACCOUNTS = [
     {"email": "manufacturer@vehiclechain.com", "role": "MANUFACTURER",    "label": "Manufacturer"},
@@ -108,7 +115,7 @@ def api(base, method, path, token=None, **kwargs):
 def register_or_login(base, email, role, label):
     r = api(base, "post", "/api/auth/register", json={"email": email, "password": PASSWORD, "role": role})
     if r.status_code == 200:
-        token = r.json()["token"]
+        token = r.json()["access_token"]
         ok(f"Registered {label} ({email})")
         return token
     body = r.json()
@@ -116,7 +123,7 @@ def register_or_login(base, email, role, label):
         r2 = api(base, "post", "/api/auth/login", json={"email": email, "password": PASSWORD})
         if r2.status_code == 200:
             skip(f"{label} already exists — logged in ({email})")
-            return r2.json()["token"]
+            return r2.json()["access_token"]
         err(f"Login failed for {email}: {r2.json()}")
         return None
     err(f"Register failed for {email}: {body}")
@@ -148,6 +155,15 @@ def main():
         err(f"Cannot reach backend at {BASE}")
         print(f"\n  {Y}Start the Flask server first:  cd backend && python app.py{NC}\n")
         sys.exit(1)
+
+    # ── Reset DB ───────────────────────────────────────────────
+    hdr("0.5 / Resetting database (wipe + prune keystore)")
+    r = api(BASE, "post", "/api/admin/reset-db")
+    if r.status_code == 200:
+        ok("Database wiped, keystore pruned to deployer only")
+    else:
+        err(f"Reset failed: {r.text} — continuing anyway")
+    time.sleep(0.2)
 
     # ── Step 1 — Accounts ─────────────────────────────────────
     hdr("1 / Registering accounts")
@@ -183,8 +199,20 @@ def main():
             ok(f"Registered {label} -> {v['owner']}")
             registered_vins.add(v["vin"])
         elif "already" in r.text.lower() or "exists" in r.text.lower():
-            skip(f"{label} already on-chain")
-            registered_vins.add(v["vin"])
+            # Vehicle on-chain with a stale owner — force-transfer via deployer admin
+            sub(f"{v['vin']} already on-chain — fixing ownership...")
+            r2 = api(BASE, "post", "/api/admin/fix-ownership", token=mfr_token, json={
+                "vin":           v["vin"],
+                "new_owner_email": v["owner"],
+                "make":          v["make"],
+                "model":         v["model"],
+                "year":          v["year"],
+            })
+            if r2.status_code == 200:
+                ok(f"Ownership fixed: {label} -> {v['owner']}")
+                registered_vins.add(v["vin"])
+            else:
+                err(f"Failed to fix ownership for {label}: {r2.json()}")
         else:
             err(f"Failed to register {label}: {r.json()}")
         time.sleep(0.5)
@@ -313,10 +341,10 @@ def main():
     rows = [
         ("Role",            "Email",                          "Password"),
         ("-"*15,            "-"*32,                          "-"*10),
-        ("Manufacturer",    "manufacturer@vehiclechain.com",  PASSWORD),
-        ("Service Center",  "service@autofix.com",            PASSWORD),
-        ("Owner (alice)",   "alice@owner.com",                PASSWORD),
-        ("Owner (bob)",     "bob@owner.com",                  PASSWORD),
+        ("Manufacturer",    "manufacturer@vehiclechain.com",  "VChain2024#"),
+        ("Service Center",  "service@autofix.com",            "VChain2024#"),
+        ("Owner (alice)",   "alice@owner.com",                "VChain2024#"),
+        ("Owner (bob)",     "bob@owner.com",                  "VChain2024#"),
     ]
     for role, email, pw in rows:
         print(f"  {role:<16}  {email:<33}  {pw}")

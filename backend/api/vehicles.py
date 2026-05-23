@@ -5,6 +5,7 @@ from api.utils import sanitize, validate_vin, paginate
 from core import vehicle_service
 from db.repositories import vehicles as vehicle_repo, users as user_repo
 from db.models import VehicleVINMapping, WarrantyClaimMetadata
+from config import Config
 
 vehicle_bp = Blueprint('vehicle', __name__)
 
@@ -37,7 +38,7 @@ def register_vehicle():
             make=make,
             model=model,
             year=year,
-            from_address=request.user['blockchain_address']
+            from_address=Config.DEPLOYER_ADDRESS  # deployer holds MANUFACTURER_ROLE
         )
         return jsonify(result), 200
     except (ValueError, LookupError) as e:

@@ -17,8 +17,23 @@
 
   <div class="card">
     @if (loading) {
-      <div style="padding:48px;text-align:center;color:var(--text-muted);">
-        <span class="spinner" style="margin:0 auto;display:block;"></span>
+      <div class="data-table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr><th>VIN</th><th>Make / Model</th><th>Year</th><th>Warranty Status</th><th>Registered</th></tr>
+          </thead>
+          <tbody>
+            @for (n of [1,2,3,4,5,6,7,8]; track n) {
+              <tr class="sk-row">
+                <td><div class="sk-cell w-100" style="min-width:120px;"></div></td>
+                <td><div class="sk-cell w-70"></div></td>
+                <td><div class="sk-cell w-40"></div></td>
+                <td><div class="sk-cell sk-badge" style="width:70px;height:20px;border-radius:10px;"></div></td>
+                <td><div class="sk-cell w-55"></div></td>
+              </tr>
+            }
+          </tbody>
+        </table>
       </div>
     } @else if (vehicles.length === 0) {
       <div style="padding:48px;text-align:center;color:var(--text-muted);">

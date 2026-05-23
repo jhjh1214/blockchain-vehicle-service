@@ -1,7 +1,8 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router, RouterModule } from '@angular/router';
+import { Router, RouterModule, NavigationStart, NavigationEnd, NavigationCancel, NavigationError } from '@angular/router';
 import { Subscription } from 'rxjs';
+import { filter } from 'rxjs/operators';
 import { AuthService } from '../../core/services/auth';
 import { BlockchainService } from '../../core/services/blockchain.service';
 import { ThemeService } from '../../core/services/theme.service';
@@ -19,6 +20,7 @@ export class DealerShellComponent implements OnInit, OnDestroy {
   isConnected: boolean | null = null;
   isDark = false;
   sidebarOpen = false;
+  routeLoading = false;
 
   private subs = new Subscription();
 
@@ -33,6 +35,12 @@ export class DealerShellComponent implements OnInit, OnDestroy {
     this.currentUser = this.authService.currentUserValue;
     this.subs.add(this.blockchain.connected$.subscribe(v => this.isConnected = v));
     this.subs.add(this.theme.dark$.subscribe(v => this.isDark = v));
+    this.subs.add(
+      this.router.events.subscribe(e => {
+        if (e instanceof NavigationStart) this.routeLoading = true;
+        if (e instanceof NavigationEnd || e instanceof NavigationCancel || e instanceof NavigationError) this.routeLoading = false;
+      })
+    );
   }
 
   get initials(): string {

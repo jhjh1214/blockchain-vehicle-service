@@ -26,27 +26,60 @@
             />
           </div>
           <button type="submit" class="btn btn-primary" [disabled]="loading">
-            <span *ngIf="loading" class="spinner"></span>
-            <span *ngIf="!loading">Search</span>
+            @if (loading) { <span class="spinner"></span> } @else { Search }
           </button>
         </div>
-        <div *ngIf="f['vin'].invalid && f['vin'].touched" class="invalid-feedback" style="margin-top:6px;">
-          Enter a valid 17-character VIN
-        </div>
+        @if (f['vin'].invalid && f['vin'].touched) {
+          <div class="invalid-feedback" style="margin-top:6px;">Enter a valid 17-character VIN</div>
+        }
       </form>
     </div>
   </div>
 
   <!-- Error -->
-  <div *ngIf="error" class="alert alert-danger">
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
-    </svg>
-    {{ error }}
-  </div>
+  @if (error) {
+    <div class="alert alert-danger">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+      </svg>
+      {{ error }}
+    </div>
+  }
+
+  <!-- Skeleton while loading -->
+  @if (loading && currentVin) {
+    <div class="card">
+      <div class="card-header">
+        <div class="sk sk-cell w-55" style="height:16px;"></div>
+        <div class="sk sk-badge"></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th><th>Service Type</th><th>Service Date</th><th>Mileage</th><th>Technician</th><th>Submitted</th><th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (n of [1,2,3,4,5]; track n) {
+              <tr class="sk-row">
+                <td><div class="sk-cell w-40"></div></td>
+                <td><div class="sk-cell w-70"></div></td>
+                <td><div class="sk-cell w-55"></div></td>
+                <td><div class="sk-cell w-40"></div></td>
+                <td><div class="sk-cell w-70"></div></td>
+                <td><div class="sk-cell w-55"></div></td>
+                <td><div class="sk-badge"></div></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
 
   <!-- Results -->
-  <div *ngIf="pendingRecords.length > 0">
+  @if (!loading && pendingRecords.length > 0) {
     <div class="card">
       <div class="card-header">
         <h3 class="card-title">Pending for VIN: <span class="mono" style="font-size:13px;">{{ currentVin }}</span></h3>
@@ -66,74 +99,83 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let record of pendingRecords; let i = index">
-              <td class="td-muted">{{ i + 1 }}</td>
-              <td><strong>{{ record.metadata?.service_type || '—' }}</strong></td>
-              <td>{{ formatDateTime(record.metadata?.service_date || '') }}</td>
-              <td>{{ record.metadata?.mileage ? (record.metadata?.mileage + ' km') : '—' }}</td>
-              <td>{{ record.metadata?.technician_name || '—' }}</td>
-              <td>{{ formatDate(record.timestamp) }}</td>
-              <td>
-                <span *ngIf="!record.disputed" [class]="ageBadgeClass(getDaysPending(record.timestamp))">
-                  {{ ageLabel(getDaysPending(record.timestamp)) }}
-                </span>
-                <span *ngIf="record.disputed" class="badge badge-disputed">
-                  Disputed
-                </span>
-              </td>
-            </tr>
+            @for (record of pendingRecords; track record; let i = $index) {
+              <tr>
+                <td class="td-muted">{{ i + 1 }}</td>
+                <td><strong>{{ record.metadata?.service_type || '—' }}</strong></td>
+                <td>{{ formatDateTime(record.metadata?.service_date || '') }}</td>
+                <td>{{ record.metadata?.mileage ? (record.metadata?.mileage + ' km') : '—' }}</td>
+                <td>{{ record.metadata?.technician_name || '—' }}</td>
+                <td>{{ formatDate(record.timestamp) }}</td>
+                <td>
+                  @if (!record.disputed) {
+                    <span [class]="ageBadgeClass(getDaysPending(record.timestamp))">
+                      {{ ageLabel(getDaysPending(record.timestamp)) }}
+                    </span>
+                  } @else {
+                    <span class="badge badge-disputed">Disputed</span>
+                  }
+                </td>
+              </tr>
+            }
           </tbody>
         </table>
       </div>
     </div>
 
     <!-- Disputed records detail -->
-    <ng-container *ngFor="let record of pendingRecords">
-      <div *ngIf="record.disputed" class="card" style="margin-top:16px;">
-        <div class="card-body">
-          <div class="alert alert-warning" style="margin-bottom:0;">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
-            </svg>
-            <div>
-              <strong>{{ record.metadata?.service_type || 'Record' }} — Disputed by Owner</strong>
-              <div *ngIf="record.dispute_reason" style="margin-top:4px;font-size:13px;">
-                Reason: {{ record.dispute_reason }}
+    @for (record of pendingRecords; track record) {
+      @if (record.disputed) {
+        <div class="card" style="margin-top:16px;">
+          <div class="card-body">
+            <div class="alert alert-warning" style="margin-bottom:0;">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+              </svg>
+              <div>
+                <strong>{{ record.metadata?.service_type || 'Record' }} — Disputed by Owner</strong>
+                @if (record.dispute_reason) {
+                  <div style="margin-top:4px;font-size:13px;">Reason: {{ record.dispute_reason }}</div>
+                }
               </div>
             </div>
           </div>
         </div>
-      </div>
-    </ng-container>
-  </div>
+      }
+    }
+  }
 
   <!-- No results after search -->
-  <div *ngIf="!loading && currentVin && pendingRecords.length === 0 && !error" class="card">
-    <div class="card-body">
-      <div class="empty-state">
-        <div class="empty-state-icon">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-          </svg>
+  @if (!loading && currentVin && pendingRecords.length === 0 && !error) {
+    <div class="card">
+      <div class="card-body">
+        <div class="empty-state">
+          <div class="empty-state-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+            </svg>
+          </div>
+          <h3>No Pending Records</h3>
+          <p>All service records for this vehicle have been verified, or no services have been submitted yet.</p>
         </div>
-        <h3>No Pending Records</h3>
-        <p>All service records for this vehicle have been verified, or no services have been submitted yet.</p>
       </div>
     </div>
-  </div>
+  }
 
   <!-- Initial state -->
-  <div *ngIf="!currentVin && !loading" class="card">
-    <div class="card-body">
-      <div class="empty-state">
-        <div class="empty-state-icon">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-          </svg>
+  @if (!currentVin && !loading) {
+    <div class="card">
+      <div class="card-body">
+        <div class="empty-state">
+          <div class="empty-state-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+            </svg>
+          </div>
+          <h3>Search by VIN</h3>
+          <p>Enter a vehicle VIN above to see its pending service records</p>
         </div>
-        <h3>Search by VIN</h3>
-        <p>Enter a vehicle VIN above to see its pending service records</p>
       </div>
     </div>
-  </div>
+  }
 </div>

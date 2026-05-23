@@ -95,11 +95,13 @@ export class ScDetailComponent implements OnInit {
   }
 
   get statusClass(): string {
-    return { active: 'sc-status-active', pending: 'sc-status-pending', suspended: 'sc-status-suspended' }[this.sc?.status ?? ''] ?? '';
+    const map: Record<string, string> = { active: 'sc-status-active', pending: 'sc-status-pending', suspended: 'sc-status-suspended' };
+    return map[this.sc?.status ?? ''] ?? '';
   }
 
   get statusLabel(): string {
-    return { active: 'Active', pending: 'Pending Approval', suspended: 'Suspended' }[this.sc?.status ?? ''] ?? '';
+    const map: Record<string, string> = { active: 'Active', pending: 'Pending Approval', suspended: 'Suspended' };
+    return map[this.sc?.status ?? ''] ?? '';
   }
 
   get shortAddress(): string {

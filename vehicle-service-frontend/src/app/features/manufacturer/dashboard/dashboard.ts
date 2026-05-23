@@ -19,6 +19,7 @@ export class ManufacturerDashboardComponent implements OnInit, OnDestroy {
   isConnected: boolean | null = null;
   stats: ManufacturerStats | null = null;
   statsLoading = true;
+  statsError = false;
   private subs = new Subscription();
 
   constructor(
@@ -41,7 +42,7 @@ export class ManufacturerDashboardComponent implements OnInit, OnDestroy {
   private loadStats(): void {
     this.vehicleService.getManufacturerStats().subscribe({
       next: s => { this.stats = s; this.statsLoading = false; },
-      error: () => { this.statsLoading = false; }
+      error: () => { this.statsLoading = false; this.statsError = true; }
     });
   }
 }

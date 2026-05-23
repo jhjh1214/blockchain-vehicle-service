@@ -56,6 +56,7 @@ def create_app():
     from api.warranties import warranty_bp
     from api.uploads import upload_bp
     from api.sc_management import sc_bp
+    from api.admin import admin_bp
 
     app.register_blueprint(auth_bp,    url_prefix='/api/auth')
     app.register_blueprint(vehicle_bp, url_prefix='/api/vehicle')
@@ -63,6 +64,7 @@ def create_app():
     app.register_blueprint(warranty_bp, url_prefix='/api/warranty')
     app.register_blueprint(upload_bp,  url_prefix='/api/upload')
     app.register_blueprint(sc_bp,      url_prefix='/api/sc')
+    app.register_blueprint(admin_bp,   url_prefix='/api/admin')
 
     # ── Health ───────────────────────────────────────────────
     @app.route('/api/health')

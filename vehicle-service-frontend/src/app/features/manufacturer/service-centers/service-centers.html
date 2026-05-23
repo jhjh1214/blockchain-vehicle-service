@@ -127,9 +127,17 @@
       </div>
 
       @if (loading) {
-        <div class="empty-state">
-          <span class="spinner"></span>
-          <p>Loading…</p>
+        <div>
+          @for (n of [1,2,3,4,5]; track n) {
+            <div class="sk-list-item">
+              <div class="sk-avatar"></div>
+              <div class="sk-lines">
+                <div class="sk-line lg"></div>
+                <div class="sk-line md"></div>
+              </div>
+              <div class="sk-badge" style="margin-left:auto;"></div>
+            </div>
+          }
         </div>
       } @else if (error) {
         <div class="alert alert-danger" style="margin:16px;">{{ error }}</div>
@@ -157,7 +165,7 @@
                   {{ statusLabel(sc.status) }}
                 </span>
                 @if (sc.eth_balance !== null) {
-                  <span class="sc-eth">{{ sc.eth_balance?.toFixed(3) }} ETH</span>
+                  <span class="sc-eth">{{ sc.eth_balance!.toFixed(3) }} ETH</span>
                 }
               </div>
               <svg class="sc-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">

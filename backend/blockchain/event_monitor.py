@@ -59,8 +59,27 @@ class EventMonitor:
                     self._handle_claim_submitted(event)
                 time.sleep(2)
             except Exception as e:
-                logger.error(f"Error in event monitoring loop: {e}")
+                msg = str(e)
+                # Ganache restarted or filter expired — recreate silently
+                if 'filter not found' in msg.lower() or (isinstance(e, dict) and 'filter not found' in e.get('message', '').lower()):
+                    logger.info("Event filters expired (Ganache restarted?) — recreating")
+                    self._recreate_filters()
+                elif 'connection' in msg.lower() or 'refused' in msg.lower() or 'max retries' in msg.lower():
+                    # Ganache is down — wait quietly, don't flood logs
+                    time.sleep(10)
+                else:
+                    logger.error(f"Error in event monitoring loop: {e}")
                 time.sleep(5)
+
+    def _recreate_filters(self):
+        try:
+            self._service_submitted_filter = service_log.contract.events.ServiceSubmitted.create_filter(fromBlock='latest')
+            self._service_verified_filter  = service_log.contract.events.ServiceVerified.create_filter(fromBlock='latest')
+            self._service_disputed_filter  = service_log.contract.events.ServiceDisputed.create_filter(fromBlock='latest')
+            self._claim_submitted_filter   = warranty_tracker.contract.events.ClaimSubmitted.create_filter(fromBlock='latest')
+            logger.info("Event filters recreated")
+        except Exception as e:
+            logger.debug(f"Could not recreate filters (Ganache may be down): {e}")
 
     def _handle_service_submitted(self, event):
         with self.app.app_context():

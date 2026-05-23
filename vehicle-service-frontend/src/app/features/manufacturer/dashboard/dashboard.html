@@ -19,6 +19,8 @@
       <div class="kpi-label">Registered Vehicles</div>
       @if (statsLoading) {
         <div class="kpi-skeleton"></div>
+      } @else if (statsError) {
+        <div class="kpi-value kpi-muted">—</div>
       } @else {
         <div class="kpi-value">{{ stats?.total_vehicles ?? '—' }}</div>
       }
@@ -27,6 +29,8 @@
       <div class="kpi-label">Active Service Centers</div>
       @if (statsLoading) {
         <div class="kpi-skeleton"></div>
+      } @else if (statsError) {
+        <div class="kpi-value kpi-muted">—</div>
       } @else {
         <div class="kpi-value">{{ stats?.sc_active ?? '—' }}</div>
       }
@@ -35,6 +39,8 @@
       <div class="kpi-label">Pending Approval</div>
       @if (statsLoading) {
         <div class="kpi-skeleton"></div>
+      } @else if (statsError) {
+        <div class="kpi-value kpi-muted">—</div>
       } @else {
         <div class="kpi-value kpi-warn">{{ stats?.sc_pending ?? '—' }}</div>
       }
@@ -43,6 +49,8 @@
       <div class="kpi-label">Warranty Claims</div>
       @if (statsLoading) {
         <div class="kpi-skeleton"></div>
+      } @else if (statsError) {
+        <div class="kpi-value kpi-muted">—</div>
       } @else {
         <div class="kpi-value">{{ stats?.warranty_claims ?? '—' }}</div>
       }

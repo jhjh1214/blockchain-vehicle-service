@@ -1,4 +1,7 @@
 <div class="layout-root">
+  @if (routeLoading) {
+    <div class="route-progress-bar"></div>
+  }
   <!-- Mobile top bar -->
   <div class="mobile-topbar">
     <button class="hamburger-btn" (click)="toggleSidebar()" [attr.aria-label]="sidebarOpen ? 'Close menu' : 'Open menu'">
