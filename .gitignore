@@ -1,0 +1,26 @@
+# Python
+backend/venv/
+backend/__pycache__/
+backend/**/__pycache__/
+*.pyc
+*.pyo
+
+# Database
+backend/instance/
+*.db
+
+# Environment
+backend/.env
+
+# Uploads / keystore (runtime data)
+backend/uploads/
+backend/keystore/keys.json
+backend/keystore/encryption.key
+
+# IDE / tools
+.vscode/
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
