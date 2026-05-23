@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { Subscription } from 'rxjs';
@@ -25,13 +25,14 @@ export class ManufacturerDashboardComponent implements OnInit, OnDestroy {
   constructor(
     private authService: AuthService,
     private blockchain: BlockchainService,
-    private vehicleService: VehicleService
+    private vehicleService: VehicleService,
+    private cdr: ChangeDetectorRef
   ) {
     this.currentUser = this.authService.currentUserValue;
   }
 
   ngOnInit(): void {
-    this.subs.add(this.blockchain.connected$.subscribe(v => this.isConnected = v));
+    this.subs.add(this.blockchain.connected$.subscribe(v => { this.isConnected = v; this.cdr.detectChanges(); }));
     this.loadStats();
   }
 
@@ -41,8 +42,8 @@ export class ManufacturerDashboardComponent implements OnInit, OnDestroy {
 
   private loadStats(): void {
     this.vehicleService.getManufacturerStats().subscribe({
-      next: s => { this.stats = s; this.statsLoading = false; },
-      error: () => { this.statsLoading = false; this.statsError = true; }
+      next: s => { this.stats = s; this.statsLoading = false; this.cdr.detectChanges(); },
+      error: () => { this.statsLoading = false; this.statsError = true; this.cdr.detectChanges(); }
     });
   }
 }

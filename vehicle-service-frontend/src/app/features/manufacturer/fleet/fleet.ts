@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { VehicleService } from '../../../core/services/vehicle';
@@ -17,7 +17,7 @@ export class FleetComponent implements OnInit {
   page = 1;
   readonly limit = 20;
 
-  constructor(private vehicleService: VehicleService) {}
+  constructor(private vehicleService: VehicleService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void { this.load(); }
 
@@ -28,8 +28,9 @@ export class FleetComponent implements OnInit {
         this.vehicles  = r.vehicles || [];
         this.pagination = r.pagination;
         this.loading = false;
+        this.cdr.detectChanges();
       },
-      error: () => { this.error = 'Failed to load fleet'; this.loading = false; }
+      error: () => { this.error = 'Failed to load fleet'; this.loading = false; this.cdr.detectChanges(); }
     });
   }
 

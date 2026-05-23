@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
@@ -27,13 +27,14 @@ export class ScDetailComponent implements OnInit {
     private route: ActivatedRoute,
     private router: Router,
     private scService: ScManagementService,
+    private cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
     const id = Number(this.route.snapshot.paramMap.get('id'));
     this.scService.getServiceCenter(id).subscribe({
-      next: sc => { this.sc = sc; this.loading = false; },
-      error: () => { this.error = 'Service center not found'; this.loading = false; },
+      next: sc => { this.sc = sc; this.loading = false; this.cdr.detectChanges(); },
+      error: () => { this.error = 'Service center not found'; this.loading = false; this.cdr.detectChanges(); },
     });
   }
 
@@ -43,15 +44,8 @@ export class ScDetailComponent implements OnInit {
     this.actionMsg = '';
     this.actionError = '';
     this.scService.activate(this.sc.id).subscribe({
-      next: r => {
-        this.sc = r.sc;
-        this.actionMsg = r.message;
-        this.actionLoading = false;
-      },
-      error: e => {
-        this.actionError = e.error?.error || 'Action failed';
-        this.actionLoading = false;
-      }
+      next: r => { this.sc = r.sc; this.actionMsg = r.message; this.actionLoading = false; this.cdr.detectChanges(); },
+      error: e => { this.actionError = e.error?.error || 'Action failed'; this.actionLoading = false; this.cdr.detectChanges(); }
     });
   }
 
@@ -61,15 +55,8 @@ export class ScDetailComponent implements OnInit {
     this.actionMsg = '';
     this.actionError = '';
     this.scService.suspend(this.sc.id).subscribe({
-      next: r => {
-        this.sc = r.sc;
-        this.actionMsg = r.message;
-        this.actionLoading = false;
-      },
-      error: e => {
-        this.actionError = e.error?.error || 'Action failed';
-        this.actionLoading = false;
-      }
+      next: r => { this.sc = r.sc; this.actionMsg = r.message; this.actionLoading = false; this.cdr.detectChanges(); },
+      error: e => { this.actionError = e.error?.error || 'Action failed'; this.actionLoading = false; this.cdr.detectChanges(); }
     });
   }
 
@@ -81,16 +68,12 @@ export class ScDetailComponent implements OnInit {
     this.scService.fund(this.sc.id, this.fundAmount).subscribe({
       next: r => {
         this.actionMsg = r.message;
-        if (this.sc && r.new_balance !== undefined) {
-          this.sc = { ...this.sc, eth_balance: r.new_balance };
-        }
+        if (this.sc && r.new_balance !== undefined) this.sc = { ...this.sc, eth_balance: r.new_balance };
         this.showFundPanel = false;
         this.actionLoading = false;
+        this.cdr.detectChanges();
       },
-      error: e => {
-        this.actionError = e.error?.error || 'Funding failed';
-        this.actionLoading = false;
-      }
+      error: e => { this.actionError = e.error?.error || 'Funding failed'; this.actionLoading = false; this.cdr.detectChanges(); }
     });
   }
 

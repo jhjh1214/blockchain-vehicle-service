@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, AfterViewInit, ElementRef, ViewChild } from '@angular/core';
+import { Component, OnInit, OnDestroy, AfterViewInit, ElementRef, ViewChild, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -44,6 +44,7 @@ export class ServiceCentersComponent implements OnInit, AfterViewInit, OnDestroy
   constructor(
     private scService: ScManagementService,
     private router: Router,
+    private cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
@@ -81,11 +82,13 @@ export class ServiceCentersComponent implements OnInit, AfterViewInit, OnDestroy
       next: res => {
         this.serviceCenters = res.items;
         this.loading = false;
+        this.cdr.detectChanges();
         this.updateMapMarkers();
       },
       error: () => {
         this.error = 'Failed to load service centers';
         this.loading = false;
+        this.cdr.detectChanges();
       }
     });
   }
@@ -146,11 +149,13 @@ export class ServiceCentersComponent implements OnInit, AfterViewInit, OnDestroy
       next: r => {
         this.fundAllMsg = r.message;
         this.fundAllLoading = false;
+        this.cdr.detectChanges();
         this.load();
       },
       error: e => {
         this.fundAllMsg = e.error?.error || 'Funding failed';
         this.fundAllLoading = false;
+        this.cdr.detectChanges();
       }
     });
   }
