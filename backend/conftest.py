@@ -4,6 +4,9 @@ Root conftest.py — lives in backend/ so pytest finds it when run from backend/
 Mocks all blockchain I/O so tests run with no Ganache node.
 Session-scoped: adapters are patched once; DB is recreated per test via clean_db fixture.
 """
+import os
+os.environ['DATABASE_URL'] = 'sqlite:///:memory:'  # must be set before config is imported
+
 import itertools
 import time
 import pytest
@@ -38,8 +41,10 @@ def app():
         flask_app = create_app()
 
     flask_app.config['TESTING'] = True
-    # Override DB URI to use in-memory SQLite so tests never touch the real DB
-    flask_app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
+    flask_app.config['RATELIMIT_ENABLED'] = False
+
+    from extensions import limiter
+    limiter.enabled = False  # Flask-Limiter 4.x reads self.enabled at request time
 
     # ------------------------------------------------------------------
     # Mock adapter singleton methods directly on the live objects.
@@ -112,10 +117,12 @@ def client(app):
 def clean_db(app):
     yield
     with app.app_context():
-        from db.models import db, User, ServiceMetadata, WarrantyClaimMetadata, VehicleVINMapping
+        from db.models import db, User, ServiceMetadata, WarrantyClaimMetadata, VehicleVINMapping, RefreshToken, DeviceToken
         db.session.query(ServiceMetadata).delete()
         db.session.query(WarrantyClaimMetadata).delete()
         db.session.query(VehicleVINMapping).delete()
+        db.session.query(RefreshToken).delete()
+        db.session.query(DeviceToken).delete()
         db.session.query(User).delete()
         db.session.commit()
 
@@ -123,8 +130,11 @@ def clean_db(app):
 # ---------------------------------------------------------------------------
 # Helpers used across multiple test modules
 # ---------------------------------------------------------------------------
-def register_and_login(client, role, email=None, password='test1234', name='Test User'):
-    """Register a user and return (token, user_dict)."""
+STRONG_PASSWORD = 'TestPass1!'
+
+
+def register_and_login(client, role, email=None, password=STRONG_PASSWORD, name='Test User'):
+    """Register a user and return (access_token, user_dict)."""
     email = email or f'{role.lower()}-{next(_addr_counter)}@test.com'
     r = client.post('/api/auth/register', json={
         'email': email,
@@ -134,7 +144,7 @@ def register_and_login(client, role, email=None, password='test1234', name='Test
     })
     assert r.status_code == 200, f'Register failed: {r.get_json()}'
     data = r.get_json()
-    return data['token'], data['user']
+    return data['access_token'], data['user']
 
 
 def auth(token):

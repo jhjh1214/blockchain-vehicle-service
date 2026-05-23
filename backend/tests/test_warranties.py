@@ -82,7 +82,7 @@ class TestGetClaims:
         assert r.status_code == 200
         data = r.get_json()
         assert 'claims' in data
-        assert 'count' in data
+        assert 'pagination' in data
 
     def test_get_claims_unauthenticated(self, client):
         r = client.get(f'/api/warranty/claims/{VIN}')

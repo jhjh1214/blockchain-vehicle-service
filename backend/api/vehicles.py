@@ -1,7 +1,10 @@
+import time
 from flask import Blueprint, request, jsonify
 from api.middleware import token_required, role_required
 from api.utils import sanitize, validate_vin, paginate
 from core import vehicle_service
+from db.repositories import vehicles as vehicle_repo, users as user_repo
+from db.models import VehicleVINMapping, WarrantyClaimMetadata
 
 vehicle_bp = Blueprint('vehicle', __name__)
 
@@ -92,6 +95,73 @@ def get_vehicle(vin):
         return jsonify({'error': str(e)}), 404
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@vehicle_bp.route('/fleet', methods=['GET'])
+@role_required('MANUFACTURER')
+def get_fleet():
+    """Paginated list of all registered vehicles (DB-backed, no blockchain call)."""
+    all_vehicles = VehicleVINMapping.query.order_by(VehicleVINMapping.created_at.desc()).all()
+    items = [v.to_dict() for v in all_vehicles]
+    result = paginate(items, request.args)
+    result['vehicles'] = result.pop('items')
+    return jsonify(result), 200
+
+
+@vehicle_bp.route('/stats', methods=['GET'])
+@role_required('MANUFACTURER')
+def get_manufacturer_stats():
+    total_vehicles     = VehicleVINMapping.query.count()
+    sc_total           = user_repo.count_by_role('SERVICE_CENTER')
+    sc_active          = user_repo.count_by_role_status('SERVICE_CENTER', 'active')
+    sc_pending         = user_repo.count_by_role_status('SERVICE_CENTER', 'pending')
+    warranty_claims    = WarrantyClaimMetadata.query.count()
+    return jsonify({
+        'total_vehicles':     total_vehicles,
+        'sc_total':           sc_total,
+        'sc_active':          sc_active,
+        'sc_pending':         sc_pending,
+        'warranty_claims':    warranty_claims,
+    }), 200
+
+
+@vehicle_bp.route('/public/<vin>', methods=['GET'])
+def get_vehicle_public(vin):
+    """Public vehicle verification — no authentication required."""
+    try:
+        vin = validate_vin(vin)
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+
+    mapping = vehicle_repo.find_by_vin(vin)
+    if not mapping:
+        return jsonify({'error': 'Vehicle not found'}), 404
+
+    try:
+        from blockchain.adapters.vehicle_registry import vehicle_registry
+        from blockchain.adapters.service_log import service_log
+        vehicle_data = vehicle_registry.get_vehicle(vin)
+        if not vehicle_data.get('exists'):
+            return jsonify({'error': 'Vehicle not found on blockchain'}), 404
+
+        finalized = service_log.get_finalized_services(vin) or []
+    except Exception:
+        vehicle_data = {}
+        finalized = []
+
+    warranty_expiry = vehicle_data.get('warranty_expiry', 0)
+    return jsonify({
+        'vin':    vin,
+        'make':   mapping.make,
+        'model':  mapping.model,
+        'year':   mapping.year,
+        'warranty': {
+            'expiry':   warranty_expiry,
+            'is_valid': warranty_expiry > int(time.time()) if warranty_expiry else False,
+        },
+        'service_records': finalized,
+        'registered_at': mapping.created_at.isoformat() if mapping.created_at else None,
+    }), 200
 
 
 @vehicle_bp.route('/owner/vehicles', methods=['GET'])

@@ -100,6 +100,46 @@ def get_current_user():
     return jsonify(user.to_dict()), 200
 
 
+@auth_bp.route('/profile', methods=['PUT'])
+@token_required
+def update_profile():
+    data = request.get_json() or {}
+    from api.utils import sanitize
+    name  = sanitize(data['name'],  255) if 'name'  in data else None
+    phone = sanitize(data['phone'],  20) if 'phone' in data else None
+    city  = sanitize(data['city'],  100) if 'city'  in data else None
+    state = sanitize(data['state'], 100) if 'state' in data else None
+    user = user_repo.update_profile(request.user['user_id'], name=name, phone=phone,
+                                    city=city, state=state)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    return jsonify({'message': 'Profile updated', 'user': user.to_dict()}), 200
+
+
+@auth_bp.route('/change-password', methods=['POST'])
+@token_required
+def change_password():
+    data = request.get_json() or {}
+    current = data.get('current_password', '')
+    new_pw  = data.get('new_password', '')
+    if not current or not new_pw:
+        return jsonify({'error': 'current_password and new_password required'}), 400
+    user = auth_service.get_user_by_id(request.user['user_id'])
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    if not user.check_password(current):
+        return jsonify({'error': 'Current password is incorrect'}), 401
+    try:
+        auth_service.validate_password(new_pw)
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    user.set_password(new_pw)
+    from db.models import db
+    db.session.commit()
+    user_repo.revoke_all_refresh_tokens(user.id)
+    return jsonify({'message': 'Password changed. Please log in again.'}), 200
+
+
 @auth_bp.route('/device-token', methods=['POST'])
 @token_required
 def register_device_token():

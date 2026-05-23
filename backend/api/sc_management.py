@@ -1,8 +1,9 @@
 from flask import Blueprint, request, jsonify
 from web3 import Web3
-from api.middleware import role_required
+from api.middleware import role_required, token_required
 from api.utils import sanitize, paginate
 from db.repositories import users as user_repo
+from db.models import ServiceMetadata
 from blockchain.client import web3_client
 from config import Config
 
@@ -111,6 +112,27 @@ def fund_service_center(sc_id):
         }), 200
     except Exception as e:
         return jsonify({'error': f'Transaction failed: {str(e)}'}), 500
+
+
+@sc_bp.route('/my-stats', methods=['GET'])
+@token_required
+def get_sc_stats():
+    """Stats for the logged-in service center."""
+    addr = request.user.get('blockchain_address', '')
+    services_submitted = ServiceMetadata.query.count()
+
+    eth_balance = None
+    try:
+        if addr:
+            balance_wei = web3_client.w3.eth.get_balance(Web3.to_checksum_address(addr))
+            eth_balance = float(Web3.from_wei(balance_wei, 'ether'))
+    except Exception:
+        pass
+
+    return jsonify({
+        'services_submitted': services_submitted,
+        'eth_balance': eth_balance,
+    }), 200
 
 
 @sc_bp.route('/fund-all', methods=['POST'])

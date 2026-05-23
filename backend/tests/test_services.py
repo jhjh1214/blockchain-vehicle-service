@@ -64,7 +64,7 @@ class TestGetPendingServices:
         assert r.status_code == 200
         data = r.get_json()
         assert 'pending_services' in data
-        assert 'count' in data
+        assert 'pagination' in data
 
     def test_get_pending_unauthenticated(self, client):
         r = client.get(f'/api/service/pending/{VIN}')
