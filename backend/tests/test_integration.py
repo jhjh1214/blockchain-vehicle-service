@@ -95,7 +95,7 @@ def test_full_workflow():
     # 5 — Check pending services
     pending = check(requests.get(f'{BASE}/service/pending/{vin}', headers=headers(owner_token)),
                     'Get pending')
-    assert pending['count'] == 1
+    assert pending['pagination']['total'] == 1
     assert pending['pending_services'][0]['metadata']['service_type'] == 'Oil Change'
 
     # 6 — Owner verifies service (writes to chain)
@@ -107,7 +107,7 @@ def test_full_workflow():
     # 7 — Service history should have 1 finalized record
     hist = check(requests.get(f'{BASE}/service/history/{vin}', headers=headers(owner_token)),
                  'Service history')
-    assert hist['count'] == 1
+    assert hist['pagination']['total'] == 1
 
     # 8 — Owner submits warranty claim
     claim = check(requests.post(f'{BASE}/warranty/submit-claim', headers=headers(owner_token), json={
@@ -124,7 +124,7 @@ def test_full_workflow():
     # 10 — Owner views their claims
     my_claims = check(requests.get(f'{BASE}/warranty/owner/claims', headers=headers(owner_token)),
                       'Owner claims')
-    assert my_claims['count'] >= 1
+    assert my_claims['pagination']['total'] >= 1
     approved = [c for c in my_claims['claims'] if c.get('status') == 'approved']
     assert len(approved) == 1
 
@@ -234,4 +234,4 @@ def test_dispute_workflow():
 
     hist = check(requests.get(f'{BASE}/service/history/{vin}', headers=headers(owner_token)),
                  'history after resolve')
-    assert hist['count'] == 1
+    assert hist['pagination']['total'] == 1

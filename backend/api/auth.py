@@ -8,7 +8,7 @@ auth_bp = Blueprint('auth', __name__)
 
 
 @auth_bp.route('/register', methods=['POST'])
-@limiter.limit('5 per minute')
+@limiter.limit('20 per minute')
 def register():
     data = request.get_json() or {}
     for field in ('email', 'password', 'role'):
