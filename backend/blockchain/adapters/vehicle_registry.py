@@ -13,14 +13,14 @@ class VehicleRegistryAdapter:
             vin_to_bytes32(vin),
             Web3.to_checksum_address(owner_address),
             warranty_expiry
-        ).build_transaction({})
+        ).build_transaction({'from': Web3.to_checksum_address(from_address)})
         return web3_client.sign_and_send(tx, from_address)
 
     def transfer_ownership(self, vin: str, new_owner_address: str, from_address: str) -> dict:
         tx = self.contract.functions.transferOwnership(
             vin_to_bytes32(vin),
             Web3.to_checksum_address(new_owner_address)
-        ).build_transaction({})
+        ).build_transaction({'from': Web3.to_checksum_address(from_address)})
         return web3_client.sign_and_send(tx, from_address)
 
     def get_vehicle(self, vin: str) -> dict:

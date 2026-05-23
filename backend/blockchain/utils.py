@@ -10,7 +10,7 @@ def vin_to_bytes32(vin: str) -> bytes:
 
 def vin_to_hex(vin: str) -> str:
     """keccak256 of VIN string as 0x-prefixed hex."""
-    return '0x' + vin_to_bytes32(vin).hex()
+    return '0x' + bytes(vin_to_bytes32(vin)).hex()
 
 
 def compute_metadata_hash(metadata: dict) -> str:

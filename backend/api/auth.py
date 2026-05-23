@@ -8,15 +8,16 @@ auth_bp = Blueprint('auth', __name__)
 @auth_bp.route('/register', methods=['POST'])
 def register():
     data = request.get_json() or {}
-    for field in ('email', 'password', 'role', 'name'):
+    for field in ('email', 'password', 'role'):
         if field not in data:
             return jsonify({'error': f'Missing required field: {field}'}), 400
+    name = data.get('name') or data['email'].split('@')[0]
     try:
         user, token = auth_service.register_user(
             email=data['email'],
             password=data['password'],
             role=data['role'],
-            name=data['name'],
+            name=name,
             phone=data.get('phone', '')
         )
         return jsonify({'message': 'User registered successfully', 'token': token, 'user': user.to_dict()}), 200

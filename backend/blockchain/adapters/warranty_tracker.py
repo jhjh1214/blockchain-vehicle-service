@@ -16,14 +16,14 @@ class WarrantyTrackerAdapter:
         tx = self.contract.functions.submitClaim(
             vin_to_bytes32(vin),
             Web3.to_bytes(hexstr=claim_details_hash)
-        ).build_transaction({})
+        ).build_transaction({'from': Web3.to_checksum_address(from_address)})
         return web3_client.sign_and_send(tx, from_address)
 
     def approve_claim(self, vin: str, claim_index: int, from_address: str) -> dict:
         tx = self.contract.functions.approveClaim(
             vin_to_bytes32(vin),
             claim_index
-        ).build_transaction({})
+        ).build_transaction({'from': Web3.to_checksum_address(from_address)})
         return web3_client.sign_and_send(tx, from_address)
 
     def deny_claim(self, vin: str, claim_index: int, reason_hash: str, from_address: str) -> dict:
@@ -31,7 +31,7 @@ class WarrantyTrackerAdapter:
             vin_to_bytes32(vin),
             claim_index,
             Web3.to_bytes(hexstr=reason_hash)
-        ).build_transaction({})
+        ).build_transaction({'from': Web3.to_checksum_address(from_address)})
         return web3_client.sign_and_send(tx, from_address)
 
     def get_claims(self, vin: str) -> list:

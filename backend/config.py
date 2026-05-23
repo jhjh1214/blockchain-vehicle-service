@@ -14,7 +14,10 @@ class Config:
     VEHICLE_REGISTRY_ADDRESS = os.getenv('VEHICLE_REGISTRY_ADDRESS', '')
     SERVICE_LOG_ADDRESS = os.getenv('SERVICE_LOG_ADDRESS', '')
     WARRANTY_TRACKER_ADDRESS = os.getenv('WARRANTY_TRACKER_ADDRESS', '')
-    
+
+    DEPLOYER_ADDRESS = os.getenv('DEPLOYER_ADDRESS', '')
+    DEPLOYER_PRIVATE_KEY = os.getenv('DEPLOYER_PRIVATE_KEY', '')
+
     ABI_DIR = os.path.join(os.path.dirname(__file__), 'abis')
     KEYSTORE_DIR = os.path.join(os.path.dirname(__file__), 'keystore')
     KEYSTORE_PASSWORD = os.getenv('KEYSTORE_PASSWORD', 'change-me-in-production')

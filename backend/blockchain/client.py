@@ -29,6 +29,10 @@ class Web3Client:
             raise ValueError(f"No private key found for address {from_address}")
 
         nonce = self.w3.eth.get_transaction_count(from_address, 'pending')
+        # Strip EIP-1559 fee fields so we always use legacy gasPrice format
+        transaction.pop('maxFeePerGas', None)
+        transaction.pop('maxPriorityFeePerGas', None)
+        transaction.pop('type', None)
         transaction.update({
             'from': from_address,
             'nonce': nonce,
@@ -38,7 +42,8 @@ class Web3Client:
         })
 
         signed = self.w3.eth.account.sign_transaction(transaction, private_key)
-        tx_hash = self.w3.eth.send_raw_transaction(signed.raw_transaction)
+        raw = signed.rawTransaction if hasattr(signed, 'rawTransaction') else signed.raw_transaction
+        tx_hash = self.w3.eth.send_raw_transaction(raw)
         receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
 
         return {
@@ -47,6 +52,31 @@ class Web3Client:
             'gas_used': receipt['gasUsed'],
             'status': receipt['status']
         }
+
+    def transfer_eth(self, from_address: str, to_address: str, amount_wei: int):
+        private_key = keystore.get_key(from_address)
+        if not private_key:
+            raise ValueError(f"No private key found for address {from_address}")
+        nonce = self.w3.eth.get_transaction_count(from_address, 'pending')
+        tx = {
+            'from': from_address,
+            'to': to_address,
+            'value': amount_wei,
+            'gas': 21000,
+            'gasPrice': self.w3.eth.gas_price,
+            'nonce': nonce,
+            'chainId': Config.CHAIN_ID,
+        }
+        signed = self.w3.eth.account.sign_transaction(tx, private_key)
+        raw = signed.rawTransaction if hasattr(signed, 'rawTransaction') else signed.raw_transaction
+        tx_hash = self.w3.eth.send_raw_transaction(raw)
+        self.w3.eth.wait_for_transaction_receipt(tx_hash)
+
+    def grant_role(self, contract, role_hash: bytes, account: str, from_address: str):
+        tx = contract.functions.grantRole(
+            role_hash, Web3.to_checksum_address(account)
+        ).build_transaction({'from': Web3.to_checksum_address(from_address)})
+        self.sign_and_send(tx, from_address)
 
 
 web3_client = Web3Client()

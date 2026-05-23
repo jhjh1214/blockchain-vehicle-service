@@ -11,6 +11,9 @@ def create_app():
 
     db.init_app(app)
 
+    with app.app_context():
+        db.create_all()
+
     CORS(app, resources={
         r"/api/*": {
             "origins": [
@@ -39,7 +42,19 @@ def create_app():
 
     @app.route('/api/health')
     def health():
-        return {'status': 'healthy'}, 200
+        from blockchain.client import web3_client
+        try:
+            connected = web3_client.w3.is_connected()
+        except Exception:
+            connected = False
+        return {
+            'status': 'healthy',
+            'blockchain': {'connected': connected}
+        }, 200
+
+    from blockchain.keystore import keystore
+    if Config.DEPLOYER_ADDRESS and Config.DEPLOYER_PRIVATE_KEY:
+        keystore.store_key(Config.DEPLOYER_ADDRESS, Config.DEPLOYER_PRIVATE_KEY)
 
     from blockchain.event_monitor import init_event_monitor
     monitor_thread = threading.Thread(target=init_event_monitor, args=(app,), daemon=True)

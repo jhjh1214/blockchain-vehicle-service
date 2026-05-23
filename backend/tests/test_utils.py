@@ -31,7 +31,7 @@ class TestVinHashing:
 
     def test_vin_to_hex_matches_bytes32_hex(self):
         b32 = vin_to_bytes32(SAMPLE_VIN)
-        assert vin_to_hex(SAMPLE_VIN) == '0x' + b32.hex()
+        assert vin_to_hex(SAMPLE_VIN) == '0x' + bytes(b32).hex()
 
 
 class TestMetadataHash:

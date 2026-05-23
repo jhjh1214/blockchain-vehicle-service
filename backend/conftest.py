@@ -51,11 +51,17 @@ def app():
     from blockchain.adapters.service_log import service_log as sl
     from blockchain.adapters.warranty_tracker import warranty_tracker as wt
     from blockchain.keystore import keystore as ks
+    from blockchain.client import web3_client as wc
 
     # Keystore — each create_account call returns a unique address
     ks.create_account = MagicMock(side_effect=lambda: {'address': _next_addr(), 'private_key': 'mock_private_key'})
     ks.store_key = MagicMock()
     ks.get_key = MagicMock(return_value='mock_private_key')
+    ks.has_key = MagicMock(return_value=False)  # skip blockchain setup in register_user
+
+    # Web3 client — mock transfer and role-grant so register_user needs no Ganache
+    wc.transfer_eth = MagicMock()
+    wc.grant_role = MagicMock()
 
     # VehicleRegistry adapter
     vr.register_vehicle = MagicMock(return_value=MOCK_TX)

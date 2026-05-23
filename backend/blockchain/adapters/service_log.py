@@ -12,14 +12,14 @@ class ServiceLogAdapter:
         tx = self.contract.functions.submitService(
             vin_to_bytes32(vin),
             Web3.to_bytes(hexstr=metadata_hash)
-        ).build_transaction({})
+        ).build_transaction({'from': Web3.to_checksum_address(from_address)})
         return web3_client.sign_and_send(tx, from_address)
 
     def verify_service(self, vin: str, record_index: int, from_address: str) -> dict:
         tx = self.contract.functions.verifyService(
             vin_to_bytes32(vin),
             record_index
-        ).build_transaction({})
+        ).build_transaction({'from': Web3.to_checksum_address(from_address)})
         return web3_client.sign_and_send(tx, from_address)
 
     def dispute_service(self, vin: str, record_index: int, reason: str, from_address: str) -> dict:
@@ -27,7 +27,7 @@ class ServiceLogAdapter:
             vin_to_bytes32(vin),
             record_index,
             reason
-        ).build_transaction({})
+        ).build_transaction({'from': Web3.to_checksum_address(from_address)})
         return web3_client.sign_and_send(tx, from_address)
 
     def resolve_dispute(self, vin: str, record_index: int, decision: int,
@@ -37,7 +37,7 @@ class ServiceLogAdapter:
             record_index,
             decision,
             Web3.to_bytes(hexstr=resolution_notes_hash)
-        ).build_transaction({})
+        ).build_transaction({'from': Web3.to_checksum_address(from_address)})
         return web3_client.sign_and_send(tx, from_address)
 
     def get_pending_services(self, vin: str) -> list:
