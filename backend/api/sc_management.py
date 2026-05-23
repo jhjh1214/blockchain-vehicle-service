@@ -1,3 +1,4 @@
+import threading
 from flask import Blueprint, request, jsonify
 from web3 import Web3
 from api.middleware import role_required, token_required
@@ -6,6 +7,21 @@ from db.repositories import users as user_repo
 from db.models import ServiceMetadata
 from blockchain.client import web3_client
 from config import Config
+
+
+def _fetch_eth_balance(addr: str, timeout: float = 2.0):
+    """Fetch ETH balance with timeout. Returns float or None."""
+    holder = [None]
+    def _task():
+        try:
+            bal = web3_client.w3.eth.get_balance(Web3.to_checksum_address(addr))
+            holder[0] = float(Web3.from_wei(bal, 'ether'))
+        except Exception:
+            pass
+    t = threading.Thread(target=_task, daemon=True)
+    t.start()
+    t.join(timeout=timeout)
+    return holder[0]
 
 sc_bp = Blueprint('sc_management', __name__)
 
@@ -23,19 +39,7 @@ def list_service_centers():
     scs = user_repo.find_service_centers(city=city, state=state,
                                           status=status, search=search)
 
-    # Attach live ETH balance to each SC (best-effort; don't fail if node down)
-    result = []
-    for sc in scs:
-        d = sc.to_dict()
-        try:
-            balance_wei = web3_client.w3.eth.get_balance(
-                Web3.to_checksum_address(sc.blockchain_address)
-            )
-            d['eth_balance'] = float(Web3.from_wei(balance_wei, 'ether'))
-        except Exception:
-            d['eth_balance'] = None
-        result.append(d)
-
+    result = [sc.to_dict() for sc in scs]
     paginated = paginate(result, request.args)
     return jsonify(paginated), 200
 
@@ -48,14 +52,7 @@ def get_service_center(sc_id):
         return jsonify({'error': 'Service center not found'}), 404
 
     d = sc.to_dict()
-    try:
-        balance_wei = web3_client.w3.eth.get_balance(
-            Web3.to_checksum_address(sc.blockchain_address)
-        )
-        d['eth_balance'] = float(Web3.from_wei(balance_wei, 'ether'))
-    except Exception:
-        d['eth_balance'] = None
-
+    d['eth_balance'] = _fetch_eth_balance(sc.blockchain_address)
     return jsonify(d), 200
 
 
@@ -121,13 +118,7 @@ def get_sc_stats():
     addr = request.user.get('blockchain_address', '')
     services_submitted = ServiceMetadata.query.count()
 
-    eth_balance = None
-    try:
-        if addr:
-            balance_wei = web3_client.w3.eth.get_balance(Web3.to_checksum_address(addr))
-            eth_balance = float(Web3.from_wei(balance_wei, 'ether'))
-    except Exception:
-        pass
+    eth_balance = _fetch_eth_balance(addr) if addr else None
 
     return jsonify({
         'services_submitted': services_submitted,

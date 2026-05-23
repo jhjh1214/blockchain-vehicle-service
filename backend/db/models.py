@@ -154,6 +154,7 @@ class VehicleVINMapping(db.Model):
     make = db.Column(db.String(50))
     model = db.Column(db.String(50))
     year = db.Column(db.Integer)
+    warranty_expiry = db.Column(db.Integer, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def to_dict(self) -> dict:
@@ -163,5 +164,6 @@ class VehicleVINMapping(db.Model):
             'make': self.make,
             'model': self.model,
             'year': self.year,
+            'warranty_expiry': self.warranty_expiry,
             'created_at': self.created_at.isoformat()
         }

@@ -9,10 +9,16 @@ def find_by_vin_hash(vin_hash: str) -> VehicleVINMapping | None:
     return VehicleVINMapping.query.filter_by(vin_hash=vin_hash).first()
 
 
+def find_by_owner(owner_address: str) -> list:
+    return VehicleVINMapping.query.filter_by(owner_address=owner_address).all()
+
+
 def create(vin: str, vin_hash: str, owner_address: str,
-           make: str = None, model: str = None, year: int = None) -> VehicleVINMapping:
+           make: str = None, model: str = None, year: int = None,
+           warranty_expiry: int = None) -> VehicleVINMapping:
     mapping = VehicleVINMapping(vin=vin, vin_hash=vin_hash, owner_address=owner_address,
-                                make=make, model=model, year=year)
+                                make=make, model=model, year=year,
+                                warranty_expiry=warranty_expiry)
     db.session.add(mapping)
     db.session.commit()
     return mapping

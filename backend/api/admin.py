@@ -1,5 +1,4 @@
 from flask import Blueprint, jsonify, request
-from sqlalchemy import text
 from web3 import Web3
 
 from api.middleware import role_required
@@ -14,25 +13,14 @@ from db.repositories import vehicles as vehicle_repo, users as user_repo
 
 admin_bp = Blueprint('admin', __name__)
 
-_TABLES = [
-    'service_metadata',
-    'warranty_claim_metadata',
-    'vehicle_vin_mapping',
-    'refresh_tokens',
-    'device_tokens',
-    'users',
-]
-
 
 @admin_bp.route('/reset-db', methods=['POST'])
 def reset_db():
-    """Wipe all DB tables and keep only the deployer key in the keystore."""
+    """Wipe all DB tables (drop+recreate) and keep only the deployer key in the keystore."""
     try:
-        for table in _TABLES:
-            db.session.execute(text(f'DELETE FROM {table}'))
-        db.session.commit()
+        db.drop_all()
+        db.create_all()
     except Exception as e:
-        db.session.rollback()
         return jsonify({'error': f'DB reset failed: {str(e)}'}), 500
 
     # Keep only the deployer key in the keystore

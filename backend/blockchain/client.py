@@ -11,7 +11,7 @@ from blockchain.keystore import keystore
 
 class Web3Client:
     def __init__(self):
-        self.w3 = Web3(Web3.HTTPProvider(Config.GANACHE_URL))
+        self.w3 = Web3(Web3.HTTPProvider(Config.GANACHE_URL, request_kwargs={'timeout': 5}))
         self.w3.middleware_onion.inject(geth_poa_middleware, layer=0)
 
     def load_contract(self, abi_filename: str, address: str):

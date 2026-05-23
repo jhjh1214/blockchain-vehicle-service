@@ -18,7 +18,7 @@ def register_vehicle(vin: str, owner_email: str, warranty_years: int,
 
     result = vehicle_registry.register_vehicle(vin, owner.blockchain_address, warranty_expiry, from_address)
     vehicle_repo.create(vin=vin, vin_hash=vin_hash, owner_address=owner.blockchain_address,
-                        make=make, model=model, year=year)
+                        make=make, model=model, year=year, warranty_expiry=warranty_expiry)
 
     return {
         'message': 'Vehicle registered successfully',
@@ -63,23 +63,17 @@ def get_vehicle(vin: str) -> dict:
 
 
 def get_my_vehicles(owner_address: str) -> list:
-    vin_hashes = vehicle_registry.get_owned_vehicles(owner_address)
-    vehicles = []
-    for vin_hash in vin_hashes:
-        mapping = vehicle_repo.find_by_vin_hash(vin_hash)
-        if not mapping:
-            continue
-        vehicle_data = vehicle_registry.get_vehicle(mapping.vin)
-        vehicles.append({
-            'vin': mapping.vin,
-            'make': mapping.make,
-            'model': mapping.model,
-            'year': mapping.year,
-            'warranty_expiry': vehicle_data['warranty_expiry'],
-            'is_valid': vehicle_data['warranty_expiry'] > int(time.time()),
-            'service_count': len(vehicle_data['service_hashes'])
-        })
-    return vehicles
+    mappings = vehicle_repo.find_by_owner(owner_address)
+    now = int(time.time())
+    return [{
+        'vin': m.vin,
+        'make': m.make,
+        'model': m.model,
+        'year': m.year,
+        'warranty_expiry': m.warranty_expiry,
+        'is_valid': m.warranty_expiry > now if m.warranty_expiry else None,
+        'service_count': 0,
+    } for m in mappings]
 
 
 def transfer_vehicle(vin: str, new_owner_email: str, from_address: str) -> dict:
