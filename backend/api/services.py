@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
 from api.middleware import token_required, role_required
+from api.utils import sanitize, validate_vin, validate_mileage, paginate
 from core import service_log_service
 
 service_bp = Blueprint('service', __name__)
@@ -9,21 +10,26 @@ service_bp = Blueprint('service', __name__)
 @role_required('SERVICE_CENTER')
 def submit_service():
     data = request.get_json() or {}
-    vin = data.get('vin')
-    service_type = data.get('service_type')
-    service_date = data.get('service_date')
-    mileage = data.get('mileage')
-    if not all([vin, service_type, service_date, mileage is not None]):
-        return jsonify({'error': 'Missing required fields: vin, service_type, service_date, mileage'}), 400
+    try:
+        vin     = validate_vin(data.get('vin', ''))
+        mileage = validate_mileage(data.get('mileage'))
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+
+    service_type = sanitize(data.get('service_type', ''), 100)
+    service_date = sanitize(data.get('service_date', ''), 20)
+    if not service_type or not service_date:
+        return jsonify({'error': 'Missing required fields: service_type, service_date'}), 400
+
     try:
         result = service_log_service.submit_service(
             vin=vin,
             service_type=service_type,
             service_date=service_date,
             mileage=mileage,
-            parts_replaced=data.get('parts_replaced', ''),
-            technician_name=data.get('technician_name', ''),
-            service_notes=data.get('service_notes', ''),
+            parts_replaced=sanitize(data.get('parts_replaced', ''), 500),
+            technician_name=sanitize(data.get('technician_name', ''), 100),
+            service_notes=sanitize(data.get('service_notes', ''), 1000),
             ecu_modules=data.get('ecu_modules', []),
             photos=data.get('photos', []),
             from_address=request.user['blockchain_address']
@@ -37,10 +43,13 @@ def submit_service():
 @token_required
 def verify_service():
     data = request.get_json() or {}
-    vin = data.get('vin')
+    try:
+        vin = validate_vin(data.get('vin', ''))
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
     record_index = data.get('record_index')
-    if vin is None or record_index is None:
-        return jsonify({'error': 'VIN and record_index required'}), 400
+    if record_index is None:
+        return jsonify({'error': 'record_index required'}), 400
     try:
         result = service_log_service.verify_service(vin, record_index, request.user['blockchain_address'])
         return jsonify(result), 200
@@ -52,11 +61,14 @@ def verify_service():
 @token_required
 def dispute_service():
     data = request.get_json() or {}
-    vin = data.get('vin')
+    try:
+        vin = validate_vin(data.get('vin', ''))
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
     record_index = data.get('record_index')
-    reason = data.get('reason')
-    if not all([vin, record_index is not None, reason]):
-        return jsonify({'error': 'VIN, record_index, and reason required'}), 400
+    reason = sanitize(data.get('reason', ''), 500)
+    if record_index is None or not reason:
+        return jsonify({'error': 'record_index and reason required'}), 400
     try:
         result = service_log_service.dispute_service(vin, record_index, reason, request.user['blockchain_address'])
         return jsonify(result), 200
@@ -68,15 +80,18 @@ def dispute_service():
 @role_required('MANUFACTURER')
 def resolve_dispute():
     data = request.get_json() or {}
-    vin = data.get('vin')
+    try:
+        vin = validate_vin(data.get('vin', ''))
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
     record_index = data.get('record_index')
-    decision = data.get('decision')
-    if not all([vin, record_index is not None, decision is not None]):
-        return jsonify({'error': 'VIN, record_index, and decision required'}), 400
+    decision     = data.get('decision')
+    if record_index is None or decision is None:
+        return jsonify({'error': 'record_index and decision required'}), 400
     try:
         decision_int = int(decision)
     except (TypeError, ValueError):
-        return jsonify({'error': 'decision must be an integer: 1=approve, 2=reject'}), 400
+        return jsonify({'error': 'decision must be 1 (approve) or 2 (reject)'}), 400
     if decision_int not in (1, 2):
         return jsonify({'error': 'decision must be 1 (approve) or 2 (reject)'}), 400
     try:
@@ -84,7 +99,7 @@ def resolve_dispute():
             vin=vin,
             record_index=record_index,
             decision=decision_int,
-            resolution_notes=data.get('resolution_notes', ''),
+            resolution_notes=sanitize(data.get('resolution_notes', ''), 500),
             from_address=request.user['blockchain_address']
         )
         return jsonify(result), 200
@@ -96,8 +111,13 @@ def resolve_dispute():
 @token_required
 def get_pending_services(vin):
     try:
+        vin = validate_vin(vin)
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    try:
         records = service_log_service.get_pending_services(vin)
-        return jsonify({'vin': vin, 'pending_services': records, 'count': len(records)}), 200
+        result  = paginate(records, request.args)
+        return jsonify({**result, 'vin': vin, 'pending_services': result.pop('items')}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -106,8 +126,13 @@ def get_pending_services(vin):
 @token_required
 def get_service_history(vin):
     try:
+        vin = validate_vin(vin)
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    try:
         records = service_log_service.get_finalized_services(vin)
-        return jsonify({'vin': vin, 'service_history': records, 'count': len(records)}), 200
+        result  = paginate(records, request.args)
+        return jsonify({**result, 'vin': vin, 'service_history': result.pop('items')}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -117,7 +142,8 @@ def get_service_history(vin):
 def get_owner_pending_services():
     try:
         records = service_log_service.get_owner_pending_services(request.user['blockchain_address'])
-        return jsonify({'pending_services': records, 'count': len(records)}), 200
+        result  = paginate(records, request.args)
+        return jsonify({**result, 'pending_services': result.pop('items')}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -126,10 +152,13 @@ def get_owner_pending_services():
 @role_required('OWNER')
 def owner_verify_service():
     data = request.get_json() or {}
-    vin = data.get('vin')
+    try:
+        vin = validate_vin(data.get('vin', ''))
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
     record_index = data.get('record_index')
-    if vin is None or record_index is None:
-        return jsonify({'error': 'VIN and record_index required'}), 400
+    if record_index is None:
+        return jsonify({'error': 'record_index required'}), 400
     try:
         result = service_log_service.verify_service(vin, record_index, request.user['blockchain_address'])
         return jsonify(result), 200
@@ -141,11 +170,14 @@ def owner_verify_service():
 @role_required('OWNER')
 def owner_dispute_service():
     data = request.get_json() or {}
-    vin = data.get('vin')
+    try:
+        vin = validate_vin(data.get('vin', ''))
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
     record_index = data.get('record_index')
-    reason = data.get('reason')
-    if not all([vin, record_index is not None, reason]):
-        return jsonify({'error': 'VIN, record_index, and reason required'}), 400
+    reason = sanitize(data.get('reason', ''), 500)
+    if record_index is None or not reason:
+        return jsonify({'error': 'record_index and reason required'}), 400
     try:
         result = service_log_service.dispute_service(vin, record_index, reason, request.user['blockchain_address'])
         return jsonify(result), 200
@@ -158,6 +190,7 @@ def owner_dispute_service():
 def get_owner_service_history():
     try:
         records = service_log_service.get_owner_finalized_services(request.user['blockchain_address'])
-        return jsonify({'service_history': records, 'count': len(records)}), 200
+        result  = paginate(records, request.args)
+        return jsonify({**result, 'service_history': result.pop('items')}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500

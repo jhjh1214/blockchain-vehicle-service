@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
 from api.middleware import token_required, role_required
+from api.utils import sanitize, validate_vin, paginate
 from core import warranty_service
 
 warranty_bp = Blueprint('warranty', __name__)
@@ -8,6 +9,10 @@ warranty_bp = Blueprint('warranty', __name__)
 @warranty_bp.route('/check/<vin>', methods=['GET'])
 @token_required
 def check_warranty(vin):
+    try:
+        vin = validate_vin(vin)
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
     try:
         result = warranty_service.check_warranty(vin)
         return jsonify(result), 200
@@ -19,10 +24,13 @@ def check_warranty(vin):
 @role_required('OWNER')
 def submit_claim():
     data = request.get_json() or {}
-    vin = data.get('vin')
-    issue_description = data.get('issue_description')
-    if not all([vin, issue_description]):
-        return jsonify({'error': 'VIN and issue_description required'}), 400
+    try:
+        vin = validate_vin(data.get('vin', ''))
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    issue_description = sanitize(data.get('issue_description', ''), 1000)
+    if not issue_description:
+        return jsonify({'error': 'issue_description required'}), 400
     try:
         result = warranty_service.submit_claim(
             vin=vin,
@@ -39,8 +47,13 @@ def submit_claim():
 @token_required
 def get_claims(vin):
     try:
+        vin = validate_vin(vin)
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    try:
         claims = warranty_service.get_claims(vin)
-        return jsonify({'vin': vin, 'claims': claims, 'count': len(claims)}), 200
+        result = paginate(claims, request.args)
+        return jsonify({**result, 'vin': vin, 'claims': result.pop('items')}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -49,10 +62,13 @@ def get_claims(vin):
 @role_required('MANUFACTURER')
 def approve_claim():
     data = request.get_json() or {}
-    vin = data.get('vin')
+    try:
+        vin = validate_vin(data.get('vin', ''))
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
     claim_index = data.get('claim_index')
-    if vin is None or claim_index is None:
-        return jsonify({'error': 'VIN and claim_index required'}), 400
+    if claim_index is None:
+        return jsonify({'error': 'claim_index required'}), 400
     try:
         result = warranty_service.approve_claim(vin, claim_index, request.user['blockchain_address'])
         return jsonify(result), 200
@@ -64,15 +80,18 @@ def approve_claim():
 @role_required('MANUFACTURER')
 def deny_claim():
     data = request.get_json() or {}
-    vin = data.get('vin')
+    try:
+        vin = validate_vin(data.get('vin', ''))
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
     claim_index = data.get('claim_index')
-    if vin is None or claim_index is None:
-        return jsonify({'error': 'VIN and claim_index required'}), 400
+    if claim_index is None:
+        return jsonify({'error': 'claim_index required'}), 400
     try:
         result = warranty_service.deny_claim(
             vin=vin,
             claim_index=claim_index,
-            reason=data.get('reason', ''),
+            reason=sanitize(data.get('reason', ''), 500),
             from_address=request.user['blockchain_address']
         )
         return jsonify(result), 200
@@ -85,6 +104,7 @@ def deny_claim():
 def get_owner_claims():
     try:
         claims = warranty_service.get_owner_claims(request.user['blockchain_address'])
-        return jsonify({'claims': claims, 'count': len(claims)}), 200
+        result = paginate(claims, request.args)
+        return jsonify({**result, 'claims': result.pop('items')}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
