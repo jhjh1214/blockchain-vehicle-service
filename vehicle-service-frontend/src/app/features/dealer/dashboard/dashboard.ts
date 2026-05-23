@@ -4,6 +4,7 @@ import { RouterModule } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { AuthService } from '../../../core/services/auth';
 import { BlockchainService } from '../../../core/services/blockchain.service';
+import { ScManagementService, SCStats } from '../../../core/services/sc-management.service';
 import { User } from '../../../core/models/user.model';
 
 @Component({
@@ -16,17 +17,31 @@ import { User } from '../../../core/models/user.model';
 export class DashboardComponent implements OnInit, OnDestroy {
   currentUser: User | null = null;
   isConnected: boolean | null = null;
+  stats: SCStats | null = null;
+  statsLoading = true;
   private subs = new Subscription();
 
-  constructor(private authService: AuthService, private blockchain: BlockchainService) {
+  constructor(
+    private authService: AuthService,
+    private blockchain: BlockchainService,
+    private scService: ScManagementService
+  ) {
     this.currentUser = this.authService.currentUserValue;
   }
 
   ngOnInit(): void {
     this.subs.add(this.blockchain.connected$.subscribe(v => this.isConnected = v));
+    this.loadStats();
   }
 
   ngOnDestroy(): void {
     this.subs.unsubscribe();
+  }
+
+  private loadStats(): void {
+    this.scService.getMyStats().subscribe({
+      next: s => { this.stats = s; this.statsLoading = false; },
+      error: () => { this.statsLoading = false; }
+    });
   }
 }

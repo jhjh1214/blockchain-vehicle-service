@@ -72,6 +72,22 @@ export class AuthService {
     return this.currentUserValue?.role === role;
   }
 
+  updateProfile(data: { name?: string; phone?: string; city?: string; state?: string }): Observable<{ user: User; message: string }> {
+    return this.http.put<{ user: User; message: string }>(`${environment.apiUrl}/auth/profile`, data).pipe(
+      tap(r => {
+        localStorage.setItem('currentUser', JSON.stringify(r.user));
+        this.currentUserSubject.next(r.user);
+      })
+    );
+  }
+
+  changePassword(currentPassword: string, newPassword: string): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${environment.apiUrl}/auth/change-password`, {
+      current_password: currentPassword,
+      new_password: newPassword,
+    });
+  }
+
   private _storeSession(r: AuthResponse): void {
     localStorage.setItem('access_token', r.access_token);
     localStorage.setItem('refresh_token', r.refresh_token);

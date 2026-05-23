@@ -1,0 +1,78 @@
+<div class="page">
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Vehicle Fleet</h1>
+      <p class="page-subtitle">All registered vehicles on the blockchain</p>
+    </div>
+    @if (pagination) {
+      <div style="font-size:13px;color:var(--text-muted);">
+        {{ pagination.total }} vehicle{{ pagination.total !== 1 ? 's' : '' }} registered
+      </div>
+    }
+  </div>
+
+  @if (error) {
+    <div class="alert alert-danger mb-16">{{ error }}</div>
+  }
+
+  <div class="card">
+    @if (loading) {
+      <div style="padding:48px;text-align:center;color:var(--text-muted);">
+        <span class="spinner" style="margin:0 auto;display:block;"></span>
+      </div>
+    } @else if (vehicles.length === 0) {
+      <div style="padding:48px;text-align:center;color:var(--text-muted);">
+        <p style="font-size:15px;">No vehicles registered yet.</p>
+        <a routerLink="/manufacturer/register-vehicle" class="btn btn-primary" style="margin-top:16px;display:inline-block;">
+          Register First Vehicle
+        </a>
+      </div>
+    } @else {
+      <div class="data-table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>VIN</th>
+              <th>Make / Model</th>
+              <th>Year</th>
+              <th>Warranty Status</th>
+              <th>Registered</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (v of vehicles; track v.vin) {
+              <tr>
+                <td><span class="mono">{{ v.vin }}</span></td>
+                <td>{{ v.make || '—' }} {{ v.model || '' }}</td>
+                <td>{{ v.year || '—' }}</td>
+                <td>
+                  @if (v.warranty_expiry) {
+                    <span [class]="isExpired(v.warranty_expiry) ? 'badge-warranty-expired' : 'badge-warranty-valid'">
+                      {{ isExpired(v.warranty_expiry) ? 'Expired' : 'Active' }}
+                      <span style="font-weight:400;margin-left:4px;">({{ warrantyDate(v.warranty_expiry) }})</span>
+                    </span>
+                  } @else {
+                    <span style="color:var(--text-muted);">—</span>
+                  }
+                </td>
+                <td style="color:var(--text-muted);">{{ v.created_at ? (v.created_at | date:'mediumDate') : '—' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      @if (pagination && pagination.pages > 1) {
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-top:1px solid var(--border);">
+          <span style="font-size:13px;color:var(--text-muted);">
+            Page {{ pagination.page }} of {{ pagination.pages }}
+          </span>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-secondary" [disabled]="page <= 1" (click)="goTo(page - 1)">Previous</button>
+            <button class="btn btn-secondary" [disabled]="page >= pagination.pages" (click)="goTo(page + 1)">Next</button>
+          </div>
+        </div>
+      }
+    }
+  </div>
+</div>

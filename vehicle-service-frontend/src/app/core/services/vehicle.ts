@@ -28,4 +28,24 @@ export class VehicleService {
       new_owner_email: newOwnerEmail
     });
   }
+
+  getFleet(page = 1, limit = 20): Observable<any> {
+    return this.http.get(`${environment.apiUrl}/vehicle/fleet?page=${page}&limit=${limit}`);
+  }
+
+  getManufacturerStats(): Observable<ManufacturerStats> {
+    return this.http.get<ManufacturerStats>(`${environment.apiUrl}/vehicle/stats`);
+  }
+
+  getPublicVehicle(vin: string): Observable<any> {
+    return this.http.get(`${environment.apiUrl}/vehicle/public/${vin}`);
+  }
+}
+
+export interface ManufacturerStats {
+  total_vehicles: number;
+  sc_total: number;
+  sc_active: number;
+  sc_pending: number;
+  warranty_claims: number;
 }

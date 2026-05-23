@@ -1,0 +1,83 @@
+<div class="verify-page">
+  <div class="verify-card">
+    <div class="verify-header">
+      <div class="verify-brand">
+        <div class="verify-brand-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:20px;height:20px;">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.056 2.056 0 0 0-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 0 0-10.026 0 1.106 1.106 0 0 0-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12" />
+          </svg>
+        </div>
+        <span class="verify-brand-name">VehicleChain</span>
+      </div>
+      <h2 style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:6px;">Vehicle Verification</h2>
+      <p style="font-size:14px;color:var(--text-muted);margin-bottom:0;">Enter a VIN to check blockchain-verified vehicle history</p>
+    </div>
+
+    <div class="verify-search">
+      <div class="verify-input-row">
+        <input type="text" [(ngModel)]="vin" class="form-control" placeholder="17-character VIN"
+               (keyup.enter)="lookup()" maxlength="17"
+               style="font-family:'SF Mono','Fira Code',monospace;letter-spacing:0.05em;text-transform:uppercase;" />
+        <button class="btn btn-primary" (click)="lookup()" [disabled]="loading">
+          @if (loading) { <span class="spinner"></span> } @else { Verify }
+        </button>
+      </div>
+      @if (error) {
+        <div class="alert alert-danger" style="margin-top:12px;margin-bottom:0;">{{ error }}</div>
+      }
+    </div>
+
+    @if (result) {
+      <div class="verify-result">
+        <div class="verify-vin-display">{{ result.vin }}</div>
+        <div class="verify-vehicle-name">{{ result.year }} {{ result.make }} {{ result.model }}</div>
+
+        <div class="warranty-badge" [class.valid]="result.warranty?.is_valid" [class.expired]="!result.warranty?.is_valid">
+          @if (result.warranty?.is_valid) {
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:16px;height:16px;">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4-5.5Z" clip-rule="evenodd" />
+            </svg>
+            Warranty Active
+          } @else {
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:16px;height:16px;">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94 8.28 7.22Z" clip-rule="evenodd" />
+            </svg>
+            Warranty Expired
+          }
+        </div>
+
+        <div class="verify-detail-grid">
+          <div class="verify-detail-item">
+            <div class="verify-detail-label">Make</div>
+            <div class="verify-detail-value">{{ result.make || '—' }}</div>
+          </div>
+          <div class="verify-detail-item">
+            <div class="verify-detail-label">Model</div>
+            <div class="verify-detail-value">{{ result.model || '—' }}</div>
+          </div>
+          <div class="verify-detail-item">
+            <div class="verify-detail-label">Year</div>
+            <div class="verify-detail-value">{{ result.year || '—' }}</div>
+          </div>
+          <div class="verify-detail-item">
+            <div class="verify-detail-label">Warranty Expiry</div>
+            <div class="verify-detail-value">{{ warrantyDate(result.warranty?.expiry) }}</div>
+          </div>
+        </div>
+
+        <div style="font-size:13px;color:var(--text-muted);padding:12px 0;border-top:1px solid var(--border);">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:14px;height:14px;display:inline;vertical-align:middle;margin-right:4px;color:var(--color-success);">
+            <path fill-rule="evenodd" d="M10 1a4.5 4.5 0 0 0-4.5 4.5V9H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-.5V5.5A4.5 4.5 0 0 0 10 1Zm3 8V5.5a3 3 0 1 0-6 0V9h6Z" clip-rule="evenodd" />
+          </svg>
+          Verified on VehicleChain blockchain &nbsp;·&nbsp; {{ result.registered_at ? (result.registered_at | date:'mediumDate') : '' }}
+        </div>
+      </div>
+    }
+  </div>
+
+  <div style="margin-top:24px;text-align:center;">
+    <a routerLink="/login" style="font-size:13px;color:var(--text-muted);text-decoration:none;">
+      Sign in to VehicleChain →
+    </a>
+  </div>
+</div>

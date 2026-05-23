@@ -13,6 +13,37 @@
     </div>
   </div>
 
+  <!-- Live stats row -->
+  <div class="kpi-row">
+    <div class="kpi-card">
+      <div class="kpi-label">Services Submitted</div>
+      @if (statsLoading) {
+        <div class="kpi-skeleton"></div>
+      } @else {
+        <div class="kpi-value">{{ stats?.services_submitted ?? '—' }}</div>
+      }
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">ETH Balance</div>
+      @if (statsLoading) {
+        <div class="kpi-skeleton"></div>
+      } @else if (stats?.eth_balance !== null && stats?.eth_balance !== undefined) {
+        <div class="kpi-value" [class.kpi-warn]="(stats?.eth_balance ?? 0) < 0.1">
+          {{ stats!.eth_balance!.toFixed(4) }} ETH
+        </div>
+      } @else {
+        <div class="kpi-value kpi-muted">—</div>
+      }
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Account Status</div>
+      <div class="kpi-value" [class.kpi-warn]="currentUser?.status === 'pending'"
+                             [class.kpi-ok]="currentUser?.status === 'active'">
+        {{ currentUser?.status | titlecase }}
+      </div>
+    </div>
+  </div>
+
   <div class="stat-grid">
     <a routerLink="/dealer/vehicle-lookup" class="stat-card" style="text-decoration:none;">
       <div class="stat-icon blue">
@@ -59,44 +90,6 @@
       <div>
         <div class="stat-label">Two-Stage Verification</div>
         <div class="stat-desc">All records need owner approval before blockchain finalization</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-header">
-      <h3 class="card-title">How It Works</h3>
-    </div>
-    <div class="card-body">
-      <div class="steps">
-        <div class="step">
-          <div class="step-number">1</div>
-          <div>
-            <p class="step-title">Submit Service</p>
-            <p class="step-desc">Log completed service with mileage, parts replaced, and technician notes</p>
-          </div>
-        </div>
-        <div class="step">
-          <div class="step-number">2</div>
-          <div>
-            <p class="step-title">Pending State</p>
-            <p class="step-desc">Record stored as pending — owner is notified to review</p>
-          </div>
-        </div>
-        <div class="step">
-          <div class="step-number">3</div>
-          <div>
-            <p class="step-title">Owner Verification</p>
-            <p class="step-desc">Vehicle owner reviews and approves or disputes the service record</p>
-          </div>
-        </div>
-        <div class="step">
-          <div class="step-number">4</div>
-          <div>
-            <p class="step-title">Blockchain Finalization</p>
-            <p class="step-desc">Approved records are permanently and immutably stored on-chain</p>
-          </div>
-        </div>
       </div>
     </div>
   </div>

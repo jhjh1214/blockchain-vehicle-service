@@ -3,7 +3,12 @@ export interface User {
   email: string;
   role: 'MANUFACTURER' | 'SERVICE_CENTER' | 'OWNER';
   name?: string;
+  phone?: string;
+  city?: string;
+  state?: string;
+  status?: 'active' | 'pending' | 'suspended';
   blockchain_address: string;
+  created_at?: string;
 }
 
 export interface LoginRequest {

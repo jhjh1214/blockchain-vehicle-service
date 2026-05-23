@@ -1,0 +1,171 @@
+<div class="page">
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Profile & Settings</h1>
+      <p class="page-subtitle">Manage your account information and security</p>
+    </div>
+  </div>
+
+  <div class="profile-meta">
+    <div class="profile-avatar">{{ initials }}</div>
+    <div>
+      <div class="profile-meta-name">{{ currentUser?.name || currentUser?.email }}</div>
+      <div class="profile-meta-role">{{ currentUser?.role?.replace('_', ' ') }}</div>
+    </div>
+  </div>
+
+  <div class="profile-grid">
+    <!-- Profile form -->
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">Account Information</h3>
+      </div>
+      <div class="card-body">
+        <form [formGroup]="profileForm" (ngSubmit)="saveProfile()">
+          <div class="form-group mb-16">
+            <label class="form-label">Full Name</label>
+            <input type="text" formControlName="name" class="form-control" placeholder="Your name" />
+          </div>
+
+          <div class="form-group mb-16">
+            <label class="form-label">Phone Number</label>
+            <input type="tel" formControlName="phone" class="form-control" placeholder="+60 12-345 6789" />
+          </div>
+
+          @if (isServiceCenter) {
+            <div class="form-group mb-16">
+              <label class="form-label">City</label>
+              <select formControlName="city" class="form-control" (change)="onCityChange()">
+                <option value="">Select city…</option>
+                @for (c of cities; track c.city) {
+                  <option [value]="c.city">{{ c.city }}</option>
+                }
+              </select>
+            </div>
+
+            @if (profileForm.get('city')?.value) {
+              <div class="form-group mb-16">
+                <label class="form-label">State</label>
+                <input type="text" formControlName="state" class="form-control" readonly />
+              </div>
+            }
+          }
+
+          <div class="form-group mb-16">
+            <label class="form-label">Email</label>
+            <input type="email" [value]="currentUser?.email" class="form-control" readonly
+                   style="opacity:.6;cursor:not-allowed;" />
+            <div class="form-hint">Email cannot be changed</div>
+          </div>
+
+          @if (profileSuccess) {
+            <div class="alert alert-success mb-16">{{ profileSuccess }}</div>
+          }
+          @if (profileError) {
+            <div class="alert alert-danger mb-16">{{ profileError }}</div>
+          }
+
+          <button type="submit" class="btn btn-primary" [disabled]="profileSaving">
+            @if (profileSaving) { <span class="spinner"></span> } @else { Save Changes }
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Password form -->
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">Change Password</h3>
+      </div>
+      <div class="card-body">
+        <form [formGroup]="pwForm" (ngSubmit)="changePassword()">
+          <div class="form-group mb-16">
+            <label class="form-label">Current Password <span class="required">*</span></label>
+            <div class="input-password-wrap">
+              <input [type]="showCurrentPw ? 'text' : 'password'" formControlName="currentPassword"
+                     class="form-control" placeholder="Your current password" />
+              <button type="button" class="btn-eye" (click)="showCurrentPw = !showCurrentPw" aria-label="Toggle">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                  @if (!showCurrentPw) {
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                  } @else {
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88" />
+                  }
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group mb-8">
+            <label class="form-label">New Password <span class="required">*</span></label>
+            <div class="input-password-wrap">
+              <input [type]="showNewPw ? 'text' : 'password'" formControlName="newPassword"
+                     class="form-control" placeholder="Choose a strong password" />
+              <button type="button" class="btn-eye" (click)="showNewPw = !showNewPw" aria-label="Toggle">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                  @if (!showNewPw) {
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                  } @else {
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88" />
+                  }
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          @if (pwForm.get('newPassword')?.value) {
+            <div class="password-requirements mb-12">
+              @for (req of requirements; track req.key) {
+                <div class="req-item" [class.req-met]="reqMet(req.key)">
+                  @if (reqMet(req.key)) {
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4-5.5Z" clip-rule="evenodd" />
+                    </svg>
+                  } @else {
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94 8.28 7.22Z" clip-rule="evenodd" />
+                    </svg>
+                  }
+                  {{ req.label }}
+                </div>
+              }
+            </div>
+          }
+
+          <div class="form-group mb-24">
+            <label class="form-label">Confirm New Password <span class="required">*</span></label>
+            <div class="input-password-wrap">
+              <input [type]="showConfirmPw ? 'text' : 'password'" formControlName="confirmPassword"
+                     class="form-control"
+                     [class.is-invalid]="pwForm.get('confirmPassword')?.touched && pwForm.errors?.['mismatch']"
+                     placeholder="Re-enter new password" />
+              <button type="button" class="btn-eye" (click)="showConfirmPw = !showConfirmPw" aria-label="Toggle">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                  @if (!showConfirmPw) {
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                  } @else {
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88" />
+                  }
+                </svg>
+              </button>
+            </div>
+            @if (pwForm.errors?.['mismatch'] && pwForm.get('confirmPassword')?.touched) {
+              <div class="invalid-feedback">Passwords do not match</div>
+            }
+          </div>
+
+          @if (pwSuccess) {
+            <div class="alert alert-success mb-16">{{ pwSuccess }}</div>
+          }
+          @if (pwError) {
+            <div class="alert alert-danger mb-16">{{ pwError }}</div>
+          }
+
+          <button type="submit" class="btn btn-primary" [disabled]="pwSaving || pwForm.invalid">
+            @if (pwSaving) { <span class="spinner"></span> } @else { Change Password }
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>

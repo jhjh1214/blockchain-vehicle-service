@@ -72,4 +72,13 @@ export class ScManagementService {
   fundAll(amountEth: number): Observable<FundResult> {
     return this.http.post<FundResult>(`${this.base}/fund-all`, { amount_eth: amountEth });
   }
+
+  getMyStats(): Observable<SCStats> {
+    return this.http.get<SCStats>(`${this.base}/my-stats`);
+  }
+}
+
+export interface SCStats {
+  services_submitted: number;
+  eth_balance: number | null;
 }

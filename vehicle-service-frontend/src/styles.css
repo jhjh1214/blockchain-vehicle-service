@@ -1899,3 +1899,264 @@ tbody tr:hover {
   border-color: rgba(234, 179, 8, 0.25);
   color: #fde68a;
 }
+
+/* ─── KPI Stats Row ──────────────────────────────────────── */
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.kpi-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-sm);
+}
+
+.kpi-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.kpi-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1;
+}
+
+.kpi-value.kpi-warn  { color: var(--color-warning); }
+.kpi-value.kpi-ok    { color: var(--color-success); }
+.kpi-value.kpi-muted { color: var(--text-muted); font-size: 20px; }
+
+.kpi-skeleton {
+  height: 28px;
+  width: 60px;
+  background: linear-gradient(90deg, var(--border) 25%, var(--surface-2) 50%, var(--border) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 6px;
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+[data-theme="dark"] .kpi-card {
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+/* ─── Profile Page ───────────────────────────────────────── */
+.profile-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+@media (max-width: 768px) {
+  .profile-grid { grid-template-columns: 1fr; }
+}
+
+.profile-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  font-size: 22px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.profile-meta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 0 24px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 24px;
+}
+
+.profile-meta-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.profile-meta-role {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ─── Fleet / Table Page ─────────────────────────────────── */
+.data-table-wrap {
+  overflow-x: auto;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.data-table th {
+  text-align: left;
+  padding: 10px 16px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.data-table td {
+  padding: 12px 16px;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+}
+
+.data-table tr:last-child td { border-bottom: none; }
+
+.data-table tr:hover td { background: var(--surface-hover); }
+
+.data-table .mono {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.badge-warranty-valid   { color: var(--color-success); font-weight: 600; }
+.badge-warranty-expired { color: var(--color-danger);  font-weight: 600; }
+
+/* ─── Verify Page (public) ───────────────────────────────── */
+.verify-page {
+  min-height: 100vh;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48px 16px;
+}
+
+.verify-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  width: 100%;
+  max-width: 640px;
+  overflow: hidden;
+}
+
+.verify-header {
+  padding: 32px 32px 0;
+  text-align: center;
+}
+
+.verify-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.verify-brand-icon {
+  width: 36px;
+  height: 36px;
+  background: var(--color-primary-light);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-primary);
+}
+
+.verify-brand-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.verify-search {
+  padding: 24px 32px;
+  border-bottom: 1px solid var(--border);
+}
+
+.verify-input-row {
+  display: flex;
+  gap: 10px;
+}
+
+.verify-input-row .form-control { flex: 1; }
+
+.verify-result { padding: 24px 32px; }
+
+.verify-vin-display {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  margin-bottom: 4px;
+}
+
+.verify-vehicle-name {
+  font-size: 15px;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+
+.verify-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.verify-detail-item { padding: 12px 14px; background: var(--surface-2); border-radius: var(--radius-sm); }
+.verify-detail-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 4px; }
+.verify-detail-value { font-size: 14px; font-weight: 600; color: var(--text); }
+
+.warranty-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 20px;
+}
+
+.warranty-badge.valid   { background: var(--color-success-light); color: var(--color-success); }
+.warranty-badge.expired { background: var(--color-danger-light);  color: var(--color-danger); }
+
+[data-theme="dark"] .verify-card,
+[data-theme="dark"] .kpi-card { background: #1e293b; border-color: #334155; }
+
+[data-theme="dark"] .data-table th { background: #1e293b; }
+[data-theme="dark"] .data-table td { border-color: #334155; }
+[data-theme="dark"] .data-table tr:hover td { background: #0f172a; }

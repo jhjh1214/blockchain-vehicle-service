@@ -17,11 +17,16 @@ import { WarrantyClaimsComponent } from './features/manufacturer/warranty-claims
 import { DisputeResolutionComponent } from './features/manufacturer/dispute-resolution/dispute-resolution';
 import { ServiceCentersComponent } from './features/manufacturer/service-centers/service-centers';
 import { ScDetailComponent } from './features/manufacturer/service-centers/detail/sc-detail';
+import { FleetComponent } from './features/manufacturer/fleet/fleet';
+import { ProfileComponent } from './features/shared/profile/profile';
+import { VerifyComponent } from './features/public/verify/verify';
 
 export const routes: Routes = [
   { path: '', redirectTo: '/login', pathMatch: 'full' },
   { path: 'login', component: LoginComponent },
   { path: 'register', component: RegisterComponent },
+  { path: 'verify/:vin', component: VerifyComponent },
+  { path: 'verify', component: VerifyComponent },
 
   // Service Center routes
   {
@@ -34,7 +39,8 @@ export const routes: Routes = [
       { path: 'dashboard', component: DashboardComponent },
       { path: 'vehicle-lookup', component: VehicleLookupComponent },
       { path: 'submit-service', component: SubmitServiceComponent },
-      { path: 'pending-records', component: PendingRecordsComponent }
+      { path: 'pending-records', component: PendingRecordsComponent },
+      { path: 'profile', component: ProfileComponent },
     ]
   },
 
@@ -48,10 +54,12 @@ export const routes: Routes = [
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
       { path: 'dashboard', component: ManufacturerDashboardComponent },
       { path: 'register-vehicle', component: RegisterVehicleComponent },
+      { path: 'fleet', component: FleetComponent },
       { path: 'warranty-claims', component: WarrantyClaimsComponent },
       { path: 'dispute-resolution', component: DisputeResolutionComponent },
       { path: 'service-centers', component: ServiceCentersComponent },
       { path: 'service-centers/:id', component: ScDetailComponent },
+      { path: 'profile', component: ProfileComponent },
     ]
   },
 
