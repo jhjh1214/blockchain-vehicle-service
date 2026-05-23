@@ -1,11 +1,14 @@
 from flask import Blueprint, request, jsonify
 from api.middleware import token_required
 from core import auth_service
+from db.repositories import users as user_repo
+from extensions import limiter
 
 auth_bp = Blueprint('auth', __name__)
 
 
 @auth_bp.route('/register', methods=['POST'])
+@limiter.limit('5 per minute')
 def register():
     data = request.get_json() or {}
     for field in ('email', 'password', 'role'):
@@ -13,28 +16,77 @@ def register():
             return jsonify({'error': f'Missing required field: {field}'}), 400
     name = data.get('name') or data['email'].split('@')[0]
     try:
-        user, token = auth_service.register_user(
+        user, access_token, refresh_token = auth_service.register_user(
             email=data['email'],
             password=data['password'],
             role=data['role'],
             name=name,
             phone=data.get('phone', '')
         )
-        return jsonify({'message': 'User registered successfully', 'token': token, 'user': user.to_dict()}), 200
+        return jsonify({
+            'message': 'User registered successfully',
+            'access_token': access_token,
+            'refresh_token': refresh_token,
+            'user': user.to_dict()
+        }), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
 
 
 @auth_bp.route('/login', methods=['POST'])
+@limiter.limit('10 per minute')
 def login():
     data = request.get_json() or {}
     if 'email' not in data or 'password' not in data:
         return jsonify({'error': 'Email and password required'}), 400
     try:
-        user, token = auth_service.login_user(data['email'], data['password'])
-        return jsonify({'message': 'Login successful', 'token': token, 'user': user.to_dict()}), 200
+        user, access_token, refresh_token = auth_service.login_user(
+            data['email'], data['password']
+        )
+        return jsonify({
+            'message': 'Login successful',
+            'access_token': access_token,
+            'refresh_token': refresh_token,
+            'user': user.to_dict()
+        }), 200
+    except ValueError as e:
+        msg = str(e)
+        status = 423 if 'locked' in msg.lower() else 401
+        return jsonify({'error': msg}), status
+
+
+@auth_bp.route('/refresh', methods=['POST'])
+@limiter.limit('30 per minute')
+def refresh():
+    data = request.get_json() or {}
+    raw = data.get('refresh_token')
+    if not raw:
+        return jsonify({'error': 'refresh_token required'}), 400
+    try:
+        user, access_token, new_refresh = auth_service.refresh_access_token(raw)
+        return jsonify({
+            'access_token': access_token,
+            'refresh_token': new_refresh,
+            'user': user.to_dict()
+        }), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 401
+
+
+@auth_bp.route('/logout', methods=['POST'])
+def logout():
+    data = request.get_json() or {}
+    raw = data.get('refresh_token')
+    if raw:
+        auth_service.logout_user(raw)
+    return jsonify({'message': 'Logged out'}), 200
+
+
+@auth_bp.route('/logout-all', methods=['POST'])
+@token_required
+def logout_all():
+    auth_service.logout_all_devices(request.user['user_id'])
+    return jsonify({'message': 'All sessions revoked'}), 200
 
 
 @auth_bp.route('/me', methods=['GET'])
@@ -44,3 +96,17 @@ def get_current_user():
     if not user:
         return jsonify({'error': 'User not found'}), 404
     return jsonify(user.to_dict()), 200
+
+
+@auth_bp.route('/device-token', methods=['POST'])
+@token_required
+def register_device_token():
+    data = request.get_json() or {}
+    token    = data.get('token', '').strip()
+    platform = data.get('platform', '').strip().lower()
+    if not token:
+        return jsonify({'error': 'token required'}), 400
+    if platform not in ('ios', 'android'):
+        return jsonify({'error': "platform must be 'ios' or 'android'"}), 400
+    user_repo.upsert_device_token(request.user['user_id'], token, platform)
+    return jsonify({'message': 'Device token registered'}), 200
