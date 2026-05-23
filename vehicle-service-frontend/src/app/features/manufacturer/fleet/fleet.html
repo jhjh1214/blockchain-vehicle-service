@@ -64,9 +64,9 @@
                 <td>{{ v.year || '—' }}</td>
                 <td>
                   @if (v.registration_status === 'pending') {
-                    <span class="badge badge-warning">Pending</span>
+                    <span class="badge badge-pending">Pending</span>
                   } @else {
-                    <span class="badge badge-success">Active</span>
+                    <span class="badge badge-valid">Active</span>
                   }
                 </td>
                 <td>

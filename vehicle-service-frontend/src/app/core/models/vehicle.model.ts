@@ -3,6 +3,7 @@ export interface Vehicle {
   make?: string;
   model?: string;
   year?: number;
+  registration_status?: 'active' | 'pending';
   owner: {
     address: string;
     name: string;
@@ -19,7 +20,7 @@ export interface Vehicle {
 
 export interface RegisterVehicleRequest {
   vin: string;
-  owner_email: string;
+  owner_email?: string;
   warranty_years: number;
   make?: string;
   model?: string;
