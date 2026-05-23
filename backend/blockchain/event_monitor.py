@@ -3,7 +3,6 @@ import time
 import logging
 from blockchain.adapters.service_log import service_log
 from blockchain.adapters.warranty_tracker import warranty_tracker
-from blockchain.adapters.vehicle_registry import vehicle_registry
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -57,7 +56,7 @@ class EventMonitor:
                     self._handle_service_disputed(event)
                 for event in self._claim_submitted_filter.get_new_entries():
                     self._handle_claim_submitted(event)
-                time.sleep(2)
+                time.sleep(5)
             except Exception as e:
                 msg = str(e)
                 # Ganache restarted or filter expired — recreate silently
@@ -84,15 +83,14 @@ class EventMonitor:
     def _handle_service_submitted(self, event):
         with self.app.app_context():
             try:
-                from db.models import db
                 from db.repositories import vehicles as vehicle_repo, users as user_repo
                 vin_hash = '0x' + event['args']['vin'].hex()
                 mapping = vehicle_repo.find_by_vin_hash(vin_hash)
                 if not mapping:
                     logger.warning(f"VIN mapping not found for hash: {vin_hash}")
                     return
-                vehicle = vehicle_registry.get_vehicle(mapping.vin)
-                owner = user_repo.find_by_blockchain_address(vehicle['owner'])
+                # Use the DB owner address — avoids a blocking blockchain call
+                owner = user_repo.find_by_blockchain_address(mapping.owner_address)
                 if owner:
                     logger.info(f"Service submitted for VIN {mapping.vin} — notifying {owner.email}")
                     self._notify(owner.email, "New Service Pending Verification",
