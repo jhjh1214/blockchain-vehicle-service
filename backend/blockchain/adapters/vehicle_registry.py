@@ -33,6 +33,18 @@ class VehicleRegistryAdapter:
             'exists': result[4]
         }
 
+    def admin_transfer_ownership(self, vin: str, new_owner_address: str,
+                                  admin_address: str) -> dict:
+        """Transfer ownership using deployer DEFAULT_ADMIN_ROLE (grant → transfer → revoke)."""
+        OWNER_ROLE = self.contract.functions.OWNER_ROLE().call()
+        web3_client.grant_role(self.contract, OWNER_ROLE, admin_address, admin_address)
+        result = self.transfer_ownership(vin, new_owner_address, admin_address)
+        revoke_tx = self.contract.functions.revokeRole(
+            OWNER_ROLE, Web3.to_checksum_address(admin_address)
+        ).build_transaction({'from': Web3.to_checksum_address(admin_address)})
+        web3_client.sign_and_send(revoke_tx, admin_address)
+        return result
+
     def get_owned_vehicles(self, owner_address: str) -> list:
         """Returns list of VIN hashes as 0x-prefixed hex strings."""
         vins = self.contract.functions.getOwnedVehicles(

@@ -1,6 +1,7 @@
 import time
 from blockchain.adapters.vehicle_registry import vehicle_registry
 from blockchain.utils import vin_to_hex
+from config import Config
 from db.repositories import vehicles as vehicle_repo, users as user_repo
 
 
@@ -10,24 +11,59 @@ def register_vehicle(vin: str, owner_email: str, warranty_years: int,
     if len(vin) != 17:
         raise ValueError('VIN must be 17 characters')
 
-    owner = user_repo.find_by_email(owner_email)
-    if not owner:
-        raise LookupError('Owner not found. User must register first.')
-
     warranty_expiry = int(time.time()) + (warranty_years * 365 * 24 * 60 * 60)
     vin_hash = vin_to_hex(vin)
+    mfr_address = registered_by or from_address
 
-    result = vehicle_registry.register_vehicle(vin, owner.blockchain_address, warranty_expiry, from_address)
-    vehicle_repo.create(vin=vin, vin_hash=vin_hash, owner_address=owner.blockchain_address,
+    if owner_email:
+        owner = user_repo.find_by_email(owner_email)
+        if not owner:
+            raise LookupError('Owner not found. User must register first.')
+        owner_address = owner.blockchain_address
+        status = 'active'
+        owner_result = owner.email
+    else:
+        # Pre-register: manufacturer placeholder until owner claims via mobile
+        owner_address = mfr_address
+        status = 'pending'
+        owner_result = None
+
+    result = vehicle_registry.register_vehicle(vin, owner_address, warranty_expiry, from_address)
+    vehicle_repo.create(vin=vin, vin_hash=vin_hash, owner_address=owner_address,
                         make=make, model=model, year=year, warranty_expiry=warranty_expiry,
-                        registered_by=registered_by or from_address)
+                        registered_by=mfr_address, registration_status=status)
 
     return {
         'message': 'Vehicle registered successfully',
         'vin': vin,
         'vin_hash': vin_hash,
-        'owner': owner.email,
+        'owner': owner_result,
+        'registration_status': status,
         'warranty_expiry': warranty_expiry,
+        'transaction': result
+    }
+
+
+def claim_vehicle(vin: str, owner_address: str) -> dict:
+    """Owner claims a manufacturer pre-registered (pending) vehicle."""
+    mapping = vehicle_repo.find_by_vin(vin)
+    if not mapping:
+        raise LookupError('Vehicle not found')
+    if mapping.registration_status == 'active':
+        raise ValueError('Vehicle already claimed by an owner')
+
+    deployer = Config.DEPLOYER_ADDRESS
+    if not deployer:
+        raise RuntimeError('Deployer address not configured')
+
+    result = vehicle_registry.admin_transfer_ownership(vin, owner_address, deployer)
+
+    vehicle_repo.update_owner(vin, owner_address)
+    vehicle_repo.update_registration_status(vin, 'active')
+
+    return {
+        'message': 'Vehicle claimed successfully',
+        'vin': vin,
         'transaction': result
     }
 
@@ -48,6 +84,7 @@ def get_vehicle(vin: str) -> dict:
         'make': mapping.make if mapping else 'Unknown',
         'model': mapping.model if mapping else 'Unknown',
         'year': mapping.year if mapping else None,
+        'registration_status': mapping.registration_status if mapping else 'unknown',
         'owner': {
             'address': vehicle['owner'],
             'name': owner.name if owner else 'Unknown',
@@ -65,7 +102,8 @@ def get_vehicle(vin: str) -> dict:
 
 
 def get_my_vehicles(owner_address: str) -> list:
-    mappings = vehicle_repo.find_by_owner(owner_address)
+    # Only return claimed (active) vehicles for the owner view
+    mappings = vehicle_repo.find_by_owner(owner_address, status='active')
     now = int(time.time())
     return [{
         'vin': m.vin,

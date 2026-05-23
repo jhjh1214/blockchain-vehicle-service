@@ -71,6 +71,7 @@ def app():
     # VehicleRegistry adapter
     vr.register_vehicle = MagicMock(return_value=MOCK_TX)
     vr.transfer_ownership = MagicMock(return_value=MOCK_TX)
+    vr.admin_transfer_ownership = MagicMock(return_value=MOCK_TX)
     vr.get_owned_vehicles = MagicMock(return_value=[])
     vr.get_vehicle = MagicMock(return_value={
         'owner': _next_addr(),
@@ -111,11 +112,9 @@ def client(app):
 
 
 # ---------------------------------------------------------------------------
-# Per-test DB cleanup — wipe all rows between tests
+# Per-test DB cleanup — wipe all rows before AND after each test
 # ---------------------------------------------------------------------------
-@pytest.fixture(autouse=True)
-def clean_db(app):
-    yield
+def _wipe_db(app):
     with app.app_context():
         from db.models import db, User, ServiceMetadata, WarrantyClaimMetadata, VehicleVINMapping, RefreshToken, DeviceToken
         db.session.query(ServiceMetadata).delete()
@@ -125,6 +124,13 @@ def clean_db(app):
         db.session.query(DeviceToken).delete()
         db.session.query(User).delete()
         db.session.commit()
+
+
+@pytest.fixture(autouse=True)
+def clean_db(app):
+    _wipe_db(app)   # ensure clean state before test
+    yield
+    _wipe_db(app)   # clean up after test
 
 
 # ---------------------------------------------------------------------------

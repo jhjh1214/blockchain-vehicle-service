@@ -16,14 +16,11 @@ def register_vehicle():
     data = request.get_json() or {}
     try:
         vin         = validate_vin(data.get('vin', ''))
-        owner_email = sanitize(data.get('owner_email', ''), 255).lower()
+        owner_email = sanitize(data.get('owner_email', ''), 255).lower() or None
         make        = sanitize(data.get('make', ''), 50)
         model       = sanitize(data.get('model', ''), 50)
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
-
-    if not owner_email:
-        return jsonify({'error': 'owner_email required'}), 400
 
     try:
         year = int(data.get('year', 0)) if data.get('year') else None
@@ -38,12 +35,36 @@ def register_vehicle():
             make=make,
             model=model,
             year=year,
-            from_address=Config.DEPLOYER_ADDRESS,        # deployer signs on-chain
-            registered_by=request.user['blockchain_address']  # who made the request
+            from_address=Config.DEPLOYER_ADDRESS,
+            registered_by=request.user['blockchain_address']
         )
         return jsonify(result), 200
     except (ValueError, LookupError) as e:
         return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@vehicle_bp.route('/claim', methods=['POST'])
+@role_required('OWNER')
+def claim_vehicle():
+    """Owner claims a manufacturer pre-registered (pending) vehicle."""
+    data = request.get_json() or {}
+    try:
+        vin = validate_vin(data.get('vin', ''))
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+
+    try:
+        result = vehicle_service.claim_vehicle(
+            vin=vin,
+            owner_address=request.user['blockchain_address']
+        )
+        return jsonify(result), 200
+    except LookupError as e:
+        return jsonify({'error': str(e)}), 404
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 409
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

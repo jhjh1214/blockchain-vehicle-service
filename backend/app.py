@@ -45,6 +45,14 @@ def create_app():
                             "WHERE registered_by IS NULL"
                         ), {'addr': mfr.blockchain_address})
                         conn.commit()
+
+            if 'registration_status' not in vin_cols:
+                with db.engine.connect() as conn:
+                    conn.execute(text(
+                        "ALTER TABLE vehicle_vin_mapping "
+                        "ADD COLUMN registration_status VARCHAR(20) NOT NULL DEFAULT 'active'"
+                    ))
+                    conn.commit()
         except Exception:
             pass
 

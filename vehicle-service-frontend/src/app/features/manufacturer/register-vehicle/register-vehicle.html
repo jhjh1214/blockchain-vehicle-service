@@ -73,9 +73,9 @@
 
         <!-- Owner -->
         <div class="form-section">
-          <div class="form-section-title">Owner Information</div>
+          <div class="form-section-title">Owner Information <span style="font-size:12px;font-weight:400;color:var(--text-muted);margin-left:6px;">(optional)</span></div>
           <div class="form-group">
-            <label class="form-label" for="owner_email">Owner Email Address <span class="required">*</span></label>
+            <label class="form-label" for="owner_email">Owner Email Address</label>
             <input
               type="email"
               id="owner_email"
@@ -84,7 +84,10 @@
               [class.is-invalid]="f['owner_email'].invalid && f['owner_email'].touched"
               placeholder="owner@email.com"
             />
-            <div class="form-hint">Owner must already be registered in the system</div>
+            <div class="form-hint">
+              Leave blank to pre-register — vehicle status will be <strong>Pending</strong> until the owner claims it via the mobile app.
+              If provided, the owner must already be registered in the system.
+            </div>
             <div *ngIf="f['owner_email'].invalid && f['owner_email'].touched" class="invalid-feedback">
               Enter a valid email address
             </div>

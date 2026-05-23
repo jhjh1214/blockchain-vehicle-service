@@ -22,7 +22,7 @@ export class RegisterVehicleComponent {
   constructor(private fb: FormBuilder, private vehicleService: VehicleService) {
     this.registerForm = this.fb.group({
       vin: ['', [Validators.required, Validators.pattern(/^[A-HJ-NPR-Z0-9]{17}$/i)]],
-      owner_email: ['', [Validators.required, Validators.email]],
+      owner_email: ['', [Validators.email]],
       warranty_years: ['', [Validators.required, Validators.min(1), Validators.max(10)]],
       make: [''],
       model: [''],
@@ -48,7 +48,8 @@ export class RegisterVehicleComponent {
 
     this.vehicleService.registerVehicle(data).subscribe({
       next: (response) => {
-        this.success = `Vehicle registered. VIN: ${response.vin} — Transaction: ${(response.transaction?.tx_hash || '').slice(0, 18)}…`;
+        const statusNote = response.registration_status === 'pending' ? ' (pending owner claim)' : '';
+        this.success = `Vehicle registered${statusNote}. VIN: ${response.vin} — Transaction: ${(response.transaction?.tx_hash || '').slice(0, 18)}…`;
         this.loading = false;
         setTimeout(() => {
           this.registerForm.reset();

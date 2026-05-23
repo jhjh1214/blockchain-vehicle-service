@@ -2,7 +2,7 @@
 End-to-end integration tests — require a running Ganache node and deployed contracts.
 
 Run with:  pytest -m e2e
-Skip with: pytest -m "not e2e"  (default)
+Skip with: pytest -m "not e2e"  (default — these do NOT run in CI)
 """
 import time
 import uuid
@@ -10,6 +10,7 @@ import pytest
 import requests
 
 BASE = 'http://localhost:5000/api'
+E2E_PASSWORD = 'E2eTest1!'
 
 
 def uid(prefix=''):
@@ -30,7 +31,7 @@ def test_full_workflow():
     """
     Complete workflow:
       1  Register Manufacturer, Service Center, Owner
-      2  Manufacturer registers vehicle
+      2  Manufacturer registers vehicle (with owner — active immediately)
       3  Get vehicle details
       4  Service Center submits service record
       5  Owner views pending services
@@ -47,35 +48,37 @@ def test_full_workflow():
 
     # 1 — Register users
     mfr = check(requests.post(f'{BASE}/auth/register', json={
-        'email': mfr_email, 'password': 'e2etest',
+        'email': mfr_email, 'password': E2E_PASSWORD,
         'role': 'MANUFACTURER', 'name': 'E2E Manufacturer',
     }), 'Register manufacturer')
-    mfr_token = mfr['token']
+    mfr_token = mfr['access_token']
 
     sc = check(requests.post(f'{BASE}/auth/register', json={
-        'email': sc_email, 'password': 'e2etest',
+        'email': sc_email, 'password': E2E_PASSWORD,
         'role': 'SERVICE_CENTER', 'name': 'E2E Service Center',
     }), 'Register service center')
-    sc_token = sc['token']
+    sc_token = sc['access_token']
 
     owner = check(requests.post(f'{BASE}/auth/register', json={
-        'email': owner_email, 'password': 'e2etest',
+        'email': owner_email, 'password': E2E_PASSWORD,
         'role': 'OWNER', 'name': 'E2E Owner',
     }), 'Register owner')
-    owner_token = owner['token']
+    owner_token = owner['access_token']
 
-    # 2 — Register vehicle
+    # 2 — Register vehicle (with owner, active immediately)
     reg = check(requests.post(f'{BASE}/vehicle/register', headers=headers(mfr_token), json={
         'vin': vin, 'owner_email': owner_email,
         'warranty_years': 3, 'make': 'Honda', 'model': 'Civic', 'year': 2024,
     }), 'Register vehicle')
     assert reg['vin'] == vin
+    assert reg['registration_status'] == 'active'
     assert 'tx_hash' in reg['transaction']
 
     # 3 — Get vehicle details
     v = check(requests.get(f'{BASE}/vehicle/{vin}', headers=headers(owner_token)), 'Get vehicle')
     assert v['make'] == 'Honda'
     assert v['warranty']['is_valid'] is True
+    assert v['registration_status'] == 'active'
 
     # 4 — Submit service record
     svc = check(requests.post(f'{BASE}/service/submit', headers=headers(sc_token), json={
@@ -127,6 +130,58 @@ def test_full_workflow():
 
 
 @pytest.mark.e2e
+def test_pending_claim_workflow():
+    """
+    Pre-registration and claim workflow:
+      1  Register Manufacturer and Owner
+      2  Manufacturer pre-registers vehicle (no owner → pending)
+      3  Verify vehicle appears in fleet as pending
+      4  Owner claims vehicle
+      5  Verify vehicle is now active in fleet and owner's my-vehicles
+    """
+    mfr_email = f'mfr-{uid()}@e2e.test'
+    owner_email = f'owner-{uid()}@e2e.test'
+    vin = f'3HGBH41JXM{uid("P")}'[:17].upper()
+
+    mfr_token = check(requests.post(f'{BASE}/auth/register', json={
+        'email': mfr_email, 'password': E2E_PASSWORD,
+        'role': 'MANUFACTURER', 'name': 'E2E MFR',
+    }), 'reg mfr')['access_token']
+
+    owner_token = check(requests.post(f'{BASE}/auth/register', json={
+        'email': owner_email, 'password': E2E_PASSWORD,
+        'role': 'OWNER', 'name': 'E2E Owner',
+    }), 'reg owner')['access_token']
+
+    # Pre-register — no owner_email
+    reg = check(requests.post(f'{BASE}/vehicle/register', headers=headers(mfr_token), json={
+        'vin': vin, 'warranty_years': 3, 'make': 'Toyota', 'model': 'Corolla', 'year': 2023,
+    }), 'pre-register')
+    assert reg['registration_status'] == 'pending'
+    assert reg['owner'] is None
+
+    fleet = check(requests.get(f'{BASE}/vehicle/fleet', headers=headers(mfr_token)), 'fleet')
+    pending_vins = [v['vin'] for v in fleet['vehicles'] if v['registration_status'] == 'pending']
+    assert vin in pending_vins
+
+    # Owner claims the vehicle
+    claim = check(requests.post(f'{BASE}/vehicle/claim', headers=headers(owner_token), json={
+        'vin': vin,
+    }), 'claim vehicle')
+    assert claim['vin'] == vin
+
+    # Verify active in fleet
+    fleet2 = check(requests.get(f'{BASE}/vehicle/fleet', headers=headers(mfr_token)), 'fleet after claim')
+    match = next(v for v in fleet2['vehicles'] if v['vin'] == vin)
+    assert match['registration_status'] == 'active'
+
+    # Verify in owner's my-vehicles
+    my_v = check(requests.get(f'{BASE}/vehicle/my-vehicles', headers=headers(owner_token)),
+                 'my-vehicles')
+    assert any(v['vin'] == vin for v in my_v['vehicles'])
+
+
+@pytest.mark.e2e
 def test_dispute_workflow():
     """
     Dispute resolution workflow:
@@ -143,16 +198,16 @@ def test_dispute_workflow():
     vin = f'2HGBH41JXM{uid("D")}'[:17].upper()
 
     mfr_token = check(requests.post(f'{BASE}/auth/register', json={
-        'email': mfr_email, 'password': 'e2etest', 'role': 'MANUFACTURER', 'name': 'MFR',
-    }), 'reg mfr')['token']
+        'email': mfr_email, 'password': E2E_PASSWORD, 'role': 'MANUFACTURER', 'name': 'MFR',
+    }), 'reg mfr')['access_token']
 
     sc_token = check(requests.post(f'{BASE}/auth/register', json={
-        'email': sc_email, 'password': 'e2etest', 'role': 'SERVICE_CENTER', 'name': 'SC',
-    }), 'reg sc')['token']
+        'email': sc_email, 'password': E2E_PASSWORD, 'role': 'SERVICE_CENTER', 'name': 'SC',
+    }), 'reg sc')['access_token']
 
     owner_token = check(requests.post(f'{BASE}/auth/register', json={
-        'email': owner_email, 'password': 'e2etest', 'role': 'OWNER', 'name': 'Owner',
-    }), 'reg owner')['token']
+        'email': owner_email, 'password': E2E_PASSWORD, 'role': 'OWNER', 'name': 'Owner',
+    }), 'reg owner')['access_token']
 
     check(requests.post(f'{BASE}/vehicle/register', headers=headers(mfr_token), json={
         'vin': vin, 'owner_email': owner_email,
