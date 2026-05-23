@@ -1,6 +1,7 @@
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 import bcrypt
+import secrets
 
 db = SQLAlchemy()
 
@@ -17,6 +18,10 @@ class User(db.Model):
     phone = db.Column(db.String(20))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    # Account lockout
+    failed_login_attempts = db.Column(db.Integer, default=0, nullable=False)
+    locked_until = db.Column(db.DateTime, nullable=True)
+
     def set_password(self, password: str):
         self.password_hash = bcrypt.hashpw(
             password.encode('utf-8'), bcrypt.gensalt()
@@ -24,6 +29,11 @@ class User(db.Model):
 
     def check_password(self, password: str) -> bool:
         return bcrypt.checkpw(password.encode('utf-8'), self.password_hash.encode('utf-8'))
+
+    def is_locked(self) -> bool:
+        if self.locked_until and self.locked_until > datetime.utcnow():
+            return True
+        return False
 
     def to_dict(self) -> dict:
         return {
@@ -33,6 +43,43 @@ class User(db.Model):
             'name': self.name,
             'blockchain_address': self.blockchain_address
         }
+
+
+class RefreshToken(db.Model):
+    __tablename__ = 'refresh_tokens'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    token_hash = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    revoked = db.Column(db.Boolean, default=False, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship('User', backref=db.backref('refresh_tokens', lazy=True, cascade='all, delete-orphan'))
+
+    @staticmethod
+    def generate() -> str:
+        return secrets.token_urlsafe(48)
+
+    def is_valid(self) -> bool:
+        return not self.revoked and self.expires_at > datetime.utcnow()
+
+
+class DeviceToken(db.Model):
+    __tablename__ = 'device_tokens'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    token = db.Column(db.String(512), nullable=False)
+    platform = db.Column(db.String(10), nullable=False)  # 'ios' | 'android'
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = db.relationship('User', backref=db.backref('device_tokens', lazy=True, cascade='all, delete-orphan'))
+
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'platform', name='uq_device_user_platform'),
+    )
 
 
 class ServiceMetadata(db.Model):
