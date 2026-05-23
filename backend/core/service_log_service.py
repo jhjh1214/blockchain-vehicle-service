@@ -30,7 +30,8 @@ def submit_service(vin: str, service_type: str, service_date: str, mileage: int,
         parts_replaced=parts_replaced,
         technician_name=technician_name,
         service_notes=service_notes,
-        photos=photos or []
+        photos=photos or [],
+        service_center_address=from_address
     )
 
     result = service_log.submit_service(vin, metadata_hash, from_address)

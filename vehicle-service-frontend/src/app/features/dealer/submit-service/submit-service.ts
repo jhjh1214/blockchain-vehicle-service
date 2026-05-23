@@ -36,7 +36,7 @@ export class SubmitServiceComponent implements OnInit {
     private serviceService: ServiceService
   ) {
     this.serviceForm = this.fb.group({
-      vin: ['', [Validators.required, Validators.minLength(17), Validators.maxLength(17)]],
+      vin: ['', [Validators.required, Validators.pattern(/^[A-HJ-NPR-Z0-9]{17}$/i)]],
       service_type: ['', Validators.required],
       service_date: ['', Validators.required],
       mileage: ['', [Validators.required, Validators.min(0)]],

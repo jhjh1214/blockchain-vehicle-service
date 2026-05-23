@@ -44,7 +44,7 @@ export class DisputeResolutionComponent {
 
   constructor(private fb: FormBuilder, private serviceService: ServiceService) {
     this.searchForm = this.fb.group({
-      vin: ['', [Validators.required, Validators.minLength(17), Validators.maxLength(17)]]
+      vin: ['', [Validators.required, Validators.pattern(/^[A-HJ-NPR-Z0-9]{17}$/i)]]
     });
     this.resolveForm = this.fb.group({
       resolution_notes: ['', Validators.required]

@@ -164,7 +164,7 @@
                 <span class="sc-status-badge" [class]="'sc-status-' + sc.status">
                   {{ statusLabel(sc.status) }}
                 </span>
-                @if (sc.eth_balance !== null) {
+                @if (sc.eth_balance != null) {
                   <span class="sc-eth">{{ sc.eth_balance!.toFixed(3) }} ETH</span>
                 }
               </div>

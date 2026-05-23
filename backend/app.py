@@ -15,6 +15,18 @@ def create_app():
 
     with app.app_context():
         db.create_all()
+        # Migrate: add service_center_address to service_metadata if absent
+        from sqlalchemy import inspect, text
+        try:
+            cols = [c['name'] for c in inspect(db.engine).get_columns('service_metadata')]
+            if 'service_center_address' not in cols:
+                with db.engine.connect() as conn:
+                    conn.execute(text(
+                        "ALTER TABLE service_metadata ADD COLUMN service_center_address VARCHAR(42)"
+                    ))
+                    conn.commit()
+        except Exception:
+            pass
 
     CORS(app, resources={
         r'/api/*': {

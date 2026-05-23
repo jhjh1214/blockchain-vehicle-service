@@ -99,6 +99,7 @@ class ServiceMetadata(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     vin = db.Column(db.String(17), nullable=False)
     metadata_hash = db.Column(db.String(66), nullable=False)
+    service_center_address = db.Column(db.String(42), nullable=True, index=True)
     service_type = db.Column(db.String(100))
     service_date = db.Column(db.DateTime)
     mileage = db.Column(db.Integer)

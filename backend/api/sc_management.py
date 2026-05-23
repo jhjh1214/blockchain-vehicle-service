@@ -116,7 +116,9 @@ def fund_service_center(sc_id):
 def get_sc_stats():
     """Stats for the logged-in service center."""
     addr = request.user.get('blockchain_address', '')
-    services_submitted = ServiceMetadata.query.count()
+    services_submitted = ServiceMetadata.query.filter_by(
+        service_center_address=addr
+    ).count() if addr else 0
 
     eth_balance = _fetch_eth_balance(addr) if addr else None
 
