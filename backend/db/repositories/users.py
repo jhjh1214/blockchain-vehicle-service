@@ -24,12 +24,43 @@ def find_all_by_role(role: str) -> list:
 
 
 def create(email: str, password: str, role: str, name: str, phone: str,
-           blockchain_address: str) -> User:
-    user = User(email=email, role=role, blockchain_address=blockchain_address,
-                name=name, phone=phone or '')
+           blockchain_address: str, city: str = '', state: str = '') -> User:
+    # SCs start as pending until a manufacturer activates them
+    status = 'pending' if role == 'SERVICE_CENTER' else 'active'
+    user = User(
+        email=email, role=role, blockchain_address=blockchain_address,
+        name=name, phone=phone or '', city=city or '', state=state or '',
+        status=status,
+    )
     user.set_password(password)
     db.session.add(user)
     db.session.commit()
+    return user
+
+
+def find_service_centers(city: str = '', state: str = '', status: str = '',
+                         search: str = '') -> list:
+    q = User.query.filter_by(role='SERVICE_CENTER')
+    if city:
+        q = q.filter(User.city.ilike(f'%{city}%'))
+    if state:
+        q = q.filter(User.state.ilike(f'%{state}%'))
+    if status:
+        q = q.filter_by(status=status)
+    if search:
+        term = f'%{search}%'
+        q = q.filter(
+            (User.name.ilike(term)) | (User.email.ilike(term)) |
+            (User.city.ilike(term)) | (User.state.ilike(term))
+        )
+    return q.order_by(User.created_at.desc()).all()
+
+
+def update_status(user_id: int, status: str) -> User | None:
+    user = db.session.get(User, user_id)
+    if user and user.role == 'SERVICE_CENTER':
+        user.status = status
+        db.session.commit()
     return user
 
 

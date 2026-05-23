@@ -66,10 +66,13 @@ def generate_access_token(user) -> str:
     return jwt.encode(payload, Config.JWT_SECRET_KEY, algorithm='HS256')
 
 
-def register_user(email: str, password: str, role: str, name: str, phone: str):
+def register_user(email: str, password: str, role: str, name: str, phone: str,
+                  city: str = '', state: str = ''):
     email = _sanitize(email, 255).lower()
     name  = _sanitize(name,  255)
     phone = _sanitize(phone, 20)
+    city  = _sanitize(city,  100)
+    state = _sanitize(state, 100)
 
     if not email or not re.match(r'^[^\s@]+@[^\s@]+\.[^\s@]+$', email):
         raise ValueError('Invalid email address')
@@ -104,7 +107,8 @@ def register_user(email: str, password: str, role: str, name: str, phone: str):
 
     user = user_repo.create(
         email=email, password=password, role=role,
-        name=name, phone=phone, blockchain_address=account['address']
+        name=name, phone=phone, blockchain_address=account['address'],
+        city=city, state=state,
     )
     access_token  = generate_access_token(user)
     refresh_token = user_repo.create_refresh_token(user.id)

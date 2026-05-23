@@ -18,6 +18,12 @@ class User(db.Model):
     phone = db.Column(db.String(20))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    # Service center profile
+    city   = db.Column(db.String(100))
+    state  = db.Column(db.String(100))
+    # active | pending | suspended  (manufacturers/owners always active)
+    status = db.Column(db.String(20), default='active', nullable=False)
+
     # Account lockout
     failed_login_attempts = db.Column(db.Integer, default=0, nullable=False)
     locked_until = db.Column(db.DateTime, nullable=True)
@@ -41,7 +47,12 @@ class User(db.Model):
             'email': self.email,
             'role': self.role,
             'name': self.name,
-            'blockchain_address': self.blockchain_address
+            'phone': self.phone,
+            'city': self.city,
+            'state': self.state,
+            'status': self.status,
+            'blockchain_address': self.blockchain_address,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
         }
 
 

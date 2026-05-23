@@ -21,7 +21,9 @@ def register():
             password=data['password'],
             role=data['role'],
             name=name,
-            phone=data.get('phone', '')
+            phone=data.get('phone', ''),
+            city=data.get('city', ''),
+            state=data.get('state', ''),
         )
         return jsonify({
             'message': 'User registered successfully',
