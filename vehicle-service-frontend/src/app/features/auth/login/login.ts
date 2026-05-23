@@ -15,6 +15,8 @@ export class LoginComponent implements OnInit {
   loginForm: FormGroup;
   loading = false;
   error = '';
+  lockoutMessage = '';
+  showPassword = false;
   returnUrl = '/';
 
   constructor(
@@ -23,10 +25,8 @@ export class LoginComponent implements OnInit {
     private router: Router,
     private authService: AuthService
   ) {
-    // Check if already logged in
     const currentUser = this.authService.currentUserValue;
     if (currentUser) {
-      // Redirect to appropriate dashboard
       if (currentUser.role === 'MANUFACTURER') {
         this.router.navigate(['/manufacturer/dashboard']);
       } else if (currentUser.role === 'SERVICE_CENTER') {
@@ -35,7 +35,7 @@ export class LoginComponent implements OnInit {
     }
 
     this.loginForm = this.formBuilder.group({
-      email: ['', [Validators.required, Validators.email]],
+      email:    ['', [Validators.required, Validators.email]],
       password: ['', Validators.required]
     });
   }
@@ -48,30 +48,33 @@ export class LoginComponent implements OnInit {
 
   onSubmit(): void {
     if (this.loginForm.invalid) {
+      this.loginForm.markAllAsTouched();
       return;
     }
 
     this.loading = true;
     this.error = '';
+    this.lockoutMessage = '';
 
     this.authService.login(this.loginForm.value).subscribe({
       next: (response) => {
         const user = response.user;
-        
-        // Route based on role (only MANUFACTURER or SERVICE_CENTER)
         if (user.role === 'MANUFACTURER') {
           this.router.navigate(['/manufacturer/dashboard']);
         } else if (user.role === 'SERVICE_CENTER') {
           this.router.navigate(['/dealer/dashboard']);
         } else {
-          // If somehow an OWNER tries to log in via web
-          this.error = 'Vehicle owners should use the mobile app. Please download the app from your app store.';
+          this.error = 'Vehicle owners should use the mobile app.';
           this.authService.logout();
           this.loading = false;
         }
       },
-      error: (error) => {
-        this.error = error.error?.error || 'Login failed. Please check your credentials.';
+      error: (err) => {
+        if (err.status === 423) {
+          this.lockoutMessage = err.error?.error || 'Account temporarily locked. Please try again in 15 minutes.';
+        } else {
+          this.error = err.error?.error || 'Login failed. Please check your credentials.';
+        }
         this.loading = false;
       }
     });

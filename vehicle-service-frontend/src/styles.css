@@ -1720,3 +1720,158 @@ tbody tr:hover {
     justify-content: center;
   }
 }
+
+/* ─── Spacing utilities ─── */
+.mb-8  { margin-bottom: 8px; }
+.mb-12 { margin-bottom: 12px; }
+
+/* ─── Password field with eye toggle ─── */
+.input-password-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-password-wrap .form-control {
+  padding-right: 44px;
+}
+
+.btn-eye {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: color var(--transition-fast);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+
+.btn-eye:hover {
+  color: var(--text-secondary);
+}
+
+.btn-eye svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+/* ─── Password strength bar ─── */
+.password-strength {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.strength-bar {
+  flex: 1;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.strength-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+.strength-fill.strength-1 { width: 20%; background: #ef4444; }
+.strength-fill.strength-2 { width: 40%; background: #f97316; }
+.strength-fill.strength-3 { width: 60%; background: #eab308; }
+.strength-fill.strength-4 { width: 80%; background: #84cc16; }
+.strength-fill.strength-5 { width: 100%; background: #22c55e; }
+
+.strength-text {
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.strength-text.strength-1 { color: #ef4444; }
+.strength-text.strength-2 { color: #f97316; }
+.strength-text.strength-3 { color: #eab308; }
+.strength-text.strength-4 { color: #84cc16; }
+.strength-text.strength-5 { color: #22c55e; }
+
+/* ─── Password requirements checklist ─── */
+.password-requirements {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.req-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--text-muted);
+  transition: color var(--transition-fast);
+}
+
+.req-item svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.req-item.req-met {
+  color: #22c55e;
+}
+
+.req-item.req-met svg {
+  color: #22c55e;
+}
+
+/* dark mode overrides for new elements */
+[data-theme="dark"] .password-requirements {
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+[data-theme="dark"] .strength-bar {
+  background: var(--border);
+}
+
+/* ─── Alert variants ─── */
+.alert-warning {
+  background: rgba(234, 179, 8, 0.1);
+  border: 1px solid rgba(234, 179, 8, 0.3);
+  color: #854d0e;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.alert-warning svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+[data-theme="dark"] .alert-warning {
+  background: rgba(234, 179, 8, 0.12);
+  border-color: rgba(234, 179, 8, 0.25);
+  color: #fde68a;
+}
