@@ -128,4 +128,10 @@ class AuthProvider extends ChangeNotifier {
     _error = null;
     notifyListeners();
   }
+
+  // ignore: invalid_use_of_visible_for_testing_member
+  void setUserForTest(Map<String, dynamic> json) {
+    _user = User.fromJson(json);
+    notifyListeners();
+  }
 }

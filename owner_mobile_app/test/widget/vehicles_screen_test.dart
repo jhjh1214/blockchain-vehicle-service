@@ -1,0 +1,117 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:mockito/mockito.dart';
+import 'package:provider/provider.dart';
+import 'package:owner_mobile_app/core/models/vehicle.dart';
+import 'package:owner_mobile_app/features/vehicles/vehicles_provider.dart';
+import 'package:owner_mobile_app/features/vehicles/vehicles_screen.dart';
+import 'package:owner_mobile_app/shared/theme/app_theme.dart';
+
+class MockVehiclesProvider extends Mock implements VehiclesProvider {
+  @override
+  List<Vehicle> get vehicles => [];
+  @override
+  bool get loading => false;
+  @override
+  String? get error => null;
+  @override
+  Future<void> loadVehicles() async {}
+}
+
+Widget _buildTestApp(VehiclesProvider provider) =>
+    ChangeNotifierProvider<VehiclesProvider>.value(
+      value: provider,
+      child: MaterialApp.router(
+        theme: AppTheme.light,
+        routerConfig: GoRouter(
+          routes: [
+            GoRoute(path: '/home', builder: (_, __) => const VehiclesScreen()),
+            GoRoute(path: '/vehicles/claim', builder: (_, __) => const Scaffold(body: Text('Claim'))),
+            GoRoute(path: '/vehicles/:vin', builder: (_, state) => Scaffold(body: Text('Detail ${state.pathParameters['vin']}'))),
+          ],
+          initialLocation: '/home',
+        ),
+      ),
+    );
+
+Vehicle _makeVehicle({bool warrantyValid = true}) => Vehicle.fromJson({
+      'vin': '1HGBH41JXMN109186',
+      'make': 'Honda',
+      'model': 'Civic',
+      'year': 2022,
+      'warranty_valid': warrantyValid,
+    });
+
+void main() {
+  group('VehiclesScreen', () {
+    testWidgets('shows empty state when no vehicles', (tester) async {
+      await tester.pumpWidget(_buildTestApp(MockVehiclesProvider()));
+      await tester.pumpAndSettle();
+
+      expect(find.text('No vehicles yet'), findsOneWidget);
+      expect(find.text('Claim your vehicle using its VIN number'), findsOneWidget);
+    });
+
+    testWidgets('shows loading indicator while loading', (tester) async {
+      final p = MockVehiclesProvider();
+      when(p.loading).thenReturn(true);
+
+      await tester.pumpWidget(_buildTestApp(p));
+      await tester.pump();
+
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    });
+
+    testWidgets('shows error view on error', (tester) async {
+      final p = MockVehiclesProvider();
+      when(p.error).thenReturn('Failed to load vehicles');
+
+      await tester.pumpWidget(_buildTestApp(p));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Failed to load vehicles'), findsOneWidget);
+      expect(find.text('Retry'), findsOneWidget);
+    });
+
+    testWidgets('shows vehicle list when vehicles present', (tester) async {
+      final p = MockVehiclesProvider();
+      when(p.vehicles).thenReturn([_makeVehicle()]);
+
+      await tester.pumpWidget(_buildTestApp(p));
+      await tester.pumpAndSettle();
+
+      expect(find.text('2022 Honda Civic'), findsOneWidget);
+      expect(find.text('VIN: 1HGBH41JXMN109186'), findsOneWidget);
+    });
+
+    testWidgets('shows warranty icon for active warranty', (tester) async {
+      final p = MockVehiclesProvider();
+      when(p.vehicles).thenReturn([_makeVehicle(warrantyValid: true)]);
+
+      await tester.pumpWidget(_buildTestApp(p));
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.verified), findsOneWidget);
+      expect(find.text('Warranty'), findsOneWidget);
+    });
+
+    testWidgets('shows no warranty icon for expired warranty', (tester) async {
+      final p = MockVehiclesProvider();
+      when(p.vehicles).thenReturn([_makeVehicle(warrantyValid: false)]);
+
+      await tester.pumpWidget(_buildTestApp(p));
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.shield_outlined), findsOneWidget);
+      expect(find.text('No warranty'), findsOneWidget);
+    });
+
+    testWidgets('Claim Vehicle FAB is present', (tester) async {
+      await tester.pumpWidget(_buildTestApp(MockVehiclesProvider()));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Claim Vehicle'), findsWidgets);
+    });
+  });
+}

@@ -5,7 +5,7 @@ const String _baseUrl = 'http://10.0.2.2:5000';
 
 class ApiClient {
   static ApiClient? _instance;
-  late final Dio _dio;
+  late Dio _dio;
 
   ApiClient._() {
     _dio = Dio(BaseOptions(
@@ -45,6 +45,9 @@ class ApiClient {
   }
 
   Dio get dio => _dio;
+
+  // ignore: invalid_use_of_visible_for_testing_member
+  void injectDio(Dio dio) => _dio = dio;
 
   Future<bool> _refreshToken() async {
     final refresh = await TokenStorage.getRefreshToken();
