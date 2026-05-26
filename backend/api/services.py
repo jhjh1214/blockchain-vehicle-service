@@ -21,6 +21,13 @@ def submit_service():
     if not service_type or not service_date:
         return jsonify({'error': 'Missing required fields: service_type, service_date'}), 400
 
+    sc_brand = request.user.get('brand', '')
+    if sc_brand:
+        from db.repositories import vehicles as vehicle_repo
+        mapping = vehicle_repo.find_by_vin(vin)
+        if mapping and mapping.make and mapping.make.lower() != sc_brand.lower():
+            return jsonify({'error': f"Brand mismatch: your service centre is authorised for '{sc_brand}' vehicles only"}), 403
+
     try:
         result = service_log_service.submit_service(
             vin=vin,
@@ -94,6 +101,12 @@ def resolve_dispute():
         return jsonify({'error': 'decision must be 1 (approve) or 2 (reject)'}), 400
     if decision_int not in (1, 2):
         return jsonify({'error': 'decision must be 1 (approve) or 2 (reject)'}), 400
+
+    from db.repositories import vehicles as vehicle_repo
+    mapping = vehicle_repo.find_by_vin(vin)
+    if mapping and mapping.registered_by and mapping.registered_by != request.user['blockchain_address']:
+        return jsonify({'error': 'You can only resolve disputes for vehicles your brand registered'}), 403
+
     try:
         result = service_log_service.resolve_dispute(
             vin=vin,

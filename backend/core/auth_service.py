@@ -59,6 +59,7 @@ def generate_access_token(user) -> str:
         'user_id': user.id,
         'email': user.email,
         'role': user.role,
+        'brand': user.brand or '',
         'blockchain_address': user.blockchain_address,
         'exp': datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_MINUTES),
         'type': 'access',
@@ -67,12 +68,13 @@ def generate_access_token(user) -> str:
 
 
 def register_user(email: str, password: str, role: str, name: str, phone: str,
-                  city: str = '', state: str = ''):
+                  city: str = '', state: str = '', brand: str = ''):
     email = _sanitize(email, 255).lower()
     name  = _sanitize(name,  255)
     phone = _sanitize(phone, 20)
     city  = _sanitize(city,  100)
     state = _sanitize(state, 100)
+    brand = _sanitize(brand, 100)
 
     if not email or not re.match(r'^[^\s@]+@[^\s@]+\.[^\s@]+$', email):
         raise ValueError('Invalid email address')
@@ -83,6 +85,9 @@ def register_user(email: str, password: str, role: str, name: str, phone: str,
     valid_roles = ['MANUFACTURER', 'SERVICE_CENTER', 'OWNER']
     if role not in valid_roles:
         raise ValueError(f'Invalid role. Must be one of: {", ".join(valid_roles)}')
+
+    if role in ('MANUFACTURER', 'SERVICE_CENTER') and not brand:
+        raise ValueError('brand is required for MANUFACTURER and SERVICE_CENTER accounts')
 
     validate_password(password)
 
@@ -108,7 +113,7 @@ def register_user(email: str, password: str, role: str, name: str, phone: str,
     user = user_repo.create(
         email=email, password=password, role=role,
         name=name, phone=phone, blockchain_address=account['address'],
-        city=city, state=state,
+        city=city, state=state, brand=brand,
     )
     access_token  = generate_access_token(user)
     refresh_token = user_repo.create_refresh_token(user.id)

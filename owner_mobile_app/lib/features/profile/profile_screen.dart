@@ -189,7 +189,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   leading: const Icon(Icons.info_outlined),
                   title: const Text('Blockchain Address'),
                   subtitle: Text(
-                    '${user.blockchainAddress.substring(0, 10)}...${user.blockchainAddress.substring(user.blockchainAddress.length - 8)}',
+                    user.blockchainAddress.length > 18
+                        ? '${user.blockchainAddress.substring(0, 10)}...${user.blockchainAddress.substring(user.blockchainAddress.length - 8)}'
+                        : user.blockchainAddress.isEmpty
+                            ? 'Not assigned'
+                            : user.blockchainAddress,
                     style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
                   ),
                 ),

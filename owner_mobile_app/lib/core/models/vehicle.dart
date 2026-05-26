@@ -30,5 +30,5 @@ class Vehicle {
         warrantyValid: j['warranty_valid'] as bool? ?? false,
       );
 
-  String get displayName => '$year $make $model';
+  String get displayName => '${year != null ? '$year ' : ''}$make $model'.trim();
 }

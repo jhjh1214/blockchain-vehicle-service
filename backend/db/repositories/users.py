@@ -24,12 +24,14 @@ def find_all_by_role(role: str) -> list:
 
 
 def create(email: str, password: str, role: str, name: str, phone: str,
-           blockchain_address: str, city: str = '', state: str = '') -> User:
+           blockchain_address: str, city: str = '', state: str = '',
+           brand: str = '') -> User:
     # SCs start as pending until a manufacturer activates them
     status = 'pending' if role == 'SERVICE_CENTER' else 'active'
     user = User(
         email=email, role=role, blockchain_address=blockchain_address,
         name=name, phone=phone or '', city=city or '', state=state or '',
+        brand=brand or None,
         status=status,
     )
     user.set_password(password)
@@ -57,7 +59,8 @@ def find_service_centers(city: str = '', state: str = '', status: str = '',
 
 
 def update_profile(user_id: int, name: str = None, phone: str = None,
-                   city: str = None, state: str = None) -> User | None:
+                   city: str = None, state: str = None,
+                   brand: str = None) -> User | None:
     user = db.session.get(User, user_id)
     if not user:
         return None
@@ -65,6 +68,7 @@ def update_profile(user_id: int, name: str = None, phone: str = None,
     if phone is not None: user.phone = phone
     if city  is not None: user.city  = city
     if state is not None: user.state = state
+    if brand is not None: user.brand = brand or None
     db.session.commit()
     return user
 

@@ -112,9 +112,12 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen>
         const SizedBox(height: 12),
         _InfoCard(title: 'Ownership', items: {
           'Status': v.registrationStatus ?? '-',
-          'Owner Address': v.ownerAddress != null
-              ? '${v.ownerAddress!.substring(0, 8)}...${v.ownerAddress!.substring(v.ownerAddress!.length - 6)}'
-              : '-',
+          'Owner Address': () {
+                final addr = v.ownerAddress;
+                if (addr == null || addr.isEmpty) return '-';
+                if (addr.length <= 14) return addr;
+                return '${addr.substring(0, 8)}...${addr.substring(addr.length - 6)}';
+              }(),
         }),
         const SizedBox(height: 16),
         OutlinedButton.icon(
@@ -130,7 +133,7 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen>
     if (_warranty == null) {
       return const Center(child: Text('Could not load warranty info'));
     }
-    final isValid = _warranty!['is_valid'] as bool? ?? false;
+    final isValid = _warranty!['valid'] as bool? ?? false;
     final expiry = _warranty!['warranty_expiry'] as int? ?? 0;
     final expiryDate = expiry > 0
         ? DateFormat('dd MMM yyyy').format(

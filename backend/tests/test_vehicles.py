@@ -5,6 +5,9 @@ from conftest import register_and_login, auth
 VIN = '1HGCM82633A004352'
 VIN2 = '2HGCM82633A004352'
 
+HONDA_PAYLOAD = {'make': 'Honda', 'model': 'Civic', 'year': 2024, 'warranty_years': 3}
+TOYOTA_PAYLOAD = {'make': 'Toyota', 'model': 'Camry', 'year': 2024, 'warranty_years': 3}
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -51,7 +54,7 @@ class TestRegisterVehicleWithOwner:
     def test_register_requires_auth(self, client):
         r = client.post('/api/vehicle/register', json={
             'vin': VIN, 'owner_email': 'x@x.com',
-            'warranty_years': 1, 'make': 'BMW', 'model': 'X5', 'year': 2022,
+            'warranty_years': 1, 'make': 'Honda', 'model': 'Civic', 'year': 2022,
         })
         assert r.status_code == 401
 
@@ -64,7 +67,7 @@ class TestRegisterVehicleWithOwner:
         mfr_token, _ = register_and_login(client, 'MANUFACTURER')
         r = client.post('/api/vehicle/register', headers=auth(mfr_token), json={
             'vin': 'TOOSHORT',
-            'warranty_years': 1, 'make': 'X', 'model': 'Y', 'year': 2020,
+            'warranty_years': 1, 'make': 'Honda', 'model': 'Civic', 'year': 2020,
         })
         assert r.status_code in (400, 500)
 
@@ -73,9 +76,54 @@ class TestRegisterVehicleWithOwner:
         # VIN with forbidden char 'I'
         r = client.post('/api/vehicle/register', headers=auth(mfr_token), json={
             'vin': 'IIIIIIIIIIIIIIIIII',
-            'warranty_years': 1, 'make': 'X', 'model': 'Y', 'year': 2020,
+            'warranty_years': 1, 'make': 'Honda', 'model': 'Civic', 'year': 2020,
         })
         assert r.status_code in (400, 500)
+
+
+# ---------------------------------------------------------------------------
+# Brand enforcement
+# ---------------------------------------------------------------------------
+
+class TestBrandEnforcement:
+    def test_manufacturer_cannot_register_wrong_brand(self, client):
+        """Honda manufacturer cannot register a Toyota vehicle."""
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER', brand='Honda')
+        r = client.post('/api/vehicle/register', headers=auth(mfr_token), json={
+            'vin': VIN, 'warranty_years': 3, 'make': 'Toyota', 'model': 'Camry', 'year': 2024,
+        })
+        assert r.status_code == 403
+        assert 'brand' in r.get_json()['error'].lower()
+
+    def test_manufacturer_can_register_own_brand(self, client):
+        """Honda manufacturer can register a Honda vehicle (case-insensitive)."""
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER', brand='Honda')
+        r = client.post('/api/vehicle/register', headers=auth(mfr_token), json={
+            'vin': VIN, 'warranty_years': 3, 'make': 'honda', 'model': 'Civic', 'year': 2024,
+        })
+        assert r.status_code == 200
+
+    def test_manufacturer_fleet_isolated_from_other_brand(self, client):
+        """Manufacturer A can only see their own vehicles."""
+        mfr_a, _ = register_and_login(client, 'MANUFACTURER', brand='Honda')
+        mfr_b, _ = register_and_login(client, 'MANUFACTURER', brand='Toyota')
+
+        # A registers a Honda vehicle
+        client.post('/api/vehicle/register', headers=auth(mfr_a), json={
+            'vin': VIN, **HONDA_PAYLOAD,
+        })
+        # B registers a Toyota vehicle
+        client.post('/api/vehicle/register', headers=auth(mfr_b), json={
+            'vin': VIN2, **TOYOTA_PAYLOAD,
+        })
+
+        fleet_a = client.get('/api/vehicle/fleet', headers=auth(mfr_a)).get_json()['vehicles']
+        fleet_b = client.get('/api/vehicle/fleet', headers=auth(mfr_b)).get_json()['vehicles']
+
+        assert any(v['vin'] == VIN for v in fleet_a)
+        assert not any(v['vin'] == VIN2 for v in fleet_a)
+        assert any(v['vin'] == VIN2 for v in fleet_b)
+        assert not any(v['vin'] == VIN for v in fleet_b)
 
 
 # ---------------------------------------------------------------------------

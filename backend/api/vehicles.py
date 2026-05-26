@@ -27,6 +27,10 @@ def register_vehicle():
     except (TypeError, ValueError):
         return jsonify({'error': 'year must be an integer'}), 400
 
+    mfr_brand = request.user.get('brand', '')
+    if mfr_brand and make.lower() != mfr_brand.lower():
+        return jsonify({'error': f"Brand mismatch: your account is authorised for '{mfr_brand}' vehicles only"}), 403
+
     try:
         result = vehicle_service.register_vehicle(
             vin=vin,

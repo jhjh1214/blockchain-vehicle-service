@@ -7,19 +7,19 @@ VIN = '1HGCM82633A004352'
 SERVICE_DATE = time.strftime('%Y-%m-%dT%H:%M:%S')
 
 
-def _register_vehicle(client, mfr_token, owner_email):
+def _register_vehicle(client, mfr_token, owner_email, make='Honda'):
     client.post('/api/vehicle/register', headers=auth(mfr_token), json={
         'vin': VIN, 'owner_email': owner_email,
-        'warranty_years': 3, 'make': 'Honda', 'model': 'Civic', 'year': 2024,
+        'warranty_years': 3, 'make': make, 'model': 'Civic', 'year': 2024,
     })
 
 
 class TestSubmitService:
     def test_service_center_can_submit(self, client):
-        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER', brand='Honda')
         _, owner = register_and_login(client, 'OWNER')
-        sc_token, _ = register_and_login(client, 'SERVICE_CENTER')
-        _register_vehicle(client, mfr_token, owner['email'])
+        sc_token, _ = register_and_login(client, 'SERVICE_CENTER', brand='Honda')
+        _register_vehicle(client, mfr_token, owner['email'], make='Honda')
 
         r = client.post('/api/service/submit', headers=auth(sc_token), json={
             'vin': VIN,
@@ -33,6 +33,37 @@ class TestSubmitService:
         assert 'metadata_hash' in data
         assert data['metadata_hash'].startswith('0x')
         assert 'transaction' in data
+
+    def test_sc_cannot_submit_for_wrong_brand(self, client):
+        """Toyota SC cannot submit service for a Honda vehicle."""
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER', brand='Honda')
+        _, owner = register_and_login(client, 'OWNER')
+        toyota_sc_token, _ = register_and_login(client, 'SERVICE_CENTER', brand='Toyota')
+        _register_vehicle(client, mfr_token, owner['email'], make='Honda')
+
+        r = client.post('/api/service/submit', headers=auth(toyota_sc_token), json={
+            'vin': VIN,
+            'service_type': 'Oil Change',
+            'service_date': SERVICE_DATE,
+            'mileage': 15000,
+        })
+        assert r.status_code == 403
+        assert 'brand' in r.get_json()['error'].lower()
+
+    def test_sc_can_submit_case_insensitive_brand(self, client):
+        """Brand check is case-insensitive (HONDA == honda)."""
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER', brand='HONDA')
+        _, owner = register_and_login(client, 'OWNER')
+        sc_token, _ = register_and_login(client, 'SERVICE_CENTER', brand='honda')
+        _register_vehicle(client, mfr_token, owner['email'], make='Honda')
+
+        r = client.post('/api/service/submit', headers=auth(sc_token), json={
+            'vin': VIN,
+            'service_type': 'Tyre Rotation',
+            'service_date': SERVICE_DATE,
+            'mileage': 20000,
+        })
+        assert r.status_code == 200
 
     def test_non_service_center_cannot_submit(self, client):
         owner_token, _ = register_and_login(client, 'OWNER')
@@ -156,6 +187,29 @@ class TestResolveDispute:
             'vin': VIN, 'record_index': 0, 'decision': 1, 'resolution_notes': 'X',
         })
         assert r.status_code == 403
+
+    def test_different_manufacturer_cannot_resolve_dispute(self, client):
+        """Manufacturer B cannot resolve a dispute for a vehicle registered by manufacturer A."""
+        mfr_a, _ = register_and_login(client, 'MANUFACTURER', brand='Honda')
+        mfr_b, _ = register_and_login(client, 'MANUFACTURER', brand='Toyota')
+        _, owner = register_and_login(client, 'OWNER')
+        _register_vehicle(client, mfr_a, owner['email'], make='Honda')
+
+        r = client.post('/api/service/resolve-dispute', headers=auth(mfr_b), json={
+            'vin': VIN, 'record_index': 0, 'decision': 1, 'resolution_notes': 'Not mine',
+        })
+        assert r.status_code == 403
+
+    def test_registering_manufacturer_can_resolve_dispute(self, client):
+        """The manufacturer who registered the vehicle can resolve disputes."""
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER', brand='Honda')
+        _, owner = register_and_login(client, 'OWNER')
+        _register_vehicle(client, mfr_token, owner['email'], make='Honda')
+
+        r = client.post('/api/service/resolve-dispute', headers=auth(mfr_token), json={
+            'vin': VIN, 'record_index': 0, 'decision': 1, 'resolution_notes': 'Verified',
+        })
+        assert r.status_code == 200
 
 
 class TestOwnerServiceEndpoints:

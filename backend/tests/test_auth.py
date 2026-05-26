@@ -10,12 +10,14 @@ class TestRegister:
             'password': STRONG_PASSWORD,
             'role': 'MANUFACTURER',
             'name': 'Honda Corp',
+            'brand': 'Honda',
         })
         assert r.status_code == 200
         data = r.get_json()
         assert 'access_token' in data
         assert data['user']['role'] == 'MANUFACTURER'
         assert data['user']['email'] == 'mfr@test.com'
+        assert data['user']['brand'] == 'Honda'
 
     def test_register_service_center(self, client):
         r = client.post('/api/auth/register', json={
@@ -23,9 +25,40 @@ class TestRegister:
             'password': STRONG_PASSWORD,
             'role': 'SERVICE_CENTER',
             'name': 'Best Auto',
+            'brand': 'Honda',
         })
         assert r.status_code == 200
         assert r.get_json()['user']['role'] == 'SERVICE_CENTER'
+        assert r.get_json()['user']['brand'] == 'Honda'
+
+    def test_register_manufacturer_without_brand_fails(self, client):
+        r = client.post('/api/auth/register', json={
+            'email': 'nobrand@test.com',
+            'password': STRONG_PASSWORD,
+            'role': 'MANUFACTURER',
+            'name': 'No Brand Corp',
+        })
+        assert r.status_code == 400
+        assert 'brand' in r.get_json()['error'].lower()
+
+    def test_register_sc_without_brand_fails(self, client):
+        r = client.post('/api/auth/register', json={
+            'email': 'nobrandsc@test.com',
+            'password': STRONG_PASSWORD,
+            'role': 'SERVICE_CENTER',
+            'name': 'No Brand SC',
+        })
+        assert r.status_code == 400
+        assert 'brand' in r.get_json()['error'].lower()
+
+    def test_register_owner_without_brand_succeeds(self, client):
+        r = client.post('/api/auth/register', json={
+            'email': 'owner@nobrand.com',
+            'password': STRONG_PASSWORD,
+            'role': 'OWNER',
+            'name': 'Plain Owner',
+        })
+        assert r.status_code == 200
 
     def test_register_owner(self, client):
         r = client.post('/api/auth/register', json={

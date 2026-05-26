@@ -138,16 +138,28 @@ def clean_db(app):
 # ---------------------------------------------------------------------------
 STRONG_PASSWORD = 'TestPass1!'
 
+# Default brand used for MANUFACTURER / SERVICE_CENTER in tests
+DEFAULT_BRAND = 'Honda'
 
-def register_and_login(client, role, email=None, password=STRONG_PASSWORD, name='Test User'):
-    """Register a user and return (access_token, user_dict)."""
+
+def register_and_login(client, role, email=None, password=STRONG_PASSWORD,
+                       name='Test User', brand=None):
+    """Register a user and return (access_token, user_dict).
+
+    brand defaults to DEFAULT_BRAND for MANUFACTURER and SERVICE_CENTER roles.
+    """
     email = email or f'{role.lower()}-{next(_addr_counter)}@test.com'
-    r = client.post('/api/auth/register', json={
+    if brand is None and role in ('MANUFACTURER', 'SERVICE_CENTER'):
+        brand = DEFAULT_BRAND
+    payload = {
         'email': email,
         'password': password,
         'role': role,
         'name': name,
-    })
+    }
+    if brand is not None:
+        payload['brand'] = brand
+    r = client.post('/api/auth/register', json=payload)
     assert r.status_code == 200, f'Register failed: {r.get_json()}'
     data = r.get_json()
     return data['access_token'], data['user']

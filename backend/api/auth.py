@@ -24,6 +24,7 @@ def register():
             phone=data.get('phone', ''),
             city=data.get('city', ''),
             state=data.get('state', ''),
+            brand=data.get('brand', ''),
         )
         return jsonify({
             'message': 'User registered successfully',
@@ -109,8 +110,9 @@ def update_profile():
     phone = sanitize(data['phone'],  20) if 'phone' in data else None
     city  = sanitize(data['city'],  100) if 'city'  in data else None
     state = sanitize(data['state'], 100) if 'state' in data else None
+    brand = sanitize(data['brand'], 100) if 'brand' in data else None
     user = user_repo.update_profile(request.user['user_id'], name=name, phone=phone,
-                                    city=city, state=state)
+                                    city=city, state=state, brand=brand)
     if not user:
         return jsonify({'error': 'User not found'}), 404
     return jsonify({'message': 'Profile updated', 'user': user.to_dict()}), 200

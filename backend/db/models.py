@@ -18,6 +18,9 @@ class User(db.Model):
     phone = db.Column(db.String(20))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    # Brand the account is authorised for (required for MANUFACTURER / SERVICE_CENTER)
+    brand  = db.Column(db.String(100), nullable=True)
+
     # Service center profile
     city   = db.Column(db.String(100))
     state  = db.Column(db.String(100))
@@ -50,6 +53,7 @@ class User(db.Model):
             'phone': self.phone,
             'city': self.city,
             'state': self.state,
+            'brand': self.brand,
             'status': self.status,
             'blockchain_address': self.blockchain_address,
             'created_at': self.created_at.isoformat() if self.created_at else None,
