@@ -1,6 +1,6 @@
 # FYP2 Codebase Audit — Blockchain Vehicle Service & Warranty Management System
 
-**Audit date:** 2026-05-28 (updated after Group A–G improvements)  
+**Audit date:** 2026-05-28 (updated after Group A–H improvements)  
 **Audited against:** FYP1 implementation checklist (fyp2_audit_checklist.html)  
 **Codebase branch:** `main`
 
@@ -74,7 +74,7 @@ The following features were **not in the FYP1 plan** but are now implemented —
 | 10 | `getServiceHistory(bytes32 vin)` filtering verified | ✅ Met | Named `getFinalizedServices()` — same semantics |
 | 11 | `resolveDispute(vin, recordIndex, decision, resolutionNotes)` — MANUFACTURER_ADMIN_ROLE | ✅ Met | Uses `DEFAULT_ADMIN_ROLE` (see item 31); resolutionNotes stored as `bytes32` hash |
 | 12 | ServiceRecord struct: `vin, metadataHash, timestamp, technician, serviceCenter, verified, disputed` | ⚠️ Partial | Has all fields except `technician`. Technician stored off-chain in `ServiceMetadata` SQLite table (gas saving decision) |
-| 13 | DisputeResolution struct + `DisputeDecision` enum (APPROVE/REJECT/MODIFY) | ✅ Exceeded | Struct fully implemented. Enum has `PENDING/APPROVE/REJECT/MODIFY`. MODIFY keeps record in disputed state pending SC resubmission. Backend + Angular UI wired to decision=3 |
+| 13 | DisputeResolution struct + `DisputeDecision` enum (APPROVE/REJECT/MODIFY) | ✅ Exceeded | Struct fully implemented. Enum has `PENDING/APPROVE/REJECT/MODIFY`. MODIFY keeps record in disputed state pending SC resubmission. Backend (decision=3), Angular UI, and test suite all wired end-to-end |
 | 14 | `event ServiceSubmitted(bytes32 vin, bytes32 metadataHash, uint256 timestamp, address serviceCenter)` | ✅ Met | Exact match |
 | 15 | `event ServiceVerified(bytes32 vin, bytes32 metadataHash, address owner)` | ✅ Exceeded | Emits extra `recordIndex` parameter |
 | 16 | `event ServiceDisputed(bytes32 vin, bytes32 metadataHash, address owner, string reason)` | ✅ Exceeded | Emits extra `recordIndex` parameter |
@@ -160,7 +160,7 @@ The following features were **not in the FYP1 plan** but are now implemented —
 | 11 | IPFS hash storage for large files | ❌ Not Met | Files stored locally in `uploads/`. No IPFS integration |
 | 12 | Pending record timeout logic (30/60/90-day reminders + auto-finalize) | ❌ Not Met | No scheduled tasks or cron jobs. No timeout logic in contracts or backend |
 | 13 | Service centre dispute rate tracking (flag >10%) | ✅ Met | `disputed` column added to `ServiceMetadata`. Set `True` on owner dispute. `/api/sc/my-stats` returns `disputed_count`, `dispute_rate`, `flagged` (rate > 10%). Manufacturer dashboard bar chart colours flagged SCs red |
-| 14 | Manufacturer dashboard cache | ⚠️ Partial | Stats computed on-demand from blockchain. No explicit cache layer (Redis etc.) |
+| 14 | Manufacturer dashboard cache | ⚠️ Partial | Stats computed on-demand from SQLite + blockchain. No explicit cache layer (Redis etc.) |
 | 15 | Biometric auth mapping to email/password account | ❌ Not Met | Not implemented anywhere in the stack |
 | 16 | Push notification system for mobile (pending verifications) | ⚠️ Partial | Infrastructure complete: `POST /api/auth/device-token`, `DeviceToken` model, platform field. **No FCM/APNs delivery** |
 | 17 | Off-chain claim data + photo storage + `claimDetailsHash` generation | ✅ Met | `WarrantyClaimMetadata` table + `compute_metadata_hash()` |
@@ -249,7 +249,7 @@ The following features were **not in the FYP1 plan** but are now implemented —
 | 4 | Smart contract unit tests: warranty validity calculations | ⚠️ Partial | Expiry-based validity tested. **No mileage or service-compliance tests** (those are enforced in backend, not on-chain) |
 | 5 | Smart contract unit tests: edge cases (timeouts, duplicate submissions, invalid VINs) | ⚠️ Partial | 48 tests covering all revert paths: transfer non-owner/zero-address, submit on non-existent VIN, out-of-range index, double-dispute, non-admin resolve. **No timeout tests** (feature unimplemented) |
 | 6 | >90% smart contract line coverage | ✅ Met | `solidity-coverage` via `npx hardhat coverage`: **100% statements, 100% lines, 85.71% branches** across VehicleRegistry, ServiceLog, WarrantyTracker |
-| 7 | Integration / end-to-end tests: register → submit → verify → view history | ✅ Met | `backend/tests/test_integration.py` covers the full flow. Backend suite: 142 tests all passing |
+| 7 | Integration / end-to-end tests: register → submit → verify → view history | ✅ Met | `backend/tests/test_integration.py` covers the full flow. Backend suite: 168 tests all passing |
 | 8 | Security analysis with Slither | ✅ Met | Slither v0.11.5 run; 6 findings analysed; `immutable` keyword applied; full report in `smart-contracts/SLITHER_REPORT.md` |
 | 9 | Security analysis with MythX | ❌ Not Met | Not run |
 | 10 | Usability testing: 5–10 participants per stakeholder group | ❌ Not Met | Academic activity, not yet conducted |
@@ -259,7 +259,7 @@ The following features were **not in the FYP1 plan** but are now implemented —
 
 **Current test counts:**
 - Smart contract tests: 48 passing (Hardhat/Chai) — 100% line coverage, 85.71% branch coverage
-- Backend tests: 142 passing (pytest)
+- Backend tests: 168 passing (pytest)
 - Flutter unit tests: 88 passing (Mockito + flutter_test)
 
 ---
@@ -340,12 +340,16 @@ FYP1 specified `submitClaim` should check service history compliance on-chain. D
 - ✅ Flutter warranty eligibility checklist in Vehicle Detail Warranty tab (pass/fail icons for 4 criteria)
 - ✅ Photo upload in Flutter warranty claim form — `image_picker` (up to 3), multipart/form-data to backend
 - ✅ End-to-end demo script (`scripts/demo.sh`) — 9-step walkthrough of complete system flow
+- ✅ MODIFY dispute path fully wired: `decision=3` accepted by API, mapped to `'modify'` in service layer, tested end-to-end
+- ✅ Rate limit on public vehicle endpoint (`GET /api/vehicle/public/<vin>`) — 30 req/min to prevent VIN enumeration
+- ✅ `service_count` in owner vehicle list now queries live DB count instead of returning hardcoded 0
+- ✅ Backend test suite expanded to 168 tests: added `TestTransferVehicle`, `service_count` assertion, and MODIFY decision tests
 
 ---
 
 ## Summary
 
-The system has progressed from **60% (73.5/123)** to **82% (101.5/123)** of FYP1 scope through Groups A–G improvements. The blockchain core — three Solidity contracts with 100% line coverage, 48 passing tests, Slither analysis, and a gas benchmark suite — is now formally verified as well as functionally complete. The manufacturer dashboard delivers four charts (pie, doughnut, line, bar) with real data plus a live activity feed. The seed script simulates a complete demo lifecycle on Hardhat; `scripts/demo.sh` provides a 9-step end-to-end walkthrough. The Flutter app now covers warranty eligibility checking and photo uploads for claims. SC dispute rates are tracked and visualised in real time.
+The system has progressed from **60% (73.5/123)** to **82% (101.5/123)** of FYP1 scope through Groups A–H improvements. Group H hardened three correctness issues without changing the headline score: the `MODIFY` dispute decision is now end-to-end functional (API validation → service-layer string mapping → test coverage); the public vehicle lookup endpoint is rate-limited at 30 req/min to prevent VIN enumeration; and `service_count` in the owner vehicle list now reflects the live SQLite count rather than a hardcoded zero. Backend test suite grew from 142 to 168 passing tests, adding transfer vehicle, service_count, and MODIFY decision coverage. The blockchain core — three Solidity contracts with 100% line coverage, 48 passing tests, Slither analysis, and a gas benchmark suite — is formally verified as well as functionally complete.
 
 The remaining gaps fall into two categories:
 1. **Academic requirements** — usability study, SUS questionnaire (planned activities, not code gaps)
