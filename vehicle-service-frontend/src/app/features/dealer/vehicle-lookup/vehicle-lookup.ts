@@ -76,6 +76,27 @@ export class VehicleLookupComponent {
     });
   }
 
+  exportCsv(): void {
+    const headers = ['Service Type', 'Service Date', 'Mileage (km)', 'Technician', 'Parts Replaced', 'Notes'];
+    const rows = this.serviceHistory.map(s => [
+      s.metadata?.service_type ?? '',
+      s.metadata?.service_date ?? '',
+      s.metadata?.mileage?.toString() ?? '',
+      s.metadata?.technician_name ?? '',
+      s.metadata?.parts_replaced ?? '',
+      s.metadata?.service_notes ?? '',
+    ].map(v => `"${v.replace(/"/g, '""')}"`).join(','));
+
+    const csv = [headers.join(','), ...rows].join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `service-history-${this.vehicle?.vin ?? 'export'}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   formatDate(timestamp: number): string {
     if (!timestamp) return '—';
     return new Date(timestamp * 1000).toLocaleDateString('en-MY', {
