@@ -12,7 +12,7 @@ import {
 } from 'chart.js';
 import { AuthService } from '../../../core/services/auth';
 import { BlockchainService } from '../../../core/services/blockchain.service';
-import { VehicleService, DashboardStats } from '../../../core/services/vehicle';
+import { VehicleService, DashboardStats, ActivityItem } from '../../../core/services/vehicle';
 import { User } from '../../../core/models/user.model';
 
 Chart.register(
@@ -36,6 +36,8 @@ export class ManufacturerDashboardComponent implements OnInit, OnDestroy {
   stats: DashboardStats | null = null;
   statsLoading = true;
   statsError = false;
+  activityFeed: ActivityItem[] = [];
+  activityLoading = true;
   private subs = new Subscription();
 
   pieChartData: ChartData<'pie'> = { labels: [], datasets: [{ data: [] }] };
@@ -80,6 +82,7 @@ export class ManufacturerDashboardComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.subs.add(this.blockchain.connected$.subscribe(v => { this.isConnected = v; this.cdr.detectChanges(); }));
     this.loadStats();
+    this.loadActivityFeed();
   }
 
   ngOnDestroy(): void {
@@ -102,6 +105,44 @@ export class ManufacturerDashboardComponent implements OnInit, OnDestroy {
         });
       }
     });
+  }
+
+  private loadActivityFeed(): void {
+    this.vehicleService.getActivityFeed().subscribe({
+      next: res => { this.activityFeed = res.feed || []; this.activityLoading = false; this.cdr.detectChanges(); },
+      error: () => { this.activityLoading = false; this.cdr.detectChanges(); }
+    });
+  }
+
+  activityIcon(type: string): string {
+    if (type === 'registration') return 'M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.056 2.056 0 0 0-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 0 0-10.026 0 1.106 1.106 0 0 0-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12';
+    if (type === 'warranty_claim') return 'M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z';
+    return 'M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z';
+  }
+
+  activityColor(type: string): string {
+    if (type === 'registration') return '#3B82F6';
+    if (type === 'warranty_claim') return '#10B981';
+    return '#F59E0B';
+  }
+
+  activityLabel(type: string): string {
+    if (type === 'registration') return 'Vehicle Registered';
+    if (type === 'warranty_claim') return 'Warranty Claim';
+    return 'Service Disputed';
+  }
+
+  formatActivityTime(ts: string | null): string {
+    if (!ts) return '—';
+    try {
+      const d = new Date(ts);
+      const now = new Date();
+      const diff = Math.floor((now.getTime() - d.getTime()) / 1000);
+      if (diff < 60) return 'just now';
+      if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+      if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+      return `${Math.floor(diff / 86400)}d ago`;
+    } catch { return '—'; }
   }
 
   private buildCharts(s: DashboardStats): void {

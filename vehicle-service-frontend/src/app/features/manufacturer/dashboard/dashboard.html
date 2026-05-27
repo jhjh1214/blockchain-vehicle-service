@@ -158,4 +158,58 @@
       </div>
     </a>
   </div>
+
+  <!-- Recent Activity Feed -->
+  <div class="card" style="margin-top:24px;">
+    <div class="card-header">
+      <h3 class="card-title">Recent Activity</h3>
+      @if (!activityLoading) {
+        <span class="badge badge-info">{{ activityFeed.length }} events</span>
+      }
+    </div>
+    <div class="card-body" style="padding:0;">
+      @if (activityLoading) {
+        @for (n of [1,2,3,4,5]; track n) {
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--color-border);">
+            <div class="sk-cell" style="width:32px;height:32px;border-radius:50%;flex-shrink:0;"></div>
+            <div style="flex:1;">
+              <div class="sk-cell w-55" style="height:12px;margin-bottom:6px;"></div>
+              <div class="sk-cell w-85" style="height:10px;"></div>
+            </div>
+            <div class="sk-cell" style="width:50px;height:10px;"></div>
+          </div>
+        }
+      } @else if (activityFeed.length === 0) {
+        <div class="empty-state" style="padding:32px;">
+          <div class="empty-state-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+            </svg>
+          </div>
+          <h3>No activity yet</h3>
+          <p>Register vehicles and submit services to see activity here.</p>
+        </div>
+      } @else {
+        @for (item of activityFeed; track $index) {
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--color-border);" [style.border-bottom]="$last ? 'none' : ''">
+            <div style="width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;"
+                 [style.background]="activityColor(item.type) + '18'">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
+                   style="width:16px;height:16px;" [style.color]="activityColor(item.type)">
+                <path stroke-linecap="round" stroke-linejoin="round" [attr.d]="activityIcon(item.type)" />
+              </svg>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13px;font-weight:500;color:var(--color-text-primary);">
+                {{ activityLabel(item.type) }}
+                <span class="mono text-muted" style="font-size:11px;margin-left:4px;">{{ item.vin }}</span>
+              </div>
+              <div style="font-size:12px;color:var(--color-text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ item.description }}</div>
+            </div>
+            <div style="font-size:11px;color:var(--color-text-muted);flex-shrink:0;">{{ formatActivityTime(item.timestamp) }}</div>
+          </div>
+        }
+      }
+    </div>
+  </div>
 </div>

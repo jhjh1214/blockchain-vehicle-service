@@ -1,8 +1,10 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
+import { Subscription } from 'rxjs';
 import { AuthService } from '../../../core/services/auth';
+import { BlockchainService } from '../../../core/services/blockchain.service';
 
 @Component({
   selector: 'app-login',
@@ -11,19 +13,22 @@ import { AuthService } from '../../../core/services/auth';
   templateUrl: './login.html',
   styleUrls: ['./login.css']
 })
-export class LoginComponent implements OnInit {
+export class LoginComponent implements OnInit, OnDestroy {
   loginForm: FormGroup;
   loading = false;
   error = '';
   lockoutMessage = '';
   showPassword = false;
   returnUrl = '/';
+  isConnected: boolean | null = null;
+  private subs = new Subscription();
 
   constructor(
     private formBuilder: FormBuilder,
     private route: ActivatedRoute,
     private router: Router,
-    private authService: AuthService
+    private authService: AuthService,
+    private blockchain: BlockchainService
   ) {
     const currentUser = this.authService.currentUserValue;
     if (currentUser) {
@@ -43,7 +48,10 @@ export class LoginComponent implements OnInit {
 
   ngOnInit(): void {
     this.returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/';
+    this.subs.add(this.blockchain.connected$.subscribe(v => this.isConnected = v));
   }
+
+  ngOnDestroy(): void { this.subs.unsubscribe(); }
 
   get f() { return this.loginForm.controls; }
 

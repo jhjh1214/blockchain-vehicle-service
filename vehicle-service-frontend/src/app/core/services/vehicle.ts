@@ -44,6 +44,10 @@ export class VehicleService {
   getPublicVehicle(vin: string): Observable<any> {
     return this.http.get(`${environment.apiUrl}/vehicle/public/${vin}`);
   }
+
+  getActivityFeed(): Observable<{ feed: ActivityItem[] }> {
+    return this.http.get<{ feed: ActivityItem[] }>(`${environment.apiUrl}/vehicle/activity-feed`);
+  }
 }
 
 export interface ManufacturerStats {
@@ -63,4 +67,11 @@ export interface DashboardStats extends ManufacturerStats {
   service_type_distribution: Record<string, number>;
   warranty_claim_trend: ClaimTrendPoint[];
   top_service_centers: TopSC[];
+}
+
+export interface ActivityItem {
+  type: 'registration' | 'warranty_claim' | 'dispute';
+  vin: string;
+  description: string;
+  timestamp: string | null;
 }

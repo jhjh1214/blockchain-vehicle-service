@@ -9,7 +9,33 @@ service_bp = Blueprint('service', __name__)
 @service_bp.route('/submit', methods=['POST'])
 @role_required('SERVICE_CENTER')
 def submit_service():
-    data = request.get_json() or {}
+    # Support both JSON (no photos) and multipart/form-data (with photo files)
+    ct = request.content_type or ''
+    if 'multipart/form-data' in ct:
+        import json as _json
+        data = request.form.to_dict()
+        try:
+            data['mileage'] = int(data.get('mileage', 0))
+        except (ValueError, TypeError):
+            data['mileage'] = 0
+        try:
+            data['ecu_modules'] = _json.loads(data.get('ecu_modules', '[]'))
+        except Exception:
+            data['ecu_modules'] = []
+        # Save uploaded photo files
+        from core.upload_service import save_file as _save_file
+        photo_filenames = []
+        for f in request.files.getlist('photos'):
+            if f and f.filename:
+                try:
+                    res = _save_file(f, request.user['user_id'])
+                    photo_filenames.append(res['filename'])
+                except Exception:
+                    pass
+        data['photos'] = photo_filenames
+    else:
+        data = request.get_json() or {}
+
     try:
         vin     = validate_vin(data.get('vin', ''))
         mileage = validate_mileage(data.get('mileage'))

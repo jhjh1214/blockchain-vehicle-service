@@ -94,11 +94,13 @@
         Don't have an account? <a routerLink="/register">Register here</a>
       </div>
 
-      <div class="auth-note">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
-        </svg>
-        Connected to private blockchain network
+      <div class="chain-badge"
+           [class.connected]="isConnected === true"
+           [class.offline]="isConnected === false"
+           [class.checking]="isConnected === null"
+           style="display:flex;align-items:center;gap:6px;justify-content:center;font-size:12px;padding:7px 12px;border-radius:20px;margin-top:4px;">
+        <span class="dot"></span>
+        {{ isConnected === null ? 'Connecting to blockchain…' : isConnected ? 'Blockchain Online' : 'Node Offline' }}
       </div>
     </div>
   </div>

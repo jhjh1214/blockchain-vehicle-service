@@ -142,6 +142,19 @@ def change_password():
     return jsonify({'message': 'Password changed. Please log in again.'}), 200
 
 
+@auth_bp.route('/forgot-password', methods=['POST'])
+def forgot_password():
+    """Stub endpoint — always returns 200 to avoid email enumeration."""
+    from api.utils import sanitize
+    data = request.get_json() or {}
+    email = sanitize(data.get('email', ''), 255).lower().strip()
+    if not email or '@' not in email:
+        return jsonify({'error': 'A valid email address is required'}), 400
+    # In production: send a password-reset email with a signed token.
+    # Returning 200 unconditionally prevents email enumeration.
+    return jsonify({'message': 'If an account with that email exists, reset instructions have been sent.'}), 200
+
+
 @auth_bp.route('/device-token', methods=['POST'])
 @token_required
 def register_device_token():

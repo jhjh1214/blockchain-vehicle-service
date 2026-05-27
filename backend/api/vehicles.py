@@ -297,3 +297,41 @@ def get_owner_vehicles():
         return jsonify({**result, 'vehicles': result.pop('items')}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@vehicle_bp.route('/activity-feed', methods=['GET'])
+@role_required('MANUFACTURER')
+def activity_feed():
+    """Recent activity feed: vehicle registrations, warranty claims, and disputes."""
+    from db.models import VehicleVINMapping, ServiceMetadata, WarrantyClaimMetadata
+
+    registrations = VehicleVINMapping.query.order_by(VehicleVINMapping.created_at.desc()).limit(8).all()
+    claims = WarrantyClaimMetadata.query.order_by(WarrantyClaimMetadata.created_at.desc()).limit(8).all()
+    disputes = ServiceMetadata.query.filter_by(disputed=True).order_by(ServiceMetadata.created_at.desc()).limit(8).all()
+
+    feed = []
+    for v in registrations:
+        feed.append({
+            'type': 'registration',
+            'vin': v.vin,
+            'description': f"{v.make or ''} {v.model or ''}".strip() or v.vin,
+            'timestamp': v.created_at.isoformat() if v.created_at else None,
+        })
+    for c in claims:
+        desc = (c.issue_description or '')[:80]
+        feed.append({
+            'type': 'warranty_claim',
+            'vin': c.vin,
+            'description': desc or 'Warranty claim submitted',
+            'timestamp': c.created_at.isoformat() if c.created_at else None,
+        })
+    for d in disputes:
+        feed.append({
+            'type': 'dispute',
+            'vin': d.vin,
+            'description': d.service_type or 'Service record disputed',
+            'timestamp': d.created_at.isoformat() if d.created_at else None,
+        })
+
+    feed.sort(key=lambda x: x.get('timestamp') or '', reverse=True)
+    return jsonify({'feed': feed[:15]}), 200

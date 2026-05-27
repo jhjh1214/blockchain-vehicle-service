@@ -20,6 +20,9 @@ export class SubmitServiceComponent implements OnInit, OnDestroy {
   success = '';
   showAdvanced = false;
   liveHash = '';
+  vinPrefilled = false;
+  selectedPhotos: File[] = [];
+  photoPreviews: string[] = [];
   private subs = new Subscription();
 
   serviceTypes = [
@@ -55,7 +58,9 @@ export class SubmitServiceComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.route.queryParams.subscribe(params => {
       if (params['vin']) {
-        this.serviceForm.patchValue({ vin: params['vin'] });
+        this.serviceForm.patchValue({ vin: params['vin'].toUpperCase() });
+        this.serviceForm.get('vin')?.disable();
+        this.vinPrefilled = true;
       }
     });
     const today = new Date().toISOString().split('T')[0];
@@ -74,6 +79,24 @@ export class SubmitServiceComponent implements OnInit, OnDestroy {
   get f() { return this.serviceForm.controls; }
 
   toggleAdvanced(): void { this.showAdvanced = !this.showAdvanced; }
+
+  onPhotosSelected(event: Event): void {
+    const files = (event.target as HTMLInputElement).files;
+    if (!files) return;
+    const remaining = 5 - this.selectedPhotos.length;
+    Array.from(files).slice(0, remaining).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (e) => this.photoPreviews.push(e.target?.result as string);
+      reader.readAsDataURL(file);
+      this.selectedPhotos.push(file);
+    });
+    (event.target as HTMLInputElement).value = '';
+  }
+
+  removePhoto(index: number): void {
+    this.selectedPhotos.splice(index, 1);
+    this.photoPreviews.splice(index, 1);
+  }
 
   private async updateLiveHash(): Promise<void> {
     const v = this.serviceForm.value;
@@ -111,22 +134,40 @@ export class SubmitServiceComponent implements OnInit, OnDestroy {
     this.error = '';
     this.success = '';
 
-    const raw = { ...this.serviceForm.value };
+    const raw = { ...this.serviceForm.getRawValue() };
     raw.service_date = new Date(raw.service_date).toISOString();
     raw.mileage = parseInt(raw.mileage, 10);
-    raw.ecu_modules = raw.ecu_modules
+    const ecuArr = raw.ecu_modules
       ? raw.ecu_modules.split(',').map((m: string) => m.trim()).filter(Boolean)
       : [];
 
-    this.serviceService.submitService(raw).subscribe({
+    let payload: FormData | Record<string, unknown>;
+    if (this.selectedPhotos.length > 0) {
+      const fd = new FormData();
+      fd.append('vin', raw.vin);
+      fd.append('service_type', raw.service_type);
+      fd.append('service_date', raw.service_date);
+      fd.append('mileage', String(raw.mileage));
+      fd.append('technician_name', raw.technician_name || '');
+      fd.append('parts_replaced', raw.parts_replaced || '');
+      fd.append('service_notes', raw.service_notes || '');
+      fd.append('ecu_modules', JSON.stringify(ecuArr));
+      this.selectedPhotos.forEach(f => fd.append('photos', f, f.name));
+      payload = fd;
+    } else {
+      payload = { ...raw, ecu_modules: ecuArr };
+    }
+
+    this.serviceService.submitService(payload).subscribe({
       next: (response) => {
-        this.success = `Service record submitted. Hash: ${(response.metadata_hash || '').slice(0, 18)}… — Awaiting owner verification.`;
+        const photoNote = this.selectedPhotos.length > 0 ? ` ${this.selectedPhotos.length} photo(s) attached.` : '';
+        this.success = `Service record submitted. Hash: ${(response.metadata_hash || '').slice(0, 18)}…${photoNote} — Awaiting owner verification.`;
         this.loading = false;
         this.liveHash = '';
         setTimeout(() => {
           this.onReset();
           this.success = '';
-        }, 4000);
+        }, 5000);
       },
       error: (err) => {
         this.error = err.error?.error || 'Failed to submit service record.';
@@ -137,10 +178,17 @@ export class SubmitServiceComponent implements OnInit, OnDestroy {
 
   onReset(): void {
     this.serviceForm.reset();
+    if (this.vinPrefilled) {
+      const vin = this.serviceForm.get('vin')?.value;
+      this.serviceForm.get('vin')?.disable();
+      this.serviceForm.patchValue({ vin });
+    }
     const today = new Date().toISOString().split('T')[0];
     this.serviceForm.patchValue({ service_date: today });
     this.error = '';
     this.success = '';
     this.liveHash = '';
+    this.selectedPhotos = [];
+    this.photoPreviews = [];
   }
 }

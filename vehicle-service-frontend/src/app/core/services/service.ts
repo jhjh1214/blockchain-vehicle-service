@@ -15,7 +15,7 @@ import {
 export class ServiceService {
   constructor(private http: HttpClient) { }
 
-  submitService(data: SubmitServiceRequest): Observable<any> {
+  submitService(data: SubmitServiceRequest | FormData | Record<string, unknown>): Observable<any> {
     return this.http.post(`${environment.apiUrl}/service/submit`, data);
   }
 
