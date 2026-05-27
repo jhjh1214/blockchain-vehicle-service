@@ -123,14 +123,15 @@ void main() {
     test('returns warranty data on success', () async {
       when(mockDio.get(ApiEndpoints.warrantyCheck('1HGBH41JXMN109186')))
           .thenAnswer((_) async => mockResponse({
-                'is_valid': true,
+                'valid': true,
                 'warranty_expiry': 1999999999,
+                'days_remaining': 365,
               }));
 
       final result = await provider.checkWarranty('1HGBH41JXMN109186');
 
       expect(result, isNotNull);
-      expect(result!['is_valid'], isTrue);
+      expect(result!['valid'], isTrue);
       expect(result['warranty_expiry'], 1999999999);
     });
 

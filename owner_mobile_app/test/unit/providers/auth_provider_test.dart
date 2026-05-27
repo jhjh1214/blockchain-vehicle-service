@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
 import 'package:owner_mobile_app/core/api/api_client.dart';
@@ -8,6 +9,14 @@ import 'package:owner_mobile_app/features/auth/auth_provider.dart';
 import '../../helpers/mock_dio.dart';
 
 void main() {
+  setUpAll(() {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    // Stub flutter_secure_storage platform channel so unit tests don't need a real device.
+    const channel = MethodChannel('plugins.it_nomads.com/flutter_secure_storage');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (MethodCall call) async => null);
+  });
+
   late MockDio mockDio;
   late AuthProvider provider;
 

@@ -65,18 +65,22 @@ def get_owner_claims(owner_address: str) -> list:
         if not mapping:
             continue
         claims = warranty_tracker.get_claims(mapping.vin)
-        for claim in claims:
+        for idx, claim in enumerate(claims):
             metadata = warranty_repo.find_by_claim_hash(claim['claim_details_hash'])
-            claim['vin'] = mapping.vin
-            claim['make'] = mapping.make
-            claim['model'] = mapping.model
-            claim['year'] = mapping.year
+            issue_description = ''
             if metadata:
-                claim['metadata'] = {
-                    'issue_description': metadata.issue_description,
-                    'photos': metadata.photos or []
-                }
-            all_claims.append(claim)
+                issue_description = metadata.issue_description or ''
+            all_claims.append({
+                'vin': mapping.vin,
+                'claim_index': idx,
+                'issue_description': issue_description,
+                'status': claim.get('status', 'pending'),
+                'denial_reason': None,
+                'submitted_at': claim.get('timestamp', 0),
+                'make': mapping.make,
+                'model': mapping.model,
+                'year': mapping.year,
+            })
     return all_claims
 
 

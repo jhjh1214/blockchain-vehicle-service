@@ -8,15 +8,36 @@ import 'package:owner_mobile_app/features/vehicles/vehicles_provider.dart';
 import 'package:owner_mobile_app/features/vehicles/vehicles_screen.dart';
 import 'package:owner_mobile_app/shared/theme/app_theme.dart';
 
+// Null-safe Mockito: override non-nullable getters/methods via super.noSuchMethod
+// so that when() interception works and bare mock instantiation has safe defaults.
 class MockVehiclesProvider extends Mock implements VehiclesProvider {
   @override
-  List<Vehicle> get vehicles => [];
+  List<Vehicle> get vehicles => super.noSuchMethod(
+        Invocation.getter(#vehicles),
+        returnValue: <Vehicle>[],
+        returnValueForMissingStub: <Vehicle>[],
+      ) as List<Vehicle>;
+
   @override
-  bool get loading => false;
+  bool get loading => super.noSuchMethod(
+        Invocation.getter(#loading),
+        returnValue: false,
+        returnValueForMissingStub: false,
+      ) as bool;
+
   @override
-  String? get error => null;
+  String? get error => super.noSuchMethod(
+        Invocation.getter(#error),
+        returnValue: null,
+        returnValueForMissingStub: null,
+      ) as String?;
+
   @override
-  Future<void> loadVehicles() async {}
+  Future<void> loadVehicles() => super.noSuchMethod(
+        Invocation.method(#loadVehicles, []),
+        returnValue: Future<void>.value(),
+        returnValueForMissingStub: Future<void>.value(),
+      ) as Future<void>;
 }
 
 Widget _buildTestApp(VehiclesProvider provider) =>

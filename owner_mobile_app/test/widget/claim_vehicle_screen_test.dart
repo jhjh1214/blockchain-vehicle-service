@@ -7,11 +7,15 @@ import 'package:owner_mobile_app/features/vehicles/claim_vehicle_screen.dart';
 import 'package:owner_mobile_app/features/vehicles/vehicles_provider.dart';
 import 'package:owner_mobile_app/shared/theme/app_theme.dart';
 
+// Null-safe Mockito: override claimVehicle via super.noSuchMethod so that
+// when() interception works. ClaimVehicleScreen only reads claimVehicle().
 class MockVehiclesProvider extends Mock implements VehiclesProvider {
   @override
-  Future<String?> claimVehicle(String vin) async => null;
-  @override
-  Future<void> loadVehicles() async {}
+  Future<String?> claimVehicle(String vin) => super.noSuchMethod(
+        Invocation.method(#claimVehicle, [vin]),
+        returnValue: Future.value(null),
+        returnValueForMissingStub: Future.value(null),
+      ) as Future<String?>;
 }
 
 Widget _buildTestApp(VehiclesProvider provider) =>
@@ -20,14 +24,25 @@ Widget _buildTestApp(VehiclesProvider provider) =>
       child: MaterialApp.router(
         theme: AppTheme.light,
         routerConfig: GoRouter(
+          // Nest /vehicles/claim under / so context.pop() has a parent to return to.
           routes: [
-            GoRoute(path: '/vehicles/claim', builder: (_, __) => const ClaimVehicleScreen()),
-            GoRoute(path: '/home', builder: (_, __) => const Scaffold(body: Text('Home'))),
+            GoRoute(
+              path: '/',
+              builder: (_, __) => const Scaffold(body: Text('Home')),
+              routes: [
+                GoRoute(
+                  path: 'vehicles/claim',
+                  builder: (_, __) => const ClaimVehicleScreen(),
+                ),
+              ],
+            ),
           ],
           initialLocation: '/vehicles/claim',
         ),
       ),
     );
+
+const _testVin = '1HGBH41JXMN109186';
 
 void main() {
   group('ClaimVehicleScreen', () {
@@ -36,14 +51,16 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(TextFormField), findsOneWidget);
-      expect(find.text('Claim Vehicle'), findsOneWidget);
+      // AppBar title + ElevatedButton both say 'Claim Vehicle'
+      expect(find.text('Claim Vehicle'), findsWidgets);
+      expect(find.byType(ElevatedButton), findsOneWidget);
     });
 
     testWidgets('shows error when VIN is empty', (tester) async {
       await tester.pumpWidget(_buildTestApp(MockVehiclesProvider()));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Claim Vehicle'));
+      await tester.tap(find.byType(ElevatedButton));
       await tester.pumpAndSettle();
 
       expect(find.text('VIN required'), findsOneWidget);
@@ -54,7 +71,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byType(TextFormField), 'SHORT');
-      await tester.tap(find.text('Claim Vehicle'));
+      await tester.tap(find.byType(ElevatedButton));
       await tester.pumpAndSettle();
 
       expect(find.text('VIN must be 17 characters'), findsOneWidget);
@@ -62,14 +79,13 @@ void main() {
 
     testWidgets('shows success snackbar on valid VIN claim', (tester) async {
       final p = MockVehiclesProvider();
-      when(p.claimVehicle(any)).thenAnswer((_) async => null);
-      when(p.loadVehicles()).thenAnswer((_) async {});
+      when(p.claimVehicle(_testVin)).thenAnswer((_) async => null);
 
       await tester.pumpWidget(_buildTestApp(p));
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextFormField), '1HGBH41JXMN109186');
-      await tester.tap(find.text('Claim Vehicle'));
+      await tester.enterText(find.byType(TextFormField), _testVin);
+      await tester.tap(find.byType(ElevatedButton));
       await tester.pumpAndSettle();
 
       expect(find.text('Vehicle claimed successfully'), findsOneWidget);
@@ -77,14 +93,14 @@ void main() {
 
     testWidgets('shows error snackbar when claim fails', (tester) async {
       final p = MockVehiclesProvider();
-      when(p.claimVehicle(any))
+      when(p.claimVehicle(_testVin))
           .thenAnswer((_) async => 'Vehicle already claimed');
 
       await tester.pumpWidget(_buildTestApp(p));
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextFormField), '1HGBH41JXMN109186');
-      await tester.tap(find.text('Claim Vehicle'));
+      await tester.enterText(find.byType(TextFormField), _testVin);
+      await tester.tap(find.byType(ElevatedButton));
       await tester.pumpAndSettle();
 
       expect(find.text('Vehicle already claimed'), findsOneWidget);

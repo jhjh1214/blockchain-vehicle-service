@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import '../storage/token_storage.dart';
 
-const String _baseUrl = 'http://10.0.2.2:5000';
+const String _baseUrl = 'http://10.0.2.2:5000/api';
 
 class ApiClient {
   static ApiClient? _instance;

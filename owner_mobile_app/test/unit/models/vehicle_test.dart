@@ -47,9 +47,9 @@ void main() {
       expect(v.displayName, '2023 BMW 3 Series');
     });
 
-    test('displayName with null year', () {
+    test('displayName with null year omits year', () {
       final v = Vehicle.fromJson({'vin': 'X', 'make': 'BMW', 'model': 'X5'});
-      expect(v.displayName, 'null BMW X5');
+      expect(v.displayName, 'BMW X5');
     });
 
     test('warrantyValid defaults to false', () {

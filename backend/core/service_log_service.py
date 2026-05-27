@@ -103,6 +103,35 @@ def get_finalized_services(vin: str) -> list:
     return _enrich_records(service_log.get_finalized_services(vin))
 
 
+def _flatten_owner_record(record, index: int, mapping) -> dict:
+    """Produce a flat dict matching what the Flutter ServiceRecord.fromJson expects."""
+    meta = record.get('metadata', {})
+    verified = record.get('verified', False)
+    disputed = record.get('disputed', False)
+    if disputed:
+        status = 'disputed'
+    elif verified:
+        status = 'verified'
+    else:
+        status = 'pending'
+    return {
+        'vin': mapping.vin,
+        'record_index': index,
+        'service_type': meta.get('service_type', ''),
+        'service_date': meta.get('service_date', ''),
+        'mileage': meta.get('mileage'),
+        'parts_replaced': meta.get('parts_replaced'),
+        'technician_name': meta.get('technician_name'),
+        'service_notes': meta.get('service_notes'),
+        'status': status,
+        'dispute_reason': record.get('dispute_reason'),
+        'submitted_by': record.get('service_center', ''),
+        'make': mapping.make,
+        'model': mapping.model,
+        'year': mapping.year,
+    }
+
+
 def get_owner_finalized_services(owner_address: str) -> list:
     vin_hashes = vehicle_registry.get_owned_vehicles(owner_address)
     all_finalized = []
@@ -110,13 +139,9 @@ def get_owner_finalized_services(owner_address: str) -> list:
         mapping = vehicle_repo.find_by_vin_hash(vin_hash)
         if not mapping:
             continue
-        records = service_log.get_finalized_services(mapping.vin)
-        for record in records:
+        raw_records = service_log.get_finalized_services(mapping.vin)
+        for idx, record in enumerate(raw_records):
             metadata = service_repo.find_by_metadata_hash(record['metadata_hash'])
-            record['vin'] = mapping.vin
-            record['make'] = mapping.make
-            record['model'] = mapping.model
-            record['year'] = mapping.year
             if metadata:
                 record['metadata'] = {
                     'service_type': metadata.service_type,
@@ -127,7 +152,7 @@ def get_owner_finalized_services(owner_address: str) -> list:
                     'service_notes': metadata.service_notes,
                     'photos': metadata.photos or []
                 }
-            all_finalized.append(record)
+            all_finalized.append(_flatten_owner_record(record, idx, mapping))
     return all_finalized
 
 
@@ -138,13 +163,9 @@ def get_owner_pending_services(owner_address: str) -> list:
         mapping = vehicle_repo.find_by_vin_hash(vin_hash)
         if not mapping:
             continue
-        records = service_log.get_pending_services(mapping.vin)
-        for record in records:
+        raw_records = service_log.get_pending_services(mapping.vin)
+        for idx, record in enumerate(raw_records):
             metadata = service_repo.find_by_metadata_hash(record['metadata_hash'])
-            record['vin'] = mapping.vin
-            record['make'] = mapping.make
-            record['model'] = mapping.model
-            record['year'] = mapping.year
             if metadata:
                 record['metadata'] = {
                     'service_type': metadata.service_type,
@@ -155,5 +176,5 @@ def get_owner_pending_services(owner_address: str) -> list:
                     'service_notes': metadata.service_notes,
                     'photos': metadata.photos or []
                 }
-            all_pending.append(record)
+            all_pending.append(_flatten_owner_record(record, idx, mapping))
     return all_pending

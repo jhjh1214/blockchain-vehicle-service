@@ -138,7 +138,7 @@ class TestPublicVerify:
         assert 'service_records' in data
 
     def test_verify_pending_vehicle(self, client):
-        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER', brand='Toyota')
         client.post('/api/vehicle/register', headers=auth(mfr_token), json={
             'vin': VIN, 'warranty_years': 3, 'make': 'Toyota', 'model': 'Corolla', 'year': 2023,
         })

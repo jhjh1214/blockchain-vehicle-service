@@ -110,6 +110,7 @@ def get_my_vehicles(owner_address: str) -> list:
         'make': m.make,
         'model': m.model,
         'year': m.year,
+        'registration_status': m.registration_status or 'active',
         'warranty_expiry': m.warranty_expiry,
         'warranty_valid': (m.warranty_expiry > now) if m.warranty_expiry else False,
         'service_count': 0,

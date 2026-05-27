@@ -19,16 +19,19 @@ class Vehicle {
     this.warrantyValid = false,
   });
 
-  factory Vehicle.fromJson(Map<String, dynamic> j) => Vehicle(
-        vin: j['vin'] ?? '',
-        make: j['make'] ?? '',
-        model: j['model'] ?? '',
-        year: j['year'] as int?,
-        ownerAddress: j['owner_address'],
-        registrationStatus: j['registration_status'],
-        warrantyExpiry: j['warranty_expiry'] as int?,
-        warrantyValid: j['warranty_valid'] as bool? ?? false,
-      );
+  factory Vehicle.fromJson(Map<String, dynamic> j) {
+    final owner = j['owner'] as Map<String, dynamic>?;
+    return Vehicle(
+      vin: j['vin'] ?? '',
+      make: j['make'] ?? '',
+      model: j['model'] ?? '',
+      year: j['year'] as int?,
+      ownerAddress: j['owner_address'] ?? owner?['address'],
+      registrationStatus: j['registration_status'],
+      warrantyExpiry: j['warranty_expiry'] as int?,
+      warrantyValid: j['warranty_valid'] as bool? ?? false,
+    );
+  }
 
   String get displayName => '${year != null ? '$year ' : ''}$make $model'.trim();
 }

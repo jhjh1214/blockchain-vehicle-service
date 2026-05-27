@@ -6,13 +6,29 @@ import 'package:provider/provider.dart';
 import 'package:owner_mobile_app/features/auth/auth_provider.dart';
 import 'package:owner_mobile_app/features/auth/login_screen.dart';
 
+// Null-safe Mockito: override non-nullable getters via super.noSuchMethod so
+// that when() interception works and bare mock instantiation has safe defaults.
 class MockAuthProvider extends Mock implements AuthProvider {
   @override
-  bool get loading => false;
+  bool get loading => super.noSuchMethod(
+        Invocation.getter(#loading),
+        returnValue: false,
+        returnValueForMissingStub: false,
+      ) as bool;
+
   @override
-  bool get isAuthenticated => false;
+  bool get isAuthenticated => super.noSuchMethod(
+        Invocation.getter(#isAuthenticated),
+        returnValue: false,
+        returnValueForMissingStub: false,
+      ) as bool;
+
   @override
-  String? get error => null;
+  String? get error => super.noSuchMethod(
+        Invocation.getter(#error),
+        returnValue: null,
+        returnValueForMissingStub: null,
+      ) as String?;
 }
 
 Widget _buildTestApp(AuthProvider auth) => ChangeNotifierProvider<AuthProvider>.value(
@@ -79,7 +95,7 @@ void main() {
       when(auth.loading).thenReturn(true);
 
       await tester.pumpWidget(_buildTestApp(auth));
-      await tester.pumpAndSettle();
+      await tester.pump(); // CircularProgressIndicator animates indefinitely — don't pumpAndSettle
 
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
     });
