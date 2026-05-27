@@ -52,6 +52,13 @@
   color: var(--color-text-secondary, #6b7280);
 }
 
+.chart-hint {
+  font-size: 11px;
+  color: var(--color-text-secondary, #9ca3af);
+  margin-top: 8px;
+  text-align: center;
+}
+
 @media (max-width: 640px) {
   .charts-row { grid-template-columns: 1fr; }
 }

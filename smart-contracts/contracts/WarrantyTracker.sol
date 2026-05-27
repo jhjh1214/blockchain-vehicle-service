@@ -7,7 +7,7 @@ import "./VehicleRegistry.sol";
 contract WarrantyTracker is AccessControl {
     bytes32 public constant MANUFACTURER_ADMIN_ROLE = DEFAULT_ADMIN_ROLE;
 
-    VehicleRegistry public vehicleRegistry;
+    VehicleRegistry public immutable vehicleRegistry;
 
     struct WarrantyClaim {
         bytes32 vin;

@@ -111,6 +111,7 @@ class ServiceMetadata(db.Model):
     technician_name = db.Column(db.String(255))
     service_notes = db.Column(db.Text)
     photos = db.Column(db.JSON)
+    disputed = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def to_dict(self) -> dict:
@@ -124,7 +125,8 @@ class ServiceMetadata(db.Model):
             'parts_replaced': self.parts_replaced,
             'technician_name': self.technician_name,
             'service_notes': self.service_notes,
-            'photos': self.photos
+            'photos': self.photos,
+            'disputed': self.disputed,
         }
 
 

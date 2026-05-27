@@ -53,32 +53,45 @@
     </div>
   </div>
 
-  <!-- Charts row -->
+  <!-- Charts row 1: pie + doughnut -->
   @if (!statsLoading && !statsError && stats) {
     <div class="charts-row">
       <div class="chart-card">
         <div class="chart-title">Service Type Distribution</div>
         @if (pieChartData.labels && pieChartData.labels.length > 0) {
-          <canvas baseChart
-            [data]="pieChartData"
-            [type]="'pie'"
-            [options]="pieChartOptions">
-          </canvas>
+          <canvas baseChart [data]="pieChartData" [type]="'pie'" [options]="pieChartOptions"></canvas>
         } @else {
           <div class="chart-empty">No service data yet</div>
         }
       </div>
       <div class="chart-card">
         <div class="chart-title">Warranty Coverage</div>
-        <canvas baseChart
-          [data]="warrantyChartData"
-          [type]="'doughnut'"
-          [options]="warrantyChartOptions">
-        </canvas>
+        <canvas baseChart [data]="warrantyChartData" [type]="'doughnut'" [options]="warrantyChartOptions"></canvas>
         <div class="doughnut-label">
           <span class="doughnut-num">{{ stats.active_warranties }}</span>
           <span class="doughnut-sub">active</span>
         </div>
+      </div>
+    </div>
+
+    <!-- Charts row 2: line + bar -->
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="chart-title">Warranty Claim Trend — Last 6 Months</div>
+        @if (lineChartData.labels && lineChartData.labels.length > 0) {
+          <canvas baseChart [data]="lineChartData" [type]="'line'" [options]="lineChartOptions"></canvas>
+        } @else {
+          <div class="chart-empty">No claim trend data</div>
+        }
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Top Service Centres by Submissions</div>
+        @if (barChartData.labels && barChartData.labels.length > 0) {
+          <canvas baseChart [data]="barChartData" [type]="'bar'" [options]="barChartOptions"></canvas>
+          <div class="chart-hint">Red bars indicate >10% dispute rate</div>
+        } @else {
+          <div class="chart-empty">No service centre data</div>
+        }
       </div>
     </div>
   }

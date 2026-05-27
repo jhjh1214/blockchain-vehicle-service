@@ -1,5 +1,6 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
+const { anyValue } = require("@nomicfoundation/hardhat-chai-matchers/withArgs");
 
 describe("Blockchain Vehicle Service & Warranty System", function () {
   let vehicleRegistry, serviceLog, warrantyTracker;
@@ -143,6 +144,48 @@ describe("Blockchain Vehicle Service & Warranty System", function () {
       const owned = await vehicleRegistry.getOwnedVehicles(owner.address);
       expect(owned.length).to.equal(1);
     });
+
+    it("should reject transfer of non-existent vehicle", async function () {
+      await expect(
+        vehicleRegistry.connect(owner).transferOwnership(sampleVIN, owner2.address)
+      ).to.be.revertedWith("Vehicle does not exist");
+    });
+
+    it("should reject transfer by non-owner", async function () {
+      await vehicleRegistry.connect(manufacturer).registerVehicle(
+        sampleVIN, owner.address, FAR_FUTURE
+      );
+      await expect(
+        vehicleRegistry.connect(owner2).transferOwnership(sampleVIN, owner2.address)
+      ).to.be.revertedWith("Not the vehicle owner");
+    });
+
+    it("should reject transfer to zero address", async function () {
+      await vehicleRegistry.connect(manufacturer).registerVehicle(
+        sampleVIN, owner.address, FAR_FUTURE
+      );
+      await expect(
+        vehicleRegistry.connect(owner).transferOwnership(sampleVIN, ethers.ZeroAddress)
+      ).to.be.revertedWith("Invalid new owner");
+    });
+
+    it("should reject registerVehicle with zero address owner", async function () {
+      await expect(
+        vehicleRegistry.connect(manufacturer).registerVehicle(
+          sampleVIN, ethers.ZeroAddress, FAR_FUTURE
+        )
+      ).to.be.revertedWith("Invalid owner address");
+    });
+
+    it("should reject addServiceHash for non-existent vehicle", async function () {
+      await vehicleRegistry.grantRole(
+        await vehicleRegistry.SERVICE_LOG_ROLE(),
+        deployer.address
+      );
+      await expect(
+        vehicleRegistry.connect(deployer).addServiceHash(sampleVIN, sampleMetadataHash)
+      ).to.be.revertedWith("Vehicle does not exist");
+    });
   });
 
   // ── ServiceLog ─────────────────────────────────────────────────────────────
@@ -232,6 +275,84 @@ describe("Blockchain Vehicle Service & Warranty System", function () {
       expect(resolution.resolutionNotesHash).to.equal(resolutionHash);
       expect(resolution.resolver).to.equal(deployer.address);
     });
+
+    it("should keep record in pending on MODIFY resolution", async function () {
+      await serviceLog.connect(serviceCenter).submitService(sampleVIN, sampleMetadataHash);
+      await serviceLog.connect(owner).disputeService(sampleVIN, 0, "Partially wrong");
+      await serviceLog.connect(deployer).resolveDispute(sampleVIN, 0, 3, resolutionHash); // MODIFY
+
+      const pending = await serviceLog.getPendingServices(sampleVIN);
+      const finalized = await serviceLog.getFinalizedServices(sampleVIN);
+      expect(pending.length).to.equal(1);
+      expect(finalized.length).to.equal(0);
+    });
+
+    it("should increment disputeCount when owner disputes", async function () {
+      await serviceLog.connect(serviceCenter).submitService(sampleVIN, sampleMetadataHash);
+      const before = await serviceLog.disputeCount(owner.address);
+      await serviceLog.connect(owner).disputeService(sampleVIN, 0, "Wrong parts");
+      const after = await serviceLog.disputeCount(owner.address);
+      expect(after).to.equal(before + 1n);
+    });
+
+    it("should emit DisputeEscalated event with service center address", async function () {
+      await serviceLog.connect(serviceCenter).submitService(sampleVIN, sampleMetadataHash);
+      await expect(
+        serviceLog.connect(owner).disputeService(sampleVIN, 0, "Wrong parts")
+      )
+        .to.emit(serviceLog, "DisputeEscalated")
+        .withArgs(sampleVIN, 0, serviceCenter.address, anyValue);
+    });
+
+    it("should reject submitService for non-existent vehicle", async function () {
+      const unknownVIN = ethers.keccak256(ethers.toUtf8Bytes("UNKNOWN_VIN_000000"));
+      await expect(
+        serviceLog.connect(serviceCenter).submitService(unknownVIN, sampleMetadataHash)
+      ).to.be.revertedWith("Vehicle not registered");
+    });
+
+    it("should reject verifyService with out-of-range index", async function () {
+      await expect(
+        serviceLog.connect(owner).verifyService(sampleVIN, 99)
+      ).to.be.revertedWith("Invalid record index");
+    });
+
+    it("should reject verifyService by non-owner", async function () {
+      await serviceLog.connect(serviceCenter).submitService(sampleVIN, sampleMetadataHash);
+      await expect(
+        serviceLog.connect(owner2).verifyService(sampleVIN, 0)
+      ).to.be.revertedWith("Not the vehicle owner");
+    });
+
+    it("should reject verifying an already-disputed record", async function () {
+      await serviceLog.connect(serviceCenter).submitService(sampleVIN, sampleMetadataHash);
+      await serviceLog.connect(owner).disputeService(sampleVIN, 0, "Bad service");
+      await expect(
+        serviceLog.connect(owner).verifyService(sampleVIN, 0)
+      ).to.be.revertedWith("Record is disputed");
+    });
+
+    it("should reject double-dispute on same record", async function () {
+      await serviceLog.connect(serviceCenter).submitService(sampleVIN, sampleMetadataHash);
+      await serviceLog.connect(owner).disputeService(sampleVIN, 0, "First dispute");
+      await expect(
+        serviceLog.connect(owner).disputeService(sampleVIN, 0, "Second dispute")
+      ).to.be.revertedWith("Already disputed");
+    });
+
+    it("should reject disputeService with out-of-range index", async function () {
+      await expect(
+        serviceLog.connect(owner).disputeService(sampleVIN, 99, "Bad")
+      ).to.be.revertedWith("Invalid record index");
+    });
+
+    it("should reject resolveDispute by non-admin", async function () {
+      await serviceLog.connect(serviceCenter).submitService(sampleVIN, sampleMetadataHash);
+      await serviceLog.connect(owner).disputeService(sampleVIN, 0, "Bad service");
+      await expect(
+        serviceLog.connect(owner).resolveDispute(sampleVIN, 0, 1, resolutionHash)
+      ).to.be.revertedWithCustomError(serviceLog, "AccessControlUnauthorizedAccount");
+    });
   });
 
   // ── WarrantyTracker ────────────────────────────────────────────────────────
@@ -299,6 +420,55 @@ describe("Blockchain Vehicle Service & Warranty System", function () {
       await expect(
         warrantyTracker.connect(manufacturer).approveClaim(sampleVIN, 0)
       ).to.be.revertedWithCustomError(warrantyTracker, "AccessControlUnauthorizedAccount");
+    });
+
+    it("should return (expiry, true) from getWarrantyStatus for active warranty", async function () {
+      const [expiry, isValid] = await warrantyTracker.getWarrantyStatus(sampleVIN);
+      expect(isValid).to.equal(true);
+      expect(expiry).to.equal(FAR_FUTURE);
+    });
+
+    it("should return (0, false) from getWarrantyStatus for unregistered VIN", async function () {
+      const unknownVIN = ethers.keccak256(ethers.toUtf8Bytes("UNREGISTERED_VIN00"));
+      const [expiry, isValid] = await warrantyTracker.getWarrantyStatus(unknownVIN);
+      expect(expiry).to.equal(0);
+      expect(isValid).to.equal(false);
+    });
+
+    it("should return (expiry, false) from getWarrantyStatus for expired warranty", async function () {
+      const PAST = 1;
+      await vehicleRegistry.connect(manufacturer).registerVehicle(sampleVIN2, owner.address, PAST);
+      const [expiry, isValid] = await warrantyTracker.getWarrantyStatus(sampleVIN2);
+      expect(isValid).to.equal(false);
+      expect(expiry).to.equal(PAST);
+    });
+
+    it("should reject submitClaim when warranty has expired", async function () {
+      const PAST = 1;
+      await vehicleRegistry.connect(manufacturer).registerVehicle(sampleVIN2, owner.address, PAST);
+      await expect(
+        warrantyTracker.connect(owner).submitClaim(sampleVIN2, claimDetailsHash)
+      ).to.be.revertedWith("Warranty is not valid");
+    });
+
+    it("should reject approveClaim with out-of-range index", async function () {
+      await expect(
+        warrantyTracker.connect(deployer).approveClaim(sampleVIN, 99)
+      ).to.be.revertedWith("Invalid claim index");
+    });
+
+    it("should reject denyClaim with out-of-range index", async function () {
+      await expect(
+        warrantyTracker.connect(deployer).denyClaim(sampleVIN, 99, resolutionHash)
+      ).to.be.revertedWith("Invalid claim index");
+    });
+
+    it("should reject deny on already-denied claim", async function () {
+      await warrantyTracker.connect(owner).submitClaim(sampleVIN, claimDetailsHash);
+      await warrantyTracker.connect(deployer).denyClaim(sampleVIN, 0, resolutionHash);
+      await expect(
+        warrantyTracker.connect(deployer).denyClaim(sampleVIN, 0, resolutionHash)
+      ).to.be.revertedWith("Claim not pending");
     });
   });
 });

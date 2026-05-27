@@ -120,11 +120,21 @@ def get_sc_stats():
         service_center_address=addr
     ).count() if addr else 0
 
+    disputed_count = ServiceMetadata.query.filter_by(
+        service_center_address=addr, disputed=True
+    ).count() if addr else 0
+
+    dispute_rate = round(disputed_count / services_submitted * 100, 1) if services_submitted else 0.0
+    flagged = dispute_rate > 10.0
+
     eth_balance = _fetch_eth_balance(addr) if addr else None
 
     return jsonify({
         'services_submitted': services_submitted,
-        'eth_balance': eth_balance,
+        'disputed_count':     disputed_count,
+        'dispute_rate':       dispute_rate,
+        'flagged':            flagged,
+        'eth_balance':        eth_balance,
     }), 200
 
 

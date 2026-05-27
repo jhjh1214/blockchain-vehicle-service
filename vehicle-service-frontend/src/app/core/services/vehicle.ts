@@ -54,8 +54,13 @@ export interface ManufacturerStats {
   warranty_claims: number;
 }
 
+export interface ClaimTrendPoint { month: string; count: number; }
+export interface TopSC { label: string; address: string; submissions: number; disputed: number; dispute_rate: number; flagged: boolean; }
+
 export interface DashboardStats extends ManufacturerStats {
   active_warranties: number;
   services_this_month: number;
   service_type_distribution: Record<string, number>;
+  warranty_claim_trend: ClaimTrendPoint[];
+  top_service_centers: TopSC[];
 }

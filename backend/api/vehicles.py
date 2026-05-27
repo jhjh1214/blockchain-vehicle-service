@@ -160,7 +160,10 @@ def get_manufacturer_stats():
 def get_dashboard_stats():
     """Consolidated manufacturer dashboard stats — single endpoint matching FYP1 spec."""
     import time as _time
-    from db.models import ServiceMetadata
+    from datetime import datetime as _dt, timedelta as _td
+    from db.models import ServiceMetadata, db as _db
+    from db.models import User
+
     mfr_address = request.user['blockchain_address']
 
     total_vehicles    = VehicleVINMapping.query.filter_by(registered_by=mfr_address).count()
@@ -173,28 +176,76 @@ def get_dashboard_stats():
     sc_pending        = user_repo.count_by_role_status('SERVICE_CENTER', 'pending')
     warranty_claims   = WarrantyClaimMetadata.query.count()
 
-    from datetime import datetime as _dt
     month_start = _dt.utcnow().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     services_this_month = ServiceMetadata.query.filter(
         ServiceMetadata.created_at >= month_start
     ).count()
 
-    from db.models import db as _db
+    # Service type distribution (pie chart)
     service_type_counts: dict = {}
     for row in ServiceMetadata.query.with_entities(
         ServiceMetadata.service_type, _db.func.count(ServiceMetadata.id)
     ).group_by(ServiceMetadata.service_type).all():
         service_type_counts[row[0] or 'Other'] = row[1]
 
+    # Warranty claim trend — last 6 months (line chart)
+    claim_trend: list = []
+    for i in range(5, -1, -1):
+        ref = _dt.utcnow().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        # shift back i months
+        month = (ref.month - i - 1) % 12 + 1
+        year  = ref.year + ((ref.month - i - 1) // 12)
+        start = _dt(year, month, 1)
+        if month == 12:
+            end = _dt(year + 1, 1, 1)
+        else:
+            end = _dt(year, month + 1, 1)
+        count = WarrantyClaimMetadata.query.filter(
+            WarrantyClaimMetadata.created_at >= start,
+            WarrantyClaimMetadata.created_at < end
+        ).count()
+        claim_trend.append({'month': start.strftime('%b %Y'), 'count': count})
+
+    # Top 5 service centres by submission volume (bar chart)
+    top_sc_rows = ServiceMetadata.query.with_entities(
+        ServiceMetadata.service_center_address,
+        _db.func.count(ServiceMetadata.id).label('submissions')
+    ).filter(
+        ServiceMetadata.service_center_address.isnot(None)
+    ).group_by(
+        ServiceMetadata.service_center_address
+    ).order_by(
+        _db.desc('submissions')
+    ).limit(5).all()
+
+    top_service_centers = []
+    for addr, count in top_sc_rows:
+        sc_user = User.query.filter_by(blockchain_address=addr, role='SERVICE_CENTER').first()
+        label = (sc_user.name or sc_user.email) if sc_user else addr[:10] + '…'
+        disputed = ServiceMetadata.query.filter_by(
+            service_center_address=addr, disputed=True
+        ).count()
+        rate = round(disputed / count * 100, 1) if count else 0.0
+        top_service_centers.append({
+            'label': label,
+            'address': addr,
+            'submissions': count,
+            'disputed': disputed,
+            'dispute_rate': rate,
+            'flagged': rate > 10.0,
+        })
+
     return jsonify({
-        'total_vehicles':       total_vehicles,
-        'active_warranties':    active_warranties,
-        'sc_total':             sc_total,
-        'sc_active':            sc_active,
-        'sc_pending':           sc_pending,
-        'warranty_claims':      warranty_claims,
-        'services_this_month':  services_this_month,
+        'total_vehicles':            total_vehicles,
+        'active_warranties':         active_warranties,
+        'sc_total':                  sc_total,
+        'sc_active':                 sc_active,
+        'sc_pending':                sc_pending,
+        'warranty_claims':           warranty_claims,
+        'services_this_month':       services_this_month,
         'service_type_distribution': service_type_counts,
+        'warranty_claim_trend':      claim_trend,
+        'top_service_centers':       top_service_centers,
     }), 200
 
 

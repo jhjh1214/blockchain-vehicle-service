@@ -8,7 +8,7 @@ contract ServiceLog is AccessControl {
     bytes32 public constant SERVICE_CENTER_ROLE = keccak256("SERVICE_CENTER_ROLE");
     bytes32 public constant MANUFACTURER_ADMIN_ROLE = DEFAULT_ADMIN_ROLE;
 
-    VehicleRegistry public vehicleRegistry;
+    VehicleRegistry public immutable vehicleRegistry;
 
     struct ServiceRecord {
         bytes32 vin;

@@ -192,7 +192,23 @@ def owner_dispute_service():
     if record_index is None or not reason:
         return jsonify({'error': 'record_index and reason required'}), 400
     try:
+        # Fetch pending record to get metadata_hash before disputing
+        from blockchain.adapters.service_log import service_log as _sl
+        pending = _sl.get_pending_services(vin)
+        metadata_hash_for_record = None
+        if pending and record_index < len(pending):
+            metadata_hash_for_record = pending[record_index].get('metadata_hash')
+
         result = service_log_service.dispute_service(vin, record_index, reason, request.user['blockchain_address'])
+
+        # Mark the corresponding ServiceMetadata row as disputed for dispute-rate tracking
+        if metadata_hash_for_record:
+            from db.models import db as _db, ServiceMetadata
+            sm = ServiceMetadata.query.filter_by(metadata_hash=metadata_hash_for_record).first()
+            if sm:
+                sm.disputed = True
+                _db.session.commit()
+
         return jsonify(result), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500

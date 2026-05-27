@@ -3,11 +3,25 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { BaseChartDirective } from 'ng2-charts';
-import { ChartData, ChartOptions } from 'chart.js';
+import {
+  Chart, ChartData, ChartOptions,
+  CategoryScale, LinearScale, BarElement, BarController,
+  LineElement, LineController, PointElement,
+  ArcElement, PieController, DoughnutController,
+  Tooltip, Legend, Filler
+} from 'chart.js';
 import { AuthService } from '../../../core/services/auth';
 import { BlockchainService } from '../../../core/services/blockchain.service';
 import { VehicleService, DashboardStats } from '../../../core/services/vehicle';
 import { User } from '../../../core/models/user.model';
+
+Chart.register(
+  CategoryScale, LinearScale,
+  BarElement, BarController,
+  LineElement, LineController, PointElement, Filler,
+  ArcElement, PieController, DoughnutController,
+  Tooltip, Legend
+);
 
 @Component({
   selector: 'app-manufacturer-dashboard',
@@ -27,9 +41,7 @@ export class ManufacturerDashboardComponent implements OnInit, OnDestroy {
   pieChartData: ChartData<'pie'> = { labels: [], datasets: [{ data: [] }] };
   pieChartOptions: ChartOptions<'pie'> = {
     responsive: true,
-    plugins: {
-      legend: { position: 'bottom' }
-    }
+    plugins: { legend: { position: 'bottom' } }
   };
 
   warrantyChartData: ChartData<'doughnut'> = {
@@ -40,6 +52,20 @@ export class ManufacturerDashboardComponent implements OnInit, OnDestroy {
     responsive: true,
     cutout: '65%',
     plugins: { legend: { position: 'bottom' } }
+  };
+
+  lineChartData: ChartData<'line'> = { labels: [], datasets: [] };
+  lineChartOptions: ChartOptions<'line'> = {
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+  };
+
+  barChartData: ChartData<'bar'> = { labels: [], datasets: [] };
+  barChartOptions: ChartOptions<'bar'> = {
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
   };
 
   constructor(
@@ -79,6 +105,7 @@ export class ManufacturerDashboardComponent implements OnInit, OnDestroy {
   }
 
   private buildCharts(s: DashboardStats): void {
+    // Pie: service type distribution
     if (s.service_type_distribution) {
       const entries = Object.entries(s.service_type_distribution);
       this.pieChartData = {
@@ -92,11 +119,43 @@ export class ManufacturerDashboardComponent implements OnInit, OnDestroy {
         }]
       };
     }
+
+    // Doughnut: warranty coverage
     const active  = s.active_warranties  ?? 0;
     const expired = (s.total_vehicles ?? 0) - active;
     this.warrantyChartData = {
       labels: ['Active', 'Expired / No Warranty'],
       datasets: [{ data: [active, Math.max(0, expired)], backgroundColor: ['#1D9E75', '#E5E7EB'] }]
     };
+
+    // Line: warranty claim trend (last 6 months)
+    if (s.warranty_claim_trend?.length) {
+      this.lineChartData = {
+        labels: s.warranty_claim_trend.map(p => p.month),
+        datasets: [{
+          data: s.warranty_claim_trend.map(p => p.count),
+          borderColor: '#3B82F6',
+          backgroundColor: 'rgba(59,130,246,0.1)',
+          fill: true,
+          tension: 0.35,
+          pointRadius: 4,
+          pointBackgroundColor: '#3B82F6',
+        }]
+      };
+    }
+
+    // Bar: top service centres by submissions
+    if (s.top_service_centers?.length) {
+      this.barChartData = {
+        labels: s.top_service_centers.map(sc => sc.label),
+        datasets: [{
+          data: s.top_service_centers.map(sc => sc.submissions),
+          backgroundColor: s.top_service_centers.map(sc =>
+            sc.flagged ? '#EF4444' : '#1D9E75'
+          ),
+          borderRadius: 4,
+        }]
+      };
+    }
   }
 }
