@@ -83,6 +83,20 @@ def count_by_role_status(role: str, status: str) -> int:
     return User.query.filter_by(role=role, status=status).count()
 
 
+def count_by_role_brand(role: str, brand: str = '') -> int:
+    q = User.query.filter_by(role=role)
+    if brand:
+        q = q.filter(User.brand.ilike(brand))
+    return q.count()
+
+
+def count_by_role_status_brand(role: str, status: str, brand: str = '') -> int:
+    q = User.query.filter_by(role=role, status=status)
+    if brand:
+        q = q.filter(User.brand.ilike(brand))
+    return q.count()
+
+
 def update_status(user_id: int, status: str) -> User | None:
     user = db.session.get(User, user_id)
     if user and user.role == 'SERVICE_CENTER':

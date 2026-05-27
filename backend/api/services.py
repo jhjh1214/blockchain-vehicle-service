@@ -74,7 +74,7 @@ def submit_service():
 
 
 @service_bp.route('/verify', methods=['POST'])
-@token_required
+@role_required('OWNER')
 def verify_service():
     data = request.get_json() or {}
     try:
@@ -92,7 +92,7 @@ def verify_service():
 
 
 @service_bp.route('/dispute', methods=['POST'])
-@token_required
+@role_required('OWNER')
 def dispute_service():
     data = request.get_json() or {}
     try:

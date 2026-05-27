@@ -367,3 +367,49 @@ class TestOwnerServiceEndpoints:
         sc_token, _ = register_and_login(client, 'SERVICE_CENTER')
         r = client.get('/api/service/owner/pending', headers=auth(sc_token))
         assert r.status_code == 403
+
+
+class TestLegacyVerifyDisputeRoleEnforcement:
+    """The legacy /verify and /dispute endpoints are now owner-only."""
+
+    def test_sc_cannot_use_legacy_verify(self, client):
+        sc_token, _ = register_and_login(client, 'SERVICE_CENTER')
+        r = client.post('/api/service/verify', headers=auth(sc_token), json={
+            'vin': VIN, 'record_index': 0,
+        })
+        assert r.status_code == 403
+
+    def test_manufacturer_cannot_use_legacy_verify(self, client):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        r = client.post('/api/service/verify', headers=auth(mfr_token), json={
+            'vin': VIN, 'record_index': 0,
+        })
+        assert r.status_code == 403
+
+    def test_sc_cannot_use_legacy_dispute(self, client):
+        sc_token, _ = register_and_login(client, 'SERVICE_CENTER')
+        r = client.post('/api/service/dispute', headers=auth(sc_token), json={
+            'vin': VIN, 'record_index': 0, 'reason': 'test',
+        })
+        assert r.status_code == 403
+
+    def test_manufacturer_cannot_use_legacy_dispute(self, client):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        r = client.post('/api/service/dispute', headers=auth(mfr_token), json={
+            'vin': VIN, 'record_index': 0, 'reason': 'test',
+        })
+        assert r.status_code == 403
+
+    def test_owner_can_use_legacy_verify(self, client):
+        owner_token, _ = register_and_login(client, 'OWNER')
+        r = client.post('/api/service/verify', headers=auth(owner_token), json={
+            'vin': VIN, 'record_index': 0,
+        })
+        assert r.status_code == 200
+
+    def test_owner_can_use_legacy_dispute(self, client):
+        owner_token, _ = register_and_login(client, 'OWNER')
+        r = client.post('/api/service/dispute', headers=auth(owner_token), json={
+            'vin': VIN, 'record_index': 0, 'reason': 'Wrong parts used',
+        })
+        assert r.status_code == 200

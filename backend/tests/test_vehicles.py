@@ -323,3 +323,71 @@ class TestTransferVehicle:
         owner_token, _ = register_and_login(client, 'OWNER')
         r = client.post('/api/vehicle/transfer', headers=auth(owner_token), json={'vin': VIN})
         assert r.status_code == 400
+
+    def test_non_owner_cannot_transfer(self, client):
+        sc_token, _ = register_and_login(client, 'SERVICE_CENTER')
+        r = client.post('/api/vehicle/transfer', headers=auth(sc_token), json={
+            'vin': VIN, 'new_owner_email': 'any@any.com',
+        })
+        assert r.status_code == 403
+
+    def test_manufacturer_cannot_transfer(self, client):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        r = client.post('/api/vehicle/transfer', headers=auth(mfr_token), json={
+            'vin': VIN, 'new_owner_email': 'any@any.com',
+        })
+        assert r.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Dashboard stats brand isolation
+# ---------------------------------------------------------------------------
+
+class TestDashboardStatsBrandIsolation:
+    def test_sc_counts_scoped_to_manufacturer_brand(self, client):
+        """Stats endpoint counts only SCs belonging to the requesting manufacturer's brand."""
+        honda_mfr, _ = register_and_login(client, 'MANUFACTURER', brand='Honda')
+        register_and_login(client, 'SERVICE_CENTER', brand='Honda')
+        register_and_login(client, 'SERVICE_CENTER', brand='Toyota')
+
+        r = client.get('/api/vehicle/stats', headers=auth(honda_mfr))
+        assert r.status_code == 200
+        data = r.get_json()
+        # Honda mfr should see 1 Honda SC, not the Toyota SC
+        assert data['sc_total'] == 1
+        assert data['sc_pending'] == 1
+
+    def test_dashboard_stats_sc_counts_scoped_to_brand(self, client):
+        honda_mfr, _ = register_and_login(client, 'MANUFACTURER', brand='Honda')
+        register_and_login(client, 'SERVICE_CENTER', brand='Honda')
+        register_and_login(client, 'SERVICE_CENTER', brand='Toyota')
+
+        r = client.get('/api/vehicle/dashboard-stats', headers=auth(honda_mfr))
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data['sc_total'] == 1
+        assert data['sc_pending'] == 1
+
+    def test_activity_feed_shows_only_own_registrations(self, client):
+        """Activity feed only includes vehicles registered by the requesting manufacturer."""
+        honda_mfr, _ = register_and_login(client, 'MANUFACTURER', brand='Honda')
+        toyota_mfr, _ = register_and_login(client, 'MANUFACTURER', brand='Toyota')
+
+        # Honda registers VIN; Toyota registers VIN2
+        client.post('/api/vehicle/register', headers=auth(honda_mfr), json={
+            'vin': VIN, **HONDA_PAYLOAD,
+        })
+        client.post('/api/vehicle/register', headers=auth(toyota_mfr), json={
+            'vin': VIN2, **TOYOTA_PAYLOAD,
+        })
+
+        honda_feed = client.get('/api/vehicle/activity-feed', headers=auth(honda_mfr)).get_json()['feed']
+        toyota_feed = client.get('/api/vehicle/activity-feed', headers=auth(toyota_mfr)).get_json()['feed']
+
+        honda_vins = [e['vin'] for e in honda_feed if e['type'] == 'registration']
+        toyota_vins = [e['vin'] for e in toyota_feed if e['type'] == 'registration']
+
+        assert VIN in honda_vins
+        assert VIN2 not in honda_vins
+        assert VIN2 in toyota_vins
+        assert VIN not in toyota_vins

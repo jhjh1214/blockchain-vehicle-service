@@ -86,7 +86,7 @@ def get_my_vehicles():
 
 
 @vehicle_bp.route('/transfer', methods=['POST'])
-@token_required
+@role_required('OWNER')
 def transfer_vehicle():
     data = request.get_json() or {}
     try:
@@ -141,12 +141,17 @@ def get_fleet():
 @vehicle_bp.route('/stats', methods=['GET'])
 @role_required('MANUFACTURER')
 def get_manufacturer_stats():
-    mfr_address    = request.user['blockchain_address']
+    from db.models import db as _db
+    mfr_address = request.user['blockchain_address']
+    mfr_brand   = request.user.get('brand', '')
     total_vehicles = VehicleVINMapping.query.filter_by(registered_by=mfr_address).count()
-    sc_total       = user_repo.count_by_role('SERVICE_CENTER')
-    sc_active      = user_repo.count_by_role_status('SERVICE_CENTER', 'active')
-    sc_pending     = user_repo.count_by_role_status('SERVICE_CENTER', 'pending')
-    warranty_claims = WarrantyClaimMetadata.query.count()
+    sc_total       = user_repo.count_by_role_brand('SERVICE_CENTER', mfr_brand)
+    sc_active      = user_repo.count_by_role_status_brand('SERVICE_CENTER', 'active', mfr_brand)
+    sc_pending     = user_repo.count_by_role_status_brand('SERVICE_CENTER', 'pending', mfr_brand)
+    mfr_vins_subq = _db.session.query(VehicleVINMapping.vin).filter_by(registered_by=mfr_address).scalar_subquery()
+    warranty_claims = WarrantyClaimMetadata.query.filter(
+        WarrantyClaimMetadata.vin.in_(mfr_vins_subq)
+    ).count()
     return jsonify({
         'total_vehicles':  total_vehicles,
         'sc_total':        sc_total,
@@ -166,34 +171,49 @@ def get_dashboard_stats():
     from db.models import User
 
     mfr_address = request.user['blockchain_address']
+    mfr_brand   = request.user.get('brand', '')
 
     total_vehicles    = VehicleVINMapping.query.filter_by(registered_by=mfr_address).count()
     active_warranties = VehicleVINMapping.query.filter(
         VehicleVINMapping.registered_by == mfr_address,
         VehicleVINMapping.warranty_expiry > int(_time.time())
     ).count()
-    sc_total          = user_repo.count_by_role('SERVICE_CENTER')
-    sc_active         = user_repo.count_by_role_status('SERVICE_CENTER', 'active')
-    sc_pending        = user_repo.count_by_role_status('SERVICE_CENTER', 'pending')
-    warranty_claims   = WarrantyClaimMetadata.query.count()
+    sc_total  = user_repo.count_by_role_brand('SERVICE_CENTER', mfr_brand)
+    sc_active = user_repo.count_by_role_status_brand('SERVICE_CENTER', 'active', mfr_brand)
+    sc_pending = user_repo.count_by_role_status_brand('SERVICE_CENTER', 'pending', mfr_brand)
+
+    # Subquery: VINs registered by this manufacturer (used to scope all per-vehicle metrics)
+    mfr_vins_subq = _db.session.query(VehicleVINMapping.vin).filter_by(registered_by=mfr_address).scalar_subquery()
+
+    warranty_claims = WarrantyClaimMetadata.query.filter(
+        WarrantyClaimMetadata.vin.in_(mfr_vins_subq)
+    ).count()
 
     month_start = _dt.utcnow().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     services_this_month = ServiceMetadata.query.filter(
-        ServiceMetadata.created_at >= month_start
+        ServiceMetadata.created_at >= month_start,
+        ServiceMetadata.vin.in_(mfr_vins_subq)
     ).count()
 
-    # Service type distribution (pie chart)
+    # Subquery: SC addresses belonging to this brand (for top-SC chart)
+    brand_sc_subq = _db.session.query(User.blockchain_address).filter(
+        User.role == 'SERVICE_CENTER',
+        User.brand.ilike(mfr_brand) if mfr_brand else _db.true()
+    ).scalar_subquery()
+
+    # Service type distribution (pie chart) — only this manufacturer's vehicles
     service_type_counts: dict = {}
     for row in ServiceMetadata.query.with_entities(
         ServiceMetadata.service_type, _db.func.count(ServiceMetadata.id)
+    ).filter(
+        ServiceMetadata.vin.in_(mfr_vins_subq)
     ).group_by(ServiceMetadata.service_type).all():
         service_type_counts[row[0] or 'Other'] = row[1]
 
-    # Warranty claim trend — last 6 months (line chart)
+    # Warranty claim trend — last 6 months (line chart) — this manufacturer's vehicles only
     claim_trend: list = []
     for i in range(5, -1, -1):
         ref = _dt.utcnow().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        # shift back i months
         month = (ref.month - i - 1) % 12 + 1
         year  = ref.year + ((ref.month - i - 1) // 12)
         start = _dt(year, month, 1)
@@ -203,16 +223,18 @@ def get_dashboard_stats():
             end = _dt(year, month + 1, 1)
         count = WarrantyClaimMetadata.query.filter(
             WarrantyClaimMetadata.created_at >= start,
-            WarrantyClaimMetadata.created_at < end
+            WarrantyClaimMetadata.created_at < end,
+            WarrantyClaimMetadata.vin.in_(mfr_vins_subq)
         ).count()
         claim_trend.append({'month': start.strftime('%b %Y'), 'count': count})
 
-    # Top 5 service centres by submission volume (bar chart)
+    # Top 5 service centres by submission volume (bar chart) — this brand's SCs only
     top_sc_rows = ServiceMetadata.query.with_entities(
         ServiceMetadata.service_center_address,
         _db.func.count(ServiceMetadata.id).label('submissions')
     ).filter(
-        ServiceMetadata.service_center_address.isnot(None)
+        ServiceMetadata.service_center_address.isnot(None),
+        ServiceMetadata.service_center_address.in_(brand_sc_subq)
     ).group_by(
         ServiceMetadata.service_center_address
     ).order_by(
@@ -307,9 +329,18 @@ def activity_feed():
     """Recent activity feed: vehicle registrations, warranty claims, and disputes."""
     from db.models import VehicleVINMapping, ServiceMetadata, WarrantyClaimMetadata
 
-    registrations = VehicleVINMapping.query.order_by(VehicleVINMapping.created_at.desc()).limit(8).all()
-    claims = WarrantyClaimMetadata.query.order_by(WarrantyClaimMetadata.created_at.desc()).limit(8).all()
-    disputes = ServiceMetadata.query.filter_by(disputed=True).order_by(ServiceMetadata.created_at.desc()).limit(8).all()
+    from db.models import db as _db
+    mfr_address = request.user['blockchain_address']
+    mfr_vins_subq = _db.session.query(VehicleVINMapping.vin).filter_by(registered_by=mfr_address).scalar_subquery()
+
+    registrations = VehicleVINMapping.query.filter_by(registered_by=mfr_address).order_by(VehicleVINMapping.created_at.desc()).limit(8).all()
+    claims = WarrantyClaimMetadata.query.filter(
+        WarrantyClaimMetadata.vin.in_(mfr_vins_subq)
+    ).order_by(WarrantyClaimMetadata.created_at.desc()).limit(8).all()
+    disputes = ServiceMetadata.query.filter(
+        ServiceMetadata.disputed == True,
+        ServiceMetadata.vin.in_(mfr_vins_subq)
+    ).order_by(ServiceMetadata.created_at.desc()).limit(8).all()
 
     feed = []
     for v in registrations:
