@@ -162,6 +162,8 @@ class VehicleVINMapping(db.Model):
     owner_address = db.Column(db.String(42), nullable=False, index=True)
     registered_by = db.Column(db.String(42), nullable=True, index=True)
     registration_status = db.Column(db.String(20), default='active', nullable=False)
+    # Email reserved by manufacturer for pending pre-registrations; if set, only this user can claim
+    intended_owner_email = db.Column(db.String(255), nullable=True)
     make = db.Column(db.String(50))
     model = db.Column(db.String(50))
     year = db.Column(db.Integer)
@@ -175,6 +177,7 @@ class VehicleVINMapping(db.Model):
             'owner_address': self.owner_address,
             'registered_by': self.registered_by,
             'registration_status': self.registration_status,
+            'intended_owner_email': self.intended_owner_email,
             'make': self.make,
             'model': self.model,
             'year': self.year,

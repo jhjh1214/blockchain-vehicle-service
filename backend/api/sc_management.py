@@ -132,7 +132,7 @@ def fund_service_center(sc_id):
 
 
 @sc_bp.route('/my-stats', methods=['GET'])
-@token_required
+@role_required('SERVICE_CENTER')
 def get_sc_stats():
     """Stats for the logged-in service center."""
     addr = request.user.get('blockchain_address', '')

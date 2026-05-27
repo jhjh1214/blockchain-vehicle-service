@@ -20,6 +20,10 @@ def check_warranty(vin: str) -> dict:
 
 
 def submit_claim(vin: str, issue_description: str, photos: list, from_address: str) -> dict:
+    mapping = vehicle_repo.find_by_vin(vin)
+    if not mapping or mapping.owner_address.lower() != from_address.lower():
+        raise ValueError('You do not own this vehicle')
+
     claim_details = {
         'issue_description': issue_description,
         'photos': photos or [],

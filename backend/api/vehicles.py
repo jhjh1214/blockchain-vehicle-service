@@ -32,6 +32,8 @@ def register_vehicle():
     if mfr_brand and make.lower() != mfr_brand.lower():
         return jsonify({'error': f"Brand mismatch: your account is authorised for '{mfr_brand}' vehicles only"}), 403
 
+    intended_owner_email = sanitize(data.get('intended_owner_email', ''), 255).lower() or None
+
     try:
         result = vehicle_service.register_vehicle(
             vin=vin,
@@ -41,7 +43,8 @@ def register_vehicle():
             model=model,
             year=year,
             from_address=Config.DEPLOYER_ADDRESS,
-            registered_by=request.user['blockchain_address']
+            registered_by=request.user['blockchain_address'],
+            intended_owner_email=intended_owner_email,
         )
         return jsonify(result), 200
     except (ValueError, LookupError) as e:
@@ -75,7 +78,7 @@ def claim_vehicle():
 
 
 @vehicle_bp.route('/my-vehicles', methods=['GET'])
-@token_required
+@role_required('OWNER')
 def get_my_vehicles():
     try:
         vehicles = vehicle_service.get_my_vehicles(request.user['blockchain_address'])
@@ -105,6 +108,8 @@ def transfer_vehicle():
         return jsonify(result), 200
     except LookupError as e:
         return jsonify({'error': str(e)}), 404
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -118,6 +123,11 @@ def get_vehicle(vin):
         return jsonify({'error': str(e)}), 400
     try:
         result = vehicle_service.get_vehicle(vin)
+        # Only the vehicle owner may see the owner's email address
+        requester_address = request.user.get('blockchain_address', '')
+        owner_address = result.get('owner', {}).get('address', '')
+        if requester_address.lower() != owner_address.lower():
+            result.get('owner', {}).pop('email', None)
         return jsonify(result), 200
     except LookupError as e:
         return jsonify({'error': str(e)}), 404

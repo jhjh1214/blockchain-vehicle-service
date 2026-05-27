@@ -413,3 +413,68 @@ class TestLegacyVerifyDisputeRoleEnforcement:
             'vin': VIN, 'record_index': 0, 'reason': 'Wrong parts used',
         })
         assert r.status_code == 200
+
+
+class TestServiceOnPendingVehicle:
+    """SC must not be able to submit a service record for an unclaimed vehicle."""
+
+    def test_sc_cannot_submit_for_pending_vehicle(self, client):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER', brand='Honda')
+        sc_token, _ = register_and_login(client, 'SERVICE_CENTER', brand='Honda')
+
+        # Pre-register with no owner (status=pending)
+        client.post('/api/vehicle/register', headers=auth(mfr_token), json={
+            'vin': VIN, 'warranty_years': 3, 'make': 'Honda', 'model': 'Civic', 'year': 2024,
+        })
+
+        r = client.post('/api/service/submit', headers=auth(sc_token), json={
+            'vin': VIN, 'service_type': 'Oil Change',
+            'service_date': SERVICE_DATE, 'mileage': 5000,
+        })
+        assert r.status_code == 400
+        assert 'pending' in r.get_json()['error'].lower() or 'owner' in r.get_json()['error'].lower()
+
+    def test_sc_can_submit_for_active_vehicle(self, client):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER', brand='Honda')
+        _, owner = register_and_login(client, 'OWNER')
+        sc_token, _ = register_and_login(client, 'SERVICE_CENTER', brand='Honda')
+        _register_vehicle(client, mfr_token, owner['email'], make='Honda')
+
+        r = client.post('/api/service/submit', headers=auth(sc_token), json={
+            'vin': VIN, 'service_type': 'Oil Change',
+            'service_date': SERVICE_DATE, 'mileage': 5000,
+        })
+        assert r.status_code == 200
+
+
+class TestWarrantyClaimsAccess:
+    """GET /api/warranty/claims/<vin> is now manufacturer-only with brand isolation."""
+
+    def test_manufacturer_can_see_claims_for_own_vehicle(self, client):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER', brand='Honda')
+        r = client.get(f'/api/warranty/claims/{VIN}', headers=auth(mfr_token))
+        assert r.status_code == 200
+
+    def test_sc_cannot_see_warranty_claims(self, client):
+        sc_token, _ = register_and_login(client, 'SERVICE_CENTER')
+        r = client.get(f'/api/warranty/claims/{VIN}', headers=auth(sc_token))
+        assert r.status_code == 403
+
+    def test_owner_cannot_use_warranty_claims_endpoint(self, client):
+        owner_token, _ = register_and_login(client, 'OWNER')
+        r = client.get(f'/api/warranty/claims/{VIN}', headers=auth(owner_token))
+        assert r.status_code == 403
+
+    def test_different_brand_manufacturer_cannot_see_claims(self, client):
+        honda_mfr, _ = register_and_login(client, 'MANUFACTURER', brand='Honda')
+        toyota_mfr, _ = register_and_login(client, 'MANUFACTURER', brand='Toyota')
+        _, owner = register_and_login(client, 'OWNER')
+
+        # Register a Honda VIN under Honda manufacturer
+        client.post('/api/vehicle/register', headers=auth(honda_mfr), json={
+            'vin': VIN, 'owner_email': owner['email'],
+            'warranty_years': 3, 'make': 'Honda', 'model': 'Civic', 'year': 2024,
+        })
+
+        r = client.get(f'/api/warranty/claims/{VIN}', headers=auth(toyota_mfr))
+        assert r.status_code == 403

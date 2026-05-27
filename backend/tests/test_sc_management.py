@@ -159,3 +159,13 @@ class TestSCStats:
     def test_unauthenticated_cannot_get_stats(self, client):
         r = client.get('/api/sc/my-stats')
         assert r.status_code == 401
+
+    def test_manufacturer_cannot_get_sc_stats(self, client):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        r = client.get('/api/sc/my-stats', headers=auth(mfr_token))
+        assert r.status_code == 403
+
+    def test_owner_cannot_get_sc_stats(self, client):
+        owner_token, _ = register_and_login(client, 'OWNER')
+        r = client.get('/api/sc/my-stats', headers=auth(owner_token))
+        assert r.status_code == 403

@@ -391,3 +391,154 @@ class TestDashboardStatsBrandIsolation:
         assert VIN2 not in honda_vins
         assert VIN2 in toyota_vins
         assert VIN not in toyota_vins
+
+
+# ---------------------------------------------------------------------------
+# Transfer recipient must be OWNER role
+# ---------------------------------------------------------------------------
+
+class TestTransferRoleEnforcement:
+    def test_cannot_transfer_to_manufacturer(self, client):
+        mfr_token, mfr = register_and_login(client, 'MANUFACTURER')
+        owner_token, owner = register_and_login(client, 'OWNER')
+        _register_with_owner(client, mfr_token, owner['email'])
+
+        # Try to transfer to the manufacturer's email
+        r = client.post('/api/vehicle/transfer', headers=auth(owner_token), json={
+            'vin': VIN, 'new_owner_email': mfr['email'],
+        })
+        assert r.status_code == 400
+        assert 'owner' in r.get_json()['error'].lower()
+
+    def test_cannot_transfer_to_service_center(self, client):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        owner_token, owner = register_and_login(client, 'OWNER')
+        _, sc = register_and_login(client, 'SERVICE_CENTER')
+        _register_with_owner(client, mfr_token, owner['email'])
+
+        r = client.post('/api/vehicle/transfer', headers=auth(owner_token), json={
+            'vin': VIN, 'new_owner_email': sc['email'],
+        })
+        assert r.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# Warranty claim ownership enforcement
+# ---------------------------------------------------------------------------
+
+class TestWarrantyClaimOwnership:
+    def test_owner_can_claim_own_vehicle_warranty(self, client):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        owner_token, owner = register_and_login(client, 'OWNER')
+        _register_with_owner(client, mfr_token, owner['email'])
+
+        r = client.post('/api/warranty/submit-claim', headers=auth(owner_token), json={
+            'vin': VIN, 'issue_description': 'Engine makes noise',
+        })
+        assert r.status_code == 200
+
+    def test_owner_cannot_claim_warranty_for_unowned_vehicle(self, client):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        _, other_owner = register_and_login(client, 'OWNER')
+        intruder_token, _ = register_and_login(client, 'OWNER')
+        _register_with_owner(client, mfr_token, other_owner['email'])
+
+        r = client.post('/api/warranty/submit-claim', headers=auth(intruder_token), json={
+            'vin': VIN, 'issue_description': 'Fake claim on someone else\'s car',
+        })
+        assert r.status_code == 400
+        assert 'own' in r.get_json()['error'].lower()
+
+
+# ---------------------------------------------------------------------------
+# Intended owner reservation for pending vehicles
+# ---------------------------------------------------------------------------
+
+class TestIntendedOwner:
+    def test_intended_owner_can_claim(self, client):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        owner_token, owner = register_and_login(client, 'OWNER')
+
+        # Pre-register with intended_owner_email
+        client.post('/api/vehicle/register', headers=auth(mfr_token), json={
+            'vin': VIN, 'warranty_years': 3, 'make': 'Honda', 'model': 'Civic', 'year': 2024,
+            'intended_owner_email': owner['email'],
+        })
+
+        r = client.post('/api/vehicle/claim', headers=auth(owner_token), json={'vin': VIN})
+        assert r.status_code == 200
+
+    def test_wrong_owner_cannot_claim_reserved_vehicle(self, client):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        _, intended_owner = register_and_login(client, 'OWNER')
+        intruder_token, _ = register_and_login(client, 'OWNER')
+
+        client.post('/api/vehicle/register', headers=auth(mfr_token), json={
+            'vin': VIN, 'warranty_years': 3, 'make': 'Honda', 'model': 'Civic', 'year': 2024,
+            'intended_owner_email': intended_owner['email'],
+        })
+
+        r = client.post('/api/vehicle/claim', headers=auth(intruder_token), json={'vin': VIN})
+        assert r.status_code == 409
+        assert 'reserved' in r.get_json()['error'].lower()
+
+    def test_unreserved_pending_vehicle_claimable_by_any_owner(self, client):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        owner_token, _ = register_and_login(client, 'OWNER')
+
+        client.post('/api/vehicle/register', headers=auth(mfr_token), json={
+            'vin': VIN, 'warranty_years': 3, 'make': 'Honda', 'model': 'Civic', 'year': 2024,
+        })
+
+        r = client.post('/api/vehicle/claim', headers=auth(owner_token), json={'vin': VIN})
+        assert r.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Vehicle detail owner email privacy
+# ---------------------------------------------------------------------------
+
+class TestVehicleDetailPrivacy:
+    def test_owner_sees_own_email_in_vehicle_detail(self, client):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        owner_token, owner = register_and_login(client, 'OWNER')
+        _register_with_owner(client, mfr_token, owner['email'])
+
+        r = client.get(f'/api/vehicle/{VIN}', headers=auth(owner_token))
+        assert r.status_code == 200
+        assert r.get_json()['owner']['email'] == owner['email']
+
+    def test_sc_does_not_see_owner_email(self, client):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        _, owner = register_and_login(client, 'OWNER')
+        sc_token, _ = register_and_login(client, 'SERVICE_CENTER')
+        _register_with_owner(client, mfr_token, owner['email'])
+
+        r = client.get(f'/api/vehicle/{VIN}', headers=auth(sc_token))
+        assert r.status_code == 200
+        assert 'email' not in r.get_json()['owner']
+
+    def test_manufacturer_does_not_see_owner_email(self, client):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        _, owner = register_and_login(client, 'OWNER')
+        _register_with_owner(client, mfr_token, owner['email'])
+
+        r = client.get(f'/api/vehicle/{VIN}', headers=auth(mfr_token))
+        assert r.status_code == 200
+        assert 'email' not in r.get_json()['owner']
+
+
+# ---------------------------------------------------------------------------
+# /my-vehicles role enforcement
+# ---------------------------------------------------------------------------
+
+class TestMyVehiclesRoleEnforcement:
+    def test_manufacturer_cannot_use_my_vehicles(self, client):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        r = client.get('/api/vehicle/my-vehicles', headers=auth(mfr_token))
+        assert r.status_code == 403
+
+    def test_sc_cannot_use_my_vehicles(self, client):
+        sc_token, _ = register_and_login(client, 'SERVICE_CENTER')
+        r = client.get('/api/vehicle/my-vehicles', headers=auth(sc_token))
+        assert r.status_code == 403
