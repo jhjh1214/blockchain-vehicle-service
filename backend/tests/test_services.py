@@ -87,6 +87,32 @@ class TestSubmitService:
         })
         assert r.status_code == 400
 
+    def test_submit_service_with_photos(self, client):
+        """Multipart/form-data submission including attached photo files."""
+        import io
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER', brand='Honda')
+        _, owner = register_and_login(client, 'OWNER')
+        sc_token, _ = register_and_login(client, 'SERVICE_CENTER', brand='Honda')
+        _register_vehicle(client, mfr_token, owner['email'], make='Honda')
+
+        photo = (io.BytesIO(b'\xff\xd8\xff\xe0' + b'\x00' * 16), 'engine.jpg')
+        r = client.post('/api/service/submit',
+            headers=auth(sc_token),
+            data={
+                'vin': VIN,
+                'service_type': 'Oil Change',
+                'service_date': SERVICE_DATE,
+                'mileage': '15000',
+                'technician_name': 'Bob',
+                'photos': photo,
+            },
+            content_type='multipart/form-data',
+        )
+        assert r.status_code == 200
+        data = r.get_json()
+        assert 'metadata_hash' in data
+        assert data['metadata_hash'].startswith('0x')
+
 
 class TestGetPendingServices:
     def test_get_pending_authenticated(self, client):

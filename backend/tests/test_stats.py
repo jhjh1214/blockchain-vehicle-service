@@ -121,6 +121,78 @@ class TestFleet:
         assert r.status_code == 403
 
 
+class TestDashboardStats:
+    def test_manufacturer_gets_dashboard_stats(self, client):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        r = client.get('/api/vehicle/dashboard-stats', headers=auth(mfr_token))
+        assert r.status_code == 200
+        data = r.get_json()
+        assert 'total_vehicles' in data
+        assert 'active_warranties' in data
+        assert 'warranty_claims' in data
+        assert 'services_this_month' in data
+        assert 'service_type_distribution' in data
+        assert 'warranty_claim_trend' in data
+        assert 'top_service_centers' in data
+
+    def test_claim_trend_has_six_months(self, client):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        r = client.get('/api/vehicle/dashboard-stats', headers=auth(mfr_token))
+        trend = r.get_json()['warranty_claim_trend']
+        assert len(trend) == 6
+        for entry in trend:
+            assert 'month' in entry
+            assert 'count' in entry
+
+    def test_non_manufacturer_forbidden(self, client):
+        sc_token, _ = register_and_login(client, 'SERVICE_CENTER')
+        r = client.get('/api/vehicle/dashboard-stats', headers=auth(sc_token))
+        assert r.status_code == 403
+
+    def test_dashboard_stats_unauthenticated(self, client):
+        r = client.get('/api/vehicle/dashboard-stats')
+        assert r.status_code == 401
+
+
+class TestActivityFeed:
+    def test_manufacturer_gets_empty_feed(self, client):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        r = client.get('/api/vehicle/activity-feed', headers=auth(mfr_token))
+        assert r.status_code == 200
+        data = r.get_json()
+        assert 'feed' in data
+        assert isinstance(data['feed'], list)
+
+    def test_feed_includes_registration(self, client):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        client.post('/api/vehicle/register', headers=auth(mfr_token), json={
+            'vin': VIN, 'warranty_years': 3, 'make': 'Honda', 'model': 'Civic', 'year': 2024,
+        })
+        r = client.get('/api/vehicle/activity-feed', headers=auth(mfr_token))
+        feed = r.get_json()['feed']
+        assert any(item['type'] == 'registration' and item['vin'] == VIN for item in feed)
+
+    def test_feed_item_has_required_fields(self, client):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        client.post('/api/vehicle/register', headers=auth(mfr_token), json={
+            'vin': VIN, 'warranty_years': 3, 'make': 'Honda', 'model': 'Civic', 'year': 2024,
+        })
+        item = client.get('/api/vehicle/activity-feed', headers=auth(mfr_token)).get_json()['feed'][0]
+        assert 'type' in item
+        assert 'vin' in item
+        assert 'description' in item
+        assert 'timestamp' in item
+
+    def test_non_manufacturer_forbidden(self, client):
+        sc_token, _ = register_and_login(client, 'SERVICE_CENTER')
+        r = client.get('/api/vehicle/activity-feed', headers=auth(sc_token))
+        assert r.status_code == 403
+
+    def test_activity_feed_unauthenticated(self, client):
+        r = client.get('/api/vehicle/activity-feed')
+        assert r.status_code == 401
+
+
 class TestPublicVerify:
     def test_verify_registered_vehicle(self, client):
         mfr_token, _ = register_and_login(client, 'MANUFACTURER')

@@ -143,4 +143,65 @@ void main() {
       expect(result, isNull);
     });
   });
+
+  group('checkEligibility', () {
+    test('returns eligibility data on success', () async {
+      when(mockDio.get(ApiEndpoints.warrantyEligibilityCheck('1HGBH41JXMN109186')))
+          .thenAnswer((_) async => mockResponse({
+                'valid': true,
+                'eligible_to_claim': true,
+                'service_record_count': 5,
+                'service_history_maintained': true,
+                'days_remaining': 365,
+              }));
+
+      final result = await provider.checkEligibility('1HGBH41JXMN109186');
+
+      expect(result, isNotNull);
+      expect(result!['valid'], isTrue);
+      expect(result['eligible_to_claim'], isTrue);
+      expect(result['service_record_count'], 5);
+      expect(result['service_history_maintained'], isTrue);
+    });
+
+    test('returns null on network error', () async {
+      when(mockDio.get(ApiEndpoints.warrantyEligibilityCheck('BADVIN')))
+          .thenThrow(mockDioError({'error': 'Not found'}, statusCode: 404));
+
+      final result = await provider.checkEligibility('BADVIN');
+      expect(result, isNull);
+    });
+
+    test('returns ineligible data when warranty expired', () async {
+      when(mockDio.get(ApiEndpoints.warrantyEligibilityCheck('1HGBH41JXMN109186')))
+          .thenAnswer((_) async => mockResponse({
+                'valid': false,
+                'eligible_to_claim': false,
+                'service_record_count': 3,
+                'service_history_maintained': true,
+                'days_remaining': 0,
+              }));
+
+      final result = await provider.checkEligibility('1HGBH41JXMN109186');
+      expect(result, isNotNull);
+      expect(result!['valid'], isFalse);
+      expect(result['eligible_to_claim'], isFalse);
+      expect(result['days_remaining'], 0);
+    });
+
+    test('returns ineligible when no service history', () async {
+      when(mockDio.get(ApiEndpoints.warrantyEligibilityCheck('1HGBH41JXMN109186')))
+          .thenAnswer((_) async => mockResponse({
+                'valid': true,
+                'eligible_to_claim': true,
+                'service_record_count': 0,
+                'service_history_maintained': false,
+                'days_remaining': 200,
+              }));
+
+      final result = await provider.checkEligibility('1HGBH41JXMN109186');
+      expect(result!['service_history_maintained'], isFalse);
+      expect(result['service_record_count'], 0);
+    });
+  });
 }

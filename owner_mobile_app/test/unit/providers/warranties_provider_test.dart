@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:mockito/mockito.dart';
 import 'package:owner_mobile_app/core/api/api_client.dart';
 import 'package:owner_mobile_app/core/api/api_endpoints.dart';
@@ -122,6 +124,50 @@ void main() {
 
       final error = await provider.submitClaim('1HGBH41JXMN109186', 'Issue');
       expect(error, 'Pending claim already exists');
+    });
+
+    test('uses JSON body when no photos provided', () async {
+      final capturedData = <String, dynamic>{};
+      when(mockDio.post(ApiEndpoints.submitClaim, data: anyNamed('data')))
+          .thenAnswer((inv) async {
+        final data = inv.namedArguments[#data];
+        if (data is Map<String, dynamic>) capturedData.addAll(data);
+        return mockResponse({'message': 'Claim submitted'});
+      });
+      when(mockDio.get(ApiEndpoints.ownerClaims))
+          .thenAnswer((_) async => mockResponse({'claims': []}));
+
+      await provider.submitClaim(
+        '1HGBH41JXMN109186',
+        'Squeaky brakes issue',
+        photos: [],
+      );
+
+      expect(capturedData['vin'], '1HGBH41JXMN109186');
+      expect(capturedData['issue_description'], 'Squeaky brakes issue');
+    });
+
+    test('uses FormData when photos provided', () async {
+      final tempDir = await Directory.systemTemp.createTemp('warranty_test_');
+      final tempFile = File('${tempDir.path}/photo.jpg');
+      await tempFile.writeAsBytes([0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10]);
+      final xFile = XFile(tempFile.path);
+
+      when(mockDio.post(ApiEndpoints.submitClaim, data: anyNamed('data')))
+          .thenAnswer((_) async => mockResponse({'message': 'Claim submitted'}));
+      when(mockDio.get(ApiEndpoints.ownerClaims))
+          .thenAnswer((_) async => mockResponse({'claims': [claimJson]}));
+
+      final error = await provider.submitClaim(
+        '1HGBH41JXMN109186',
+        'Visible crack on windshield',
+        photos: [xFile],
+      );
+
+      expect(error, isNull);
+      verify(mockDio.post(ApiEndpoints.submitClaim, data: anyNamed('data'))).called(1);
+
+      await tempDir.delete(recursive: true);
     });
   });
 }

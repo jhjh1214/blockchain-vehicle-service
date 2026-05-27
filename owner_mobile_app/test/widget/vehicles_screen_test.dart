@@ -3,7 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mockito/mockito.dart';
 import 'package:provider/provider.dart';
+import 'package:owner_mobile_app/core/models/service_record.dart';
 import 'package:owner_mobile_app/core/models/vehicle.dart';
+import 'package:owner_mobile_app/features/services/services_provider.dart';
 import 'package:owner_mobile_app/features/vehicles/vehicles_provider.dart';
 import 'package:owner_mobile_app/features/vehicles/vehicles_screen.dart';
 import 'package:owner_mobile_app/shared/theme/app_theme.dart';
@@ -40,9 +42,37 @@ class MockVehiclesProvider extends Mock implements VehiclesProvider {
       ) as Future<void>;
 }
 
-Widget _buildTestApp(VehiclesProvider provider) =>
-    ChangeNotifierProvider<VehiclesProvider>.value(
-      value: provider,
+class MockServicesProvider extends Mock implements ServicesProvider {
+  @override
+  List<ServiceRecord> get pending => super.noSuchMethod(
+        Invocation.getter(#pending),
+        returnValue: <ServiceRecord>[],
+        returnValueForMissingStub: <ServiceRecord>[],
+      ) as List<ServiceRecord>;
+
+  @override
+  bool get loading => super.noSuchMethod(
+        Invocation.getter(#loading),
+        returnValue: false,
+        returnValueForMissingStub: false,
+      ) as bool;
+
+  @override
+  Future<void> loadPending() => super.noSuchMethod(
+        Invocation.method(#loadPending, []),
+        returnValue: Future<void>.value(),
+        returnValueForMissingStub: Future<void>.value(),
+      ) as Future<void>;
+}
+
+Widget _buildTestApp(VehiclesProvider vehiclesProvider,
+    {ServicesProvider? servicesProvider}) =>
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider<VehiclesProvider>.value(value: vehiclesProvider),
+        ChangeNotifierProvider<ServicesProvider>.value(
+            value: servicesProvider ?? MockServicesProvider()),
+      ],
       child: MaterialApp.router(
         theme: AppTheme.light,
         routerConfig: GoRouter(
@@ -132,6 +162,7 @@ void main() {
       await tester.pumpWidget(_buildTestApp(MockVehiclesProvider()));
       await tester.pumpAndSettle();
 
+      // FAB label appears in empty state and in the FloatingActionButton
       expect(find.text('Claim Vehicle'), findsWidgets);
     });
   });

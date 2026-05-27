@@ -81,6 +81,53 @@ class TestSubmitClaim:
         # Each claim includes a timestamp so hashes differ
         assert r1.get_json()['claim_hash'] != r2.get_json()['claim_hash']
 
+    def test_submit_claim_with_photo(self, client):
+        """Multipart/form-data submission with an attached photo file."""
+        import io
+        token, _ = register_and_login(client, 'OWNER')
+        photo = (io.BytesIO(b'\xff\xd8\xff\xe0' + b'\x00' * 16), 'damage.jpg')
+        r = client.post('/api/warranty/submit-claim',
+            headers=auth(token),
+            data={
+                'vin': VIN,
+                'issue_description': 'Visible crack on windshield near the frame',
+                'photos': photo,
+            },
+            content_type='multipart/form-data',
+        )
+        assert r.status_code == 200
+        data = r.get_json()
+        assert 'claim_hash' in data
+        assert data['claim_hash'].startswith('0x')
+
+
+class TestCheckEligibility:
+    def test_authenticated_user_can_check_eligibility(self, client):
+        token, _ = register_and_login(client, 'OWNER')
+        r = client.get(f'/api/warranty/check-eligibility/{VIN}', headers=auth(token))
+        assert r.status_code == 200
+        data = r.get_json()
+        assert 'valid' in data
+        assert 'eligible_to_claim' in data
+        assert 'service_record_count' in data
+        assert 'service_history_maintained' in data
+
+    def test_eligibility_unauthenticated(self, client):
+        r = client.get(f'/api/warranty/check-eligibility/{VIN}')
+        assert r.status_code == 401
+
+    def test_eligibility_invalid_vin(self, client):
+        token, _ = register_and_login(client, 'OWNER')
+        r = client.get('/api/warranty/check-eligibility/BADVIN', headers=auth(token))
+        assert r.status_code == 400
+
+    def test_eligibility_includes_service_count(self, client):
+        """service_record_count reflects finalized services from the blockchain mock."""
+        token, _ = register_and_login(client, 'OWNER')
+        r = client.get(f'/api/warranty/check-eligibility/{VIN}', headers=auth(token))
+        assert r.status_code == 200
+        assert isinstance(r.get_json()['service_record_count'], int)
+
 
 class TestGetClaims:
     def test_get_claims_authenticated(self, client):

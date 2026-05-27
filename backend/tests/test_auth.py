@@ -187,3 +187,33 @@ class TestMe:
     def test_me_invalid_token(self, client):
         r = client.get('/api/auth/me', headers={'Authorization': 'Bearer invalid.token.here'})
         assert r.status_code == 401
+
+
+class TestForgotPassword:
+    def test_nonexistent_email_still_returns_200(self, client):
+        """Anti-enumeration: always 200 regardless of whether email exists."""
+        r = client.post('/api/auth/forgot-password', json={'email': 'nobody@example.com'})
+        assert r.status_code == 200
+        assert 'message' in r.get_json()
+
+    def test_registered_email_also_returns_200(self, client):
+        """Registered users also receive 200 — no difference observable to caller."""
+        client.post('/api/auth/register', json={
+            'email': 'reg@test.com', 'password': STRONG_PASSWORD,
+            'role': 'OWNER', 'name': 'Reg User',
+        })
+        r = client.post('/api/auth/forgot-password', json={'email': 'reg@test.com'})
+        assert r.status_code == 200
+        assert 'message' in r.get_json()
+
+    def test_invalid_email_format_returns_400(self, client):
+        r = client.post('/api/auth/forgot-password', json={'email': 'notanemail'})
+        assert r.status_code == 400
+
+    def test_empty_email_returns_400(self, client):
+        r = client.post('/api/auth/forgot-password', json={'email': ''})
+        assert r.status_code == 400
+
+    def test_missing_email_field_returns_400(self, client):
+        r = client.post('/api/auth/forgot-password', json={})
+        assert r.status_code == 400
