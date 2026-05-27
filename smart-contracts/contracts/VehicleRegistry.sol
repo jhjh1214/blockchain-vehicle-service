@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 
 contract VehicleRegistry is AccessControl {
     bytes32 public constant MANUFACTURER_ROLE = keccak256("MANUFACTURER_ROLE");
+    bytes32 public constant MANUFACTURER_ADMIN_ROLE = DEFAULT_ADMIN_ROLE;
     bytes32 public constant OWNER_ROLE = keccak256("OWNER_ROLE");
     bytes32 public constant SERVICE_LOG_ROLE = keccak256("SERVICE_LOG_ROLE");
 

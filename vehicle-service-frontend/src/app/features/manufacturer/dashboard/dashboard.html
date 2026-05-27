@@ -13,50 +13,77 @@
     </div>
   </div>
 
-  <!-- Live stats row -->
+  <!-- KPI row -->
   <div class="kpi-row">
     <div class="kpi-card">
       <div class="kpi-label">Registered Vehicles</div>
-      @if (statsLoading) {
-        <div class="kpi-skeleton"></div>
-      } @else if (statsError) {
-        <div class="kpi-value kpi-muted">—</div>
-      } @else {
-        <div class="kpi-value">{{ stats?.total_vehicles ?? '—' }}</div>
-      }
+      @if (statsLoading) { <div class="kpi-skeleton"></div> }
+      @else if (statsError) { <div class="kpi-value kpi-muted">—</div> }
+      @else { <div class="kpi-value">{{ stats?.total_vehicles ?? '—' }}</div> }
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Active Warranties</div>
+      @if (statsLoading) { <div class="kpi-skeleton"></div> }
+      @else if (statsError) { <div class="kpi-value kpi-muted">—</div> }
+      @else { <div class="kpi-value kpi-ok">{{ stats?.active_warranties ?? '—' }}</div> }
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Active Service Centers</div>
-      @if (statsLoading) {
-        <div class="kpi-skeleton"></div>
-      } @else if (statsError) {
-        <div class="kpi-value kpi-muted">—</div>
-      } @else {
-        <div class="kpi-value">{{ stats?.sc_active ?? '—' }}</div>
-      }
+      @if (statsLoading) { <div class="kpi-skeleton"></div> }
+      @else if (statsError) { <div class="kpi-value kpi-muted">—</div> }
+      @else { <div class="kpi-value">{{ stats?.sc_active ?? '—' }}</div> }
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Pending Approval</div>
-      @if (statsLoading) {
-        <div class="kpi-skeleton"></div>
-      } @else if (statsError) {
-        <div class="kpi-value kpi-muted">—</div>
-      } @else {
-        <div class="kpi-value kpi-warn">{{ stats?.sc_pending ?? '—' }}</div>
-      }
+      @if (statsLoading) { <div class="kpi-skeleton"></div> }
+      @else if (statsError) { <div class="kpi-value kpi-muted">—</div> }
+      @else { <div class="kpi-value kpi-warn">{{ stats?.sc_pending ?? '—' }}</div> }
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Warranty Claims</div>
-      @if (statsLoading) {
-        <div class="kpi-skeleton"></div>
-      } @else if (statsError) {
-        <div class="kpi-value kpi-muted">—</div>
-      } @else {
-        <div class="kpi-value">{{ stats?.warranty_claims ?? '—' }}</div>
-      }
+      @if (statsLoading) { <div class="kpi-skeleton"></div> }
+      @else if (statsError) { <div class="kpi-value kpi-muted">—</div> }
+      @else { <div class="kpi-value">{{ stats?.warranty_claims ?? '—' }}</div> }
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Services This Month</div>
+      @if (statsLoading) { <div class="kpi-skeleton"></div> }
+      @else if (statsError) { <div class="kpi-value kpi-muted">—</div> }
+      @else { <div class="kpi-value">{{ stats?.services_this_month ?? '—' }}</div> }
     </div>
   </div>
 
+  <!-- Charts row -->
+  @if (!statsLoading && !statsError && stats) {
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="chart-title">Service Type Distribution</div>
+        @if (pieChartData.labels && pieChartData.labels.length > 0) {
+          <canvas baseChart
+            [data]="pieChartData"
+            [type]="'pie'"
+            [options]="pieChartOptions">
+          </canvas>
+        } @else {
+          <div class="chart-empty">No service data yet</div>
+        }
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Warranty Coverage</div>
+        <canvas baseChart
+          [data]="warrantyChartData"
+          [type]="'doughnut'"
+          [options]="warrantyChartOptions">
+        </canvas>
+        <div class="doughnut-label">
+          <span class="doughnut-num">{{ stats.active_warranties }}</span>
+          <span class="doughnut-sub">active</span>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Quick-action cards -->
   <div class="stat-grid">
     <a routerLink="/manufacturer/register-vehicle" class="stat-card" style="text-decoration:none;">
       <div class="stat-icon blue">

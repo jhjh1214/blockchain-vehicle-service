@@ -10,6 +10,7 @@ class ServiceRecord {
   final String status;
   final String? disputeReason;
   final String submittedBy;
+  final String? metadataHash;
 
   const ServiceRecord({
     required this.vin,
@@ -23,6 +24,7 @@ class ServiceRecord {
     required this.status,
     this.disputeReason,
     required this.submittedBy,
+    this.metadataHash,
   });
 
   factory ServiceRecord.fromJson(Map<String, dynamic> j) => ServiceRecord(
@@ -37,6 +39,7 @@ class ServiceRecord {
         status: j['status'] ?? '',
         disputeReason: j['dispute_reason'],
         submittedBy: j['submitted_by'] ?? '',
+        metadataHash: j['metadata_hash'],
       );
 
   bool get isPending => status == 'pending';

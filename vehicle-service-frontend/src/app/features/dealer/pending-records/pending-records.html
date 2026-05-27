@@ -80,10 +80,23 @@
 
   <!-- Results -->
   @if (!loading && pendingRecords.length > 0) {
+    <!-- Filter tabs -->
+    <div class="filter-tabs mb-16">
+      <button class="filter-tab" [class.active]="activeFilter === 'all'" (click)="setFilter('all')">
+        All <span class="tab-count">{{ pendingRecords.length }}</span>
+      </button>
+      <button class="filter-tab" [class.active]="activeFilter === 'pending'" (click)="setFilter('pending')">
+        Pending <span class="tab-count">{{ pendingCount }}</span>
+      </button>
+      <button class="filter-tab" [class.active]="activeFilter === 'disputed'" (click)="setFilter('disputed')">
+        Disputed <span class="tab-count tab-count-red">{{ disputedCount }}</span>
+      </button>
+    </div>
+
     <div class="card">
       <div class="card-header">
         <h3 class="card-title">Pending for VIN: <span class="mono" style="font-size:13px;">{{ currentVin }}</span></h3>
-        <span class="badge badge-pending">{{ pendingRecords.length }} pending</span>
+        <span class="badge badge-pending">{{ filteredRecords.length }} records</span>
       </div>
       <div class="table-wrap">
         <table>
@@ -99,7 +112,7 @@
             </tr>
           </thead>
           <tbody>
-            @for (record of pendingRecords; track record; let i = $index) {
+            @for (record of filteredRecords; track record; let i = $index) {
               <tr>
                 <td class="td-muted">{{ i + 1 }}</td>
                 <td><strong>{{ record.metadata?.service_type || '—' }}</strong></td>

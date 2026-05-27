@@ -37,6 +37,10 @@ export class VehicleService {
     return this.http.get<ManufacturerStats>(`${environment.apiUrl}/vehicle/stats`);
   }
 
+  getDashboardStats(): Observable<DashboardStats> {
+    return this.http.get<DashboardStats>(`${environment.apiUrl}/vehicle/dashboard-stats`);
+  }
+
   getPublicVehicle(vin: string): Observable<any> {
     return this.http.get(`${environment.apiUrl}/vehicle/public/${vin}`);
   }
@@ -48,4 +52,10 @@ export interface ManufacturerStats {
   sc_active: number;
   sc_pending: number;
   warranty_claims: number;
+}
+
+export interface DashboardStats extends ManufacturerStats {
+  active_warranties: number;
+  services_this_month: number;
+  service_type_distribution: Record<string, number>;
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -109,7 +110,23 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen>
           'Model': v.model,
           'Year': v.year?.toString() ?? '-',
         }),
-        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: v.vin));
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                content: Text('VIN copied to clipboard'),
+                duration: Duration(seconds: 2),
+              ));
+            },
+            icon: const Icon(Icons.copy, size: 15),
+            label: const Text('Copy VIN'),
+            style: TextButton.styleFrom(
+                foregroundColor: Colors.grey,
+                padding: const EdgeInsets.symmetric(horizontal: 4)),
+          ),
+        ),
         _InfoCard(title: 'Ownership', items: {
           'Status': v.registrationStatus ?? '-',
           'Owner Address': () {
@@ -120,6 +137,12 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen>
               }(),
         }),
         const SizedBox(height: 16),
+        OutlinedButton.icon(
+          onPressed: () => context.go('/services/history'),
+          icon: const Icon(Icons.history),
+          label: const Text('View Service History'),
+        ),
+        const SizedBox(height: 8),
         OutlinedButton.icon(
           onPressed: () => context.push('/vehicles/transfer/${v.vin}'),
           icon: const Icon(Icons.swap_horiz),

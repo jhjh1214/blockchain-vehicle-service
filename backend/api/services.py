@@ -198,6 +198,18 @@ def owner_dispute_service():
         return jsonify({'error': str(e)}), 500
 
 
+@service_bp.route('/center/pending', methods=['GET'])
+@role_required('SERVICE_CENTER')
+def get_sc_pending_records():
+    """All pending service records submitted by this service center across all VINs."""
+    try:
+        records = service_log_service.get_sc_pending_services(request.user['blockchain_address'])
+        result = paginate(records, request.args)
+        return jsonify({**result, 'pending_services': result.pop('items')}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @service_bp.route('/owner/history', methods=['GET'])
 @role_required('OWNER')
 def get_owner_service_history():

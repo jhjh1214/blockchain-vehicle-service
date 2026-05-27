@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'vehicles_provider.dart';
+import '../services/services_provider.dart';
 import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/error_view.dart';
 import '../../shared/theme/app_theme.dart';
@@ -19,6 +20,8 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<VehiclesProvider>().loadVehicles();
+      final sp = context.read<ServicesProvider>();
+      if (sp.pending.isEmpty) sp.loadPending();
     });
   }
 
@@ -45,6 +48,7 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
   }
 
   Widget _buildBody(VehiclesProvider provider) {
+    final servicesProvider = context.watch<ServicesProvider>();
     if (provider.loading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -73,18 +77,47 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
         separatorBuilder: (_, __) => const SizedBox(height: 8),
         itemBuilder: (context, i) {
           final v = provider.vehicles[i];
+          final pendingCount = servicesProvider.pending
+              .where((r) => r.vin == v.vin)
+              .length;
           return Card(
             child: ListTile(
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              leading: Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(Icons.directions_car, color: AppColors.primary),
+              leading: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child:
+                        const Icon(Icons.directions_car, color: AppColors.primary),
+                  ),
+                  if (pendingCount > 0)
+                    Positioned(
+                      top: -4,
+                      right: -4,
+                      child: Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: const BoxDecoration(
+                            color: Colors.red, shape: BoxShape.circle),
+                        constraints:
+                            const BoxConstraints(minWidth: 18, minHeight: 18),
+                        child: Text(
+                          '$pendingCount',
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
               ),
               title: Text(v.displayName,
                   style: const TextStyle(fontWeight: FontWeight.w600)),

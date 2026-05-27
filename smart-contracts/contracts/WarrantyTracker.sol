@@ -5,6 +5,8 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "./VehicleRegistry.sol";
 
 contract WarrantyTracker is AccessControl {
+    bytes32 public constant MANUFACTURER_ADMIN_ROLE = DEFAULT_ADMIN_ROLE;
+
     VehicleRegistry public vehicleRegistry;
 
     struct WarrantyClaim {
@@ -73,6 +75,12 @@ contract WarrantyTracker is AccessControl {
         claims[vin][claimIndex].status = ClaimStatus.DENIED;
         claims[vin][claimIndex].resolutionNotesHash = reasonHash;
         emit ClaimDenied(vin, claimIndex, reasonHash);
+    }
+
+    function getWarrantyStatus(bytes32 vin) external view returns (uint256 expiry, bool isValid) {
+        (,, uint256 warrantyExpiry,, bool exists) = vehicleRegistry.getVehicle(vin);
+        if (!exists) return (0, false);
+        return (warrantyExpiry, block.timestamp <= warrantyExpiry);
     }
 
     function getClaims(bytes32 vin) external view returns (WarrantyClaim[] memory) {

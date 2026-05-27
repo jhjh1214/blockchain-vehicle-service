@@ -5,6 +5,8 @@ import { RouterModule } from '@angular/router';
 import { ServiceService } from '../../../core/services/service';
 import { ServiceRecord } from '../../../core/models/service.model';
 
+type FilterTab = 'all' | 'pending' | 'disputed';
+
 @Component({
   selector: 'app-pending-records',
   standalone: true,
@@ -18,6 +20,7 @@ export class PendingRecordsComponent {
   error = '';
   pendingRecords: ServiceRecord[] = [];
   currentVin = '';
+  activeFilter: FilterTab = 'all';
 
   constructor(private fb: FormBuilder, private serviceService: ServiceService) {
     this.searchForm = this.fb.group({
@@ -26,6 +29,17 @@ export class PendingRecordsComponent {
   }
 
   get f() { return this.searchForm.controls; }
+
+  get filteredRecords(): ServiceRecord[] {
+    if (this.activeFilter === 'disputed') return this.pendingRecords.filter(r => r.disputed);
+    if (this.activeFilter === 'pending') return this.pendingRecords.filter(r => !r.disputed);
+    return this.pendingRecords;
+  }
+
+  get pendingCount(): number { return this.pendingRecords.filter(r => !r.disputed).length; }
+  get disputedCount(): number { return this.pendingRecords.filter(r => r.disputed).length; }
+
+  setFilter(tab: FilterTab): void { this.activeFilter = tab; }
 
   onSearch(): void {
     if (this.searchForm.invalid) {
@@ -36,6 +50,7 @@ export class PendingRecordsComponent {
     this.loading = true;
     this.error = '';
     this.pendingRecords = [];
+    this.activeFilter = 'all';
     this.currentVin = this.searchForm.value.vin;
 
     this.serviceService.getPendingServices(this.currentVin).subscribe({

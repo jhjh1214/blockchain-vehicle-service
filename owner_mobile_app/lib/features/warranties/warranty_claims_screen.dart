@@ -88,11 +88,20 @@ class _ClaimCard extends StatelessWidget {
                 const Icon(Icons.shield_outlined, size: 20, color: Colors.grey),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text('VIN: ${claim.vin}',
-                      style: const TextStyle(
-                          fontFamily: 'monospace',
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Claim #${claim.claimIndex + 1}',
+                          style: const TextStyle(
+                              fontSize: 11, color: Colors.grey)),
+                      const SizedBox(height: 2),
+                      Text('VIN: ${claim.vin}',
+                          style: const TextStyle(
+                              fontFamily: 'monospace',
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13)),
+                    ],
+                  ),
                 ),
                 StatusBadge(status: claim.status),
               ],

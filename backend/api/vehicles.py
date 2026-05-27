@@ -155,6 +155,49 @@ def get_manufacturer_stats():
     }), 200
 
 
+@vehicle_bp.route('/dashboard-stats', methods=['GET'])
+@role_required('MANUFACTURER')
+def get_dashboard_stats():
+    """Consolidated manufacturer dashboard stats — single endpoint matching FYP1 spec."""
+    import time as _time
+    from db.models import ServiceMetadata
+    mfr_address = request.user['blockchain_address']
+
+    total_vehicles    = VehicleVINMapping.query.filter_by(registered_by=mfr_address).count()
+    active_warranties = VehicleVINMapping.query.filter(
+        VehicleVINMapping.registered_by == mfr_address,
+        VehicleVINMapping.warranty_expiry > int(_time.time())
+    ).count()
+    sc_total          = user_repo.count_by_role('SERVICE_CENTER')
+    sc_active         = user_repo.count_by_role_status('SERVICE_CENTER', 'active')
+    sc_pending        = user_repo.count_by_role_status('SERVICE_CENTER', 'pending')
+    warranty_claims   = WarrantyClaimMetadata.query.count()
+
+    from datetime import datetime as _dt
+    month_start = _dt.utcnow().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    services_this_month = ServiceMetadata.query.filter(
+        ServiceMetadata.created_at >= month_start
+    ).count()
+
+    from db.models import db as _db
+    service_type_counts: dict = {}
+    for row in ServiceMetadata.query.with_entities(
+        ServiceMetadata.service_type, _db.func.count(ServiceMetadata.id)
+    ).group_by(ServiceMetadata.service_type).all():
+        service_type_counts[row[0] or 'Other'] = row[1]
+
+    return jsonify({
+        'total_vehicles':       total_vehicles,
+        'active_warranties':    active_warranties,
+        'sc_total':             sc_total,
+        'sc_active':            sc_active,
+        'sc_pending':           sc_pending,
+        'warranty_claims':      warranty_claims,
+        'services_this_month':  services_this_month,
+        'service_type_distribution': service_type_counts,
+    }), 200
+
+
 @vehicle_bp.route('/public/<vin>', methods=['GET'])
 def get_vehicle_public(vin):
     """Public vehicle verification — no authentication required."""

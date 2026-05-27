@@ -1,0 +1,304 @@
+
+<h2 class="sr-only">FYP2 Implementation Audit Checklist — Blockchain Vehicle Service & Warranty Management System</h2>
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-sans); }
+
+.page { padding: 1.5rem 0; }
+
+.section-header {
+  display: flex; align-items: center; gap: 10px;
+  margin: 1.5rem 0 0.75rem;
+  padding-bottom: 8px;
+  border-bottom: 0.5px solid var(--color-border-tertiary);
+}
+.section-header i { font-size: 18px; color: var(--color-text-secondary); }
+.section-title { font-size: 15px; font-weight: 500; color: var(--color-text-primary); }
+.section-count { margin-left: auto; font-size: 12px; color: var(--color-text-secondary); background: var(--color-background-secondary); padding: 2px 8px; border-radius: 99px; border: 0.5px solid var(--color-border-tertiary); }
+
+.item {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 8px 10px; border-radius: var(--border-radius-md);
+  cursor: pointer; transition: background 0.1s; user-select: none;
+  margin-bottom: 2px;
+}
+.item:hover { background: var(--color-background-secondary); }
+.item.checked { opacity: 0.55; }
+
+.cb {
+  width: 16px; height: 16px; border-radius: 4px; flex-shrink: 0; margin-top: 2px;
+  border: 1.5px solid var(--color-border-secondary);
+  background: var(--color-background-primary);
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+.item.checked .cb { background: var(--color-background-success); border-color: var(--color-border-success); }
+.cb i { font-size: 10px; color: var(--color-text-success); display: none; }
+.item.checked .cb i { display: block; }
+
+.label { font-size: 13.5px; color: var(--color-text-primary); line-height: 1.5; }
+.item.checked .label { text-decoration: line-through; color: var(--color-text-secondary); }
+
+.badge {
+  font-size: 10px; padding: 1px 7px; border-radius: 99px; flex-shrink: 0; margin-top: 3px;
+  font-weight: 500; letter-spacing: 0.01em;
+}
+.b-smart { background: #EEEDFE; color: #3C3489; }
+.b-api { background: #E6F1FB; color: #0C447C; }
+.b-ui-web { background: #EAF3DE; color: #27500A; }
+.b-ui-mob { background: #FAEEDA; color: #633806; }
+.b-backend { background: #E1F5EE; color: #085041; }
+.b-test { background: #FAECE7; color: #712B13; }
+.b-infra { background: #F1EFE8; color: #444441; }
+
+.progress-bar-wrap {
+  background: var(--color-background-secondary);
+  border-radius: 99px; height: 6px; margin: 0.25rem 0 1.5rem;
+  border: 0.5px solid var(--color-border-tertiary);
+  overflow: hidden;
+}
+.progress-bar { height: 100%; border-radius: 99px; background: #1D9E75; transition: width 0.3s; }
+
+.summary {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 10px; margin-bottom: 1.5rem;
+}
+.stat-card {
+  background: var(--color-background-secondary);
+  border-radius: var(--border-radius-md); padding: 10px 12px; text-align: center;
+}
+.stat-num { font-size: 22px; font-weight: 500; color: var(--color-text-primary); }
+.stat-label { font-size: 11px; color: var(--color-text-secondary); margin-top: 2px; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 1rem; }
+.leg-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--color-text-secondary); }
+.leg-dot { width: 8px; height: 8px; border-radius: 2px; }
+</style>
+
+<div class="page">
+  <div class="summary" id="summary">
+    <div class="stat-card"><div class="stat-num" id="total-num">0</div><div class="stat-label">Total items</div></div>
+    <div class="stat-card"><div class="stat-num" id="done-num" style="color:#1D9E75">0</div><div class="stat-label">Checked</div></div>
+    <div class="stat-card"><div class="stat-num" id="left-num">0</div><div class="stat-label">Remaining</div></div>
+    <div class="stat-card"><div class="stat-num" id="pct-num" style="color:#1D9E75">0%</div><div class="stat-label">Complete</div></div>
+  </div>
+  <div class="progress-bar-wrap"><div class="progress-bar" id="pbar" style="width:0%"></div></div>
+
+  <div class="legend">
+    <div class="leg-item"><div class="leg-dot" style="background:#534AB7"></div>Smart contract</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#185FA5"></div>API endpoint</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#3B6D11"></div>Web UI</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#854F0B"></div>Mobile UI</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#0F6E56"></div>Backend</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#993C1D"></div>Testing</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#5F5E5A"></div>Infra</div>
+  </div>
+
+  <div id="checklist"></div>
+</div>
+
+<script>
+const sections = [
+  {
+    icon: "ti-file-code", title: "Smart contracts (Solidity)",
+    items: [
+      { label: "VehicleRegistry contract — registerVehicle(bytes32 vin, address owner, uint256 warrantyExpiry) restricted to MANUFACTURER_ROLE", badge: "b-smart" },
+      { label: "VehicleRegistry contract — transferOwnership(bytes32 vin, address newOwner) restricted to current owner", badge: "b-smart" },
+      { label: "VehicleRegistry — Vehicle struct: owner, warrantyStart, warrantyExpiry, serviceHashes[], pendingServices[]", badge: "b-smart" },
+      { label: "VehicleRegistry — mapping(bytes32 => Vehicle) vehicles", badge: "b-smart" },
+      { label: "VehicleRegistry — mapping(address => bytes32[]) ownedVINs", badge: "b-smart" },
+      { label: "ServiceLog contract — submitService(bytes32 vin, bytes32 metadataHash) restricted to SERVICE_CENTER_ROLE, creates pending record", badge: "b-smart" },
+      { label: "ServiceLog contract — verifyService(bytes32 vin, uint256 recordIndex) restricted to vehicle owner, finalizes record", badge: "b-smart" },
+      { label: "ServiceLog contract — disputeService(bytes32 vin, uint256 recordIndex, string reason) restricted to owner", badge: "b-smart" },
+      { label: "ServiceLog contract — getPendingServices(bytes32 vin) returns (ServiceRecord[]) view function", badge: "b-smart" },
+      { label: "ServiceLog contract — getServiceHistory(bytes32 vin) filtering verified == true", badge: "b-smart" },
+      { label: "ServiceLog contract — resolveDispute(bytes32 vin, uint256 recordIndex, decision, resolutionNotes) for MANUFACTURER_ADMIN_ROLE", badge: "b-smart" },
+      { label: "ServiceLog — ServiceRecord struct: vin, metadataHash, timestamp, technician, serviceCenter, verified, disputed", badge: "b-smart" },
+      { label: "ServiceLog — DisputeResolution struct: resolver, timestamp, DisputeDecision enum (APPROVE/REJECT/MODIFY), resolutionNotesHash", badge: "b-smart" },
+      { label: "ServiceLog — event ServiceSubmitted(bytes32 vin, bytes32 metadataHash, uint256 timestamp, address serviceCenter)", badge: "b-smart" },
+      { label: "ServiceLog — event ServiceVerified(bytes32 vin, bytes32 metadataHash, address owner)", badge: "b-smart" },
+      { label: "ServiceLog — event ServiceDisputed(bytes32 vin, bytes32 metadataHash, address owner, string reason)", badge: "b-smart" },
+      { label: "ServiceLog — event DisputeResolved on-chain", badge: "b-smart" },
+      { label: "ServiceLog — event ManualReviewRequired for major repairs after 90-day timeout", badge: "b-smart" },
+      { label: "ServiceLog — event DisputeEscalated(bytes32 vin, uint256 recordIndex, address serviceCenter, uint256 timestamp)", badge: "b-smart" },
+      { label: "ServiceLog — mapping(address => uint256) disputeCount for abuse prevention (flag >5 disputes per owner)", badge: "b-smart" },
+      { label: "ServiceLog — verifiedByTimeout: true flag for auto-finalized routine maintenance after 90 days", badge: "b-smart" },
+      { label: "WarrantyTracker contract — isWarrantyValid(bytes32 vin) returns (bool)", badge: "b-smart" },
+      { label: "WarrantyTracker contract — submitClaim(bytes32 vin, bytes32 claimDetailsHash) checks warranty validity and service history", badge: "b-smart" },
+      { label: "WarrantyTracker contract — getWarrantyStatus(bytes32 vin) returns (uint256 expiry, bool isValid)", badge: "b-smart" },
+      { label: "WarrantyTracker — ClaimSubmitted event on-chain", badge: "b-smart" },
+      { label: "WarrantyTracker — ClaimApproved event on-chain", badge: "b-smart" },
+      { label: "WarrantyTracker — ClaimDenied event on-chain", badge: "b-smart" },
+      { label: "AccessControl (OpenZeppelin) — MANUFACTURER_ROLE granted to manufacturer addresses", badge: "b-smart" },
+      { label: "AccessControl (OpenZeppelin) — SERVICE_CENTER_ROLE granted to service center addresses", badge: "b-smart" },
+      { label: "AccessControl (OpenZeppelin) — OWNER_ROLE granted to vehicle owner addresses", badge: "b-smart" },
+      { label: "AccessControl (OpenZeppelin) — MANUFACTURER_ADMIN_ROLE for dispute resolution", badge: "b-smart" },
+      { label: "SHA-256 metadata hashing: hash = SHA256(VIN + date + mileage + serviceType + parts + notes)", badge: "b-smart" },
+      { label: "OpenZeppelin Ownable base for system admin deployment", badge: "b-smart" },
+      { label: "Gas optimization: use events instead of storage where possible", badge: "b-smart" },
+      { label: "Security audit via Slither/MythX static analysis", badge: "b-smart" },
+    ]
+  },
+  {
+    icon: "ti-api", title: "REST API endpoints (Python/Web3.py backend)",
+    items: [
+      { label: "POST /api/login — email + password → validates credentials, returns JWT session token + user role", badge: "b-api" },
+      { label: "POST /api/register-vehicle — VIN, warrantyExpiry, ownerEmail → calls VehicleRegistry.registerVehicle() signed with MANUFACTURER key", badge: "b-api" },
+      { label: "GET /api/vehicle/{VIN} — calls VehicleRegistry.getVehicle(VIN) and ServiceLog.getServiceHistory(VIN), returns aggregated data", badge: "b-api" },
+      { label: "POST /api/submit-service — VIN, metadataHash, rawMetadata, photos → calls ServiceLog.submitService() signed with SERVICE_CENTER key", badge: "b-api" },
+      { label: "GET /api/pending-services/{VIN} — calls ServiceLog.getPendingServices(VIN), returns pending records", badge: "b-api" },
+      { label: "POST /api/verify-service — VIN, recordIndex → calls ServiceLog.verifyService() signed with owner key", badge: "b-api" },
+      { label: "POST /api/dispute-service — VIN, recordIndex, reason → calls ServiceLog.disputeService() signed with owner key, notifies manufacturer", badge: "b-api" },
+      { label: "GET /api/service-history/{VIN} — calls ServiceLog.getServiceHistory(VIN) for verified == true records", badge: "b-api" },
+      { label: "POST /api/check-warranty/{VIN} (or GET /api/check-warranty/{VIN}) — calls WarrantyTracker.isWarrantyValid()", badge: "b-api" },
+      { label: "POST /api/check-warranty-eligibility/{VIN} — checks expiry AND service history compliance before claim form", badge: "b-api" },
+      { label: "POST /api/submit-claim — VIN, issueDescription, photos → stores off-chain, generates claimDetailsHash, calls WarrantyTracker.submitClaim()", badge: "b-api" },
+      { label: "GET /api/claims/{VIN} — queries ClaimSubmitted/Approved/Denied events, returns claim history", badge: "b-api" },
+      { label: "GET /api/owner/vehicles — queries VehicleRegistry.ownedVINs(ownerAddress) for authenticated user", badge: "b-api" },
+      { label: "GET /api/service-center/pending-records — queries ServiceLog for all pending records from this service center's address", badge: "b-api" },
+      { label: "GET /api/manufacturer/dashboard-stats — aggregates smart contract events/view functions for analytics", badge: "b-api" },
+      { label: "POST /api/dispute-response — service center uploads rebuttal evidence (photos, receipts) stored off-chain", badge: "b-api" },
+      { label: "POST /api/escalate-dispute — service center escalates within 7 days, triggers DisputeEscalated event", badge: "b-api" },
+    ]
+  },
+  {
+    icon: "ti-server", title: "Backend infrastructure & logic",
+    items: [
+      { label: "User authentication DB — maps user credentials (hashed passwords) to Ganache blockchain addresses", badge: "b-backend" },
+      { label: "JWT session token generation and validation", badge: "b-backend" },
+      { label: "Encrypted keystore — secure private key storage for all role-mapped addresses (backend-managed)", badge: "b-backend" },
+      { label: "Key rotation policies and access logging for keystore", badge: "b-backend" },
+      { label: "Web3.py transaction signing — load private key → sign tx → submit to Ganache → wait for receipt", badge: "b-backend" },
+      { label: "User-friendly error translation: blockchain errors → friendly messages (e.g. 'Service submission failed')", badge: "b-backend" },
+      { label: "Event listener for ServiceSubmitted → push notification to vehicle owner", badge: "b-backend" },
+      { label: "Event listener for ServiceVerified → notify service center", badge: "b-backend" },
+      { label: "Event listener for ServiceDisputed → escalation notification to manufacturer", badge: "b-backend" },
+      { label: "Off-chain metadata storage — photos and detailed service data stored off-chain, linked by SHA-256 hash", badge: "b-backend" },
+      { label: "Optional IPFS hash storage for large files (photos, dispute notes, resolution notes)", badge: "b-backend" },
+      { label: "Pending record timeout logic: 30-day email reminder, 60-day final warning, 90-day auto-finalize (routine) or escalate (major)", badge: "b-backend" },
+      { label: "Service center dispute rate tracking: flag >10% dispute rate for manufacturer review", badge: "b-backend" },
+      { label: "Manufacturer dashboard cache: aggregate results to avoid excessive blockchain queries", badge: "b-backend" },
+      { label: "Biometric auth mapping (fingerprint/Face ID) to email/password account on mobile", badge: "b-backend" },
+      { label: "Push notification system for mobile owner app (pending verifications)", badge: "b-backend" },
+      { label: "Off-chain claim data and photo storage with claimDetailsHash generation", badge: "b-backend" },
+    ]
+  },
+  {
+    icon: "ti-layout-dashboard", title: "Web app UI — service center & manufacturer (5 screens)",
+    items: [
+      { label: "Screen 1: Login — email/password fields, remember me, forgot password, 'Connected to Private Blockchain Network' green dot indicator", badge: "b-ui-web" },
+      { label: "Screen 1: JWT stored in localStorage, redirect to role-specific dashboard after login", badge: "b-ui-web" },
+      { label: "Screen 2: VIN search bar with results card — Make/Model/Year, Owner, Warranty Status badge, service count, 'Blockchain Verified' checkmark badge", badge: "b-ui-web" },
+      { label: "Screen 2: 'Submit New Service' button if vehicle found and user authorized", badge: "b-ui-web" },
+      { label: "Screen 3: Service submission form — VIN (read-only), date picker, mileage, service type dropdown, ECU/module field, parts textarea, technician dropdown, notes, photo upload (up to 5)", badge: "b-ui-web" },
+      { label: "Screen 3: Auto-calculated SHA-256 metadata hash display (read-only, collapsible Advanced section)", badge: "b-ui-web" },
+      { label: "Screen 3: 'Submit for Owner Verification' CTA — shows confirmation 'Service logged - Record ID #X - Pending owner verification'", badge: "b-ui-web" },
+      { label: "Screen 4: Pending records table — Record ID, VIN (last 6), date, type, status badge (yellow/green/red), days pending, View Details", badge: "b-ui-web" },
+      { label: "Screen 4: Filter by All/Pending/Verified/Disputed and search by VIN", badge: "b-ui-web" },
+      { label: "Screen 4: Escalation warning highlighting for records pending 30+ days", badge: "b-ui-web" },
+      { label: "Screen 5: Manufacturer overview cards — total vehicles, active warranties, pending claims, verified services this month", badge: "b-ui-web" },
+      { label: "Screen 5: Charts — warranty claim trend (line), service type distribution (pie), top service centers by volume (bar)", badge: "b-ui-web" },
+      { label: "Screen 5: Recent activity feed — registrations, claims, disputes", badge: "b-ui-web" },
+      { label: "Screen 5: 'Export Audit Report' button generating PDF from blockchain data", badge: "b-ui-web" },
+      { label: "Optional: transaction hash and block number viewable for advanced users/auditors (hidden by default)", badge: "b-ui-web" },
+    ]
+  },
+  {
+    icon: "ti-device-mobile", title: "Mobile app UI — vehicle owner (5 screens)",
+    items: [
+      { label: "Screen 6: Owner login — email/phone + password, full-width login button, fingerprint/Face ID biometric option", badge: "b-ui-mob" },
+      { label: "Screen 6: JWT stored in secure mobile storage, push notification permission requested after login", badge: "b-ui-mob" },
+      { label: "Screen 7: My Vehicles — scrollable vehicle cards with photo, Make/Model/Year, VIN (last 6), warranty badge (Valid/Expired), pending verification red dot badge", badge: "b-ui-mob" },
+      { label: "Screen 7: Vehicle detail view — full VIN with copy button, warranty coverage details, 'View Service History' and 'File Warranty Claim' buttons", badge: "b-ui-mob" },
+      { label: "Screen 8: Pending service card — service center name, date, type, mileage, parts list, technician name, expandable notes, swipeable photos gallery", badge: "b-ui-mob" },
+      { label: "Screen 8: Metadata hash in collapsible 'Technical Details' section", badge: "b-ui-mob" },
+      { label: "Screen 8: '✓ Approve Service' (green) and '✗ Dispute Service' (red) full-width buttons with 'permanently recorded' helper text", badge: "b-ui-mob" },
+      { label: "Screen 8: Dispute modal with reason textarea and 'Submit Dispute' button", badge: "b-ui-mob" },
+      { label: "Screen 9: Service history timeline — vertical, each record with date, type icon, service center, mileage, '✓ Verified' badge with timestamp, expandable details", badge: "b-ui-mob" },
+      { label: "Screen 9: 'Export History' PDF generation button", badge: "b-ui-mob" },
+      { label: "Screen 10: Warranty eligibility auto-check — status badge, required maintenance checklist (up-to-date or missing)", badge: "b-ui-mob" },
+      { label: "Screen 10: Warranty claim form — issue description textarea, photo upload", badge: "b-ui-mob" },
+      { label: "Screen 10: Claims history list — Claim ID, date filed, status badge (Pending/Approved/Denied), denial reason, View Details link", badge: "b-ui-mob" },
+    ]
+  },
+  {
+    icon: "ti-settings", title: "Ganache setup & deployment simulation",
+    items: [
+      { label: "Ganache private network configured with multiple pre-funded accounts per role (manufacturer, service center, owner)", badge: "b-infra" },
+      { label: "Deploy VehicleRegistry, ServiceLog, WarrantyTracker contracts to Ganache", badge: "b-infra" },
+      { label: "Grant MANUFACTURER_ROLE, SERVICE_CENTER_ROLE, OWNER_ROLE to designated Ganache addresses", badge: "b-infra" },
+      { label: "Register 10 test vehicles with varying warranty periods", badge: "b-infra" },
+      { label: "Log 50+ service events (routine maintenance + major repairs mix)", badge: "b-infra" },
+      { label: "Simulate 80% owner approvals, 5% disputes, remainder auto-timeout", badge: "b-infra" },
+      { label: "Submit warranty claims and test eligibility checks and approval flows", badge: "b-infra" },
+      { label: "Simulate timeout scenarios (pending records at 30/60/90 day marks)", badge: "b-infra" },
+      { label: "Simulate fraudulent claim rejection scenario", badge: "b-infra" },
+      { label: "Simulate ownership transfer scenario", badge: "b-infra" },
+      { label: "Record transaction times, gas consumption, and throughput metrics", badge: "b-infra" },
+      { label: "Angular web app running locally, connected to Python backend via REST", badge: "b-infra" },
+      { label: "End-to-end demo video/scripts covering all core flows", badge: "b-infra" },
+    ]
+  },
+  {
+    icon: "ti-test-pipe", title: "Testing requirements",
+    items: [
+      { label: "Smart contract unit tests (Hardhat/Chai): RBAC enforcement — non-manufacturers cannot register vehicles", badge: "b-test" },
+      { label: "Smart contract unit tests: pending-to-verified state transitions", badge: "b-test" },
+      { label: "Smart contract unit tests: dispute escalation workflows", badge: "b-test" },
+      { label: "Smart contract unit tests: warranty validity calculations (expiry, mileage, service compliance)", badge: "b-test" },
+      { label: "Smart contract unit tests: edge cases — timeouts, duplicate submissions, invalid VINs", badge: "b-test" },
+      { label: ">90% smart contract line coverage", badge: "b-test" },
+      { label: "Integration/end-to-end tests: register vehicle → submit service → owner verifies → view history", badge: "b-test" },
+      { label: "Security analysis with Slither (reentrancy, access control, integer overflow)", badge: "b-test" },
+      { label: "Security analysis with MythX", badge: "b-test" },
+      { label: "Usability testing: 5–10 participants per stakeholder group (mechanic, car owner, dealership manager)", badge: "b-test" },
+      { label: "Usability tasks: log oil change (service center), verify pending service (owner), dispute incorrect entry (owner), review warranty claim (manufacturer)", badge: "b-test" },
+      { label: "SUS questionnaire collection, target score >70", badge: "b-test" },
+      { label: "UI iteration based on usability findings", badge: "b-test" },
+    ]
+  }
+];
+
+function render() {
+  const container = document.getElementById('checklist');
+  const state = JSON.parse(localStorage.getItem('fyp-checklist') || '{}');
+  container.innerHTML = '';
+
+  let total = 0, done = 0;
+
+  sections.forEach((sec, si) => {
+    const secDone = sec.items.filter((_, ii) => state[`${si}-${ii}`]).length;
+    const secTotal = sec.items.length;
+    total += secTotal; done += secDone;
+
+    const hdr = document.createElement('div');
+    hdr.className = 'section-header';
+    hdr.innerHTML = `<i class="ti ${sec.icon}" aria-hidden="true"></i><span class="section-title">${sec.title}</span><span class="section-count">${secDone}/${secTotal}</span>`;
+    container.appendChild(hdr);
+
+    sec.items.forEach((item, ii) => {
+      const key = `${si}-${ii}`;
+      const checked = !!state[key];
+      const el = document.createElement('div');
+      el.className = 'item' + (checked ? ' checked' : '');
+      el.innerHTML = `<div class="cb"><i class="ti ti-check" aria-hidden="true"></i></div><span class="label">${item.label}</span><span class="badge ${item.badge}">${item.badge.replace('b-','').replace('-',' ')}</span>`;
+      el.addEventListener('click', () => {
+        state[key] = !state[key];
+        try { localStorage.setItem('fyp-checklist', JSON.stringify(state)); } catch(e) {}
+        render();
+      });
+      container.appendChild(el);
+    });
+  });
+
+  document.getElementById('total-num').textContent = total;
+  document.getElementById('done-num').textContent = done;
+  document.getElementById('left-num').textContent = total - done;
+  const pct = total ? Math.round(done / total * 100) : 0;
+  document.getElementById('pct-num').textContent = pct + '%';
+  document.getElementById('pbar').style.width = pct + '%';
+}
+
+render();
+</script>

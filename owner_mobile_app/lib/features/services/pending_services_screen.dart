@@ -200,6 +200,46 @@ class _ServiceCard extends StatelessWidget {
             if (record.serviceNotes != null &&
                 record.serviceNotes!.isNotEmpty)
               _row('Notes', record.serviceNotes!),
+            if (record.metadataHash != null &&
+                record.metadataHash!.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Theme(
+                data: Theme.of(context)
+                    .copyWith(dividerColor: Colors.transparent),
+                child: ExpansionTile(
+                  tilePadding: EdgeInsets.zero,
+                  childrenPadding: const EdgeInsets.only(bottom: 4),
+                  title: const Text('Technical Details',
+                      style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('SHA-256 METADATA HASH',
+                              style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.grey,
+                                  letterSpacing: 0.6)),
+                          const SizedBox(height: 6),
+                          Text(
+                            record.metadataHash!,
+                            style: const TextStyle(
+                                fontFamily: 'monospace', fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
             Row(
               children: [

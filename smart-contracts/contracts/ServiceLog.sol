@@ -6,6 +6,7 @@ import "./VehicleRegistry.sol";
 
 contract ServiceLog is AccessControl {
     bytes32 public constant SERVICE_CENTER_ROLE = keccak256("SERVICE_CENTER_ROLE");
+    bytes32 public constant MANUFACTURER_ADMIN_ROLE = DEFAULT_ADMIN_ROLE;
 
     VehicleRegistry public vehicleRegistry;
 
@@ -26,16 +27,18 @@ contract ServiceLog is AccessControl {
         bytes32 resolutionNotesHash;
     }
 
-    enum DisputeDecision { PENDING, APPROVE, REJECT }
+    enum DisputeDecision { PENDING, APPROVE, REJECT, MODIFY }
 
     mapping(bytes32 => ServiceRecord[]) public pendingServices;
     mapping(bytes32 => ServiceRecord[]) public finalizedServices;
     mapping(bytes32 => mapping(uint256 => DisputeResolution)) public disputeResolutions;
+    mapping(address => uint256) public disputeCount;
 
     event ServiceSubmitted(bytes32 indexed vin, bytes32 metadataHash, uint256 timestamp, address serviceCenter);
     event ServiceVerified(bytes32 indexed vin, bytes32 metadataHash, address owner, uint256 recordIndex);
     event ServiceDisputed(bytes32 indexed vin, bytes32 metadataHash, address owner, string reason, uint256 recordIndex);
     event DisputeResolved(bytes32 indexed vin, uint256 recordIndex, DisputeDecision decision);
+    event DisputeEscalated(bytes32 indexed vin, uint256 recordIndex, address indexed serviceCenter, uint256 timestamp);
 
     constructor(address _vehicleRegistry) {
         vehicleRegistry = VehicleRegistry(_vehicleRegistry);
@@ -98,7 +101,11 @@ contract ServiceLog is AccessControl {
         pendingServices[vin][recordIndex].disputed = true;
         pendingServices[vin][recordIndex].disputeReason = reason;
 
+        address sc = pendingServices[vin][recordIndex].serviceCenter;
+        disputeCount[msg.sender] += 1;
+
         emit ServiceDisputed(vin, pendingServices[vin][recordIndex].metadataHash, msg.sender, reason, recordIndex);
+        emit DisputeEscalated(vin, recordIndex, sc, block.timestamp);
     }
 
     function resolveDispute(

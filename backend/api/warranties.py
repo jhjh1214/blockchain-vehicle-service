@@ -6,6 +6,31 @@ from core import warranty_service
 warranty_bp = Blueprint('warranty', __name__)
 
 
+@warranty_bp.route('/check-eligibility/<vin>', methods=['GET'])
+@token_required
+def check_warranty_eligibility(vin):
+    """Check warranty eligibility before allowing a claim submission.
+    Returns validity, reason, days remaining, and whether service history is maintained."""
+    try:
+        vin = validate_vin(vin)
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    try:
+        result = warranty_service.check_warranty(vin)
+        from blockchain.adapters.service_log import service_log as sl
+        finalized = sl.get_finalized_services(vin) or []
+        service_count = len(finalized)
+        eligible = result['valid'] and service_count >= 0
+        return jsonify({
+            **result,
+            'service_record_count': service_count,
+            'service_history_maintained': service_count > 0,
+            'eligible_to_claim': eligible,
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @warranty_bp.route('/check/<vin>', methods=['GET'])
 @token_required
 def check_warranty(vin):

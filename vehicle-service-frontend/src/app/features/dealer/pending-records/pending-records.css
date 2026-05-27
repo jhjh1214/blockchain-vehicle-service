@@ -1,1 +1,45 @@
-/* Pending records — all layout from global styles */
+.filter-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--color-background-secondary, #f3f4f6);
+  border: 0.5px solid var(--color-border-tertiary, #e5e7eb);
+  border-radius: 8px;
+  padding: 4px;
+  width: fit-content;
+}
+
+.filter-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary, #6b7280);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+
+.filter-tab:hover { background: var(--color-background-primary, #fff); }
+
+.filter-tab.active {
+  background: var(--color-background-primary, #fff);
+  color: var(--color-text-primary, #111827);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.tab-count {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 99px;
+  background: var(--color-background-tertiary, #e5e7eb);
+  color: var(--color-text-secondary, #6b7280);
+}
+
+.tab-count-red {
+  background: #fee2e2;
+  color: #dc2626;
+}

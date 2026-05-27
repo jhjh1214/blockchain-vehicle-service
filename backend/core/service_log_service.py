@@ -99,6 +99,48 @@ def get_pending_services(vin: str) -> list:
     return _enrich_records(service_log.get_pending_services(vin))
 
 
+def get_sc_pending_services(sc_address: str) -> list:
+    """All pending records across all VINs that were submitted by this service centre."""
+    from db.models import ServiceMetadata
+    sc_vins = (
+        ServiceMetadata.query
+        .filter_by(service_center_address=sc_address)
+        .with_entities(ServiceMetadata.vin)
+        .distinct()
+        .all()
+    )
+    all_pending = []
+    for (vin,) in sc_vins:
+        mapping = vehicle_repo.find_by_vin(vin)
+        raw_records = service_log.get_pending_services(vin)
+        for idx, record in enumerate(raw_records):
+            if record.get('service_center', '').lower() != sc_address.lower():
+                continue
+            metadata = service_repo.find_by_metadata_hash(record['metadata_hash'])
+            if metadata:
+                record['metadata'] = {
+                    'service_type': metadata.service_type,
+                    'service_date': metadata.service_date.isoformat() if metadata.service_date else None,
+                    'mileage': metadata.mileage,
+                    'technician_name': metadata.technician_name,
+                    'parts_replaced': metadata.parts_replaced,
+                    'service_notes': metadata.service_notes,
+                    'photos': metadata.photos or []
+                }
+            flat = _flatten_owner_record(record, idx, mapping) if mapping else {}
+            if not flat:
+                flat = {
+                    'vin': vin,
+                    'record_index': idx,
+                    'metadata_hash': record.get('metadata_hash', ''),
+                    'status': 'disputed' if record.get('disputed') else 'pending',
+                    'dispute_reason': record.get('dispute_reason'),
+                    **record.get('metadata', {}),
+                }
+            all_pending.append(flat)
+    return all_pending
+
+
 def get_finalized_services(vin: str) -> list:
     return _enrich_records(service_log.get_finalized_services(vin))
 
