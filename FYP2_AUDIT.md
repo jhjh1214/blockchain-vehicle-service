@@ -1,6 +1,6 @@
 # FYP2 Codebase Audit — Blockchain Vehicle Service & Warranty Management System
 
-**Audit date:** 2026-05-28 (updated after Group A–H improvements)  
+**Audit date:** 2026-05-28 (updated after Group A–J improvements)  
 **Audited against:** FYP1 implementation checklist (fyp2_audit_checklist.html)  
 **Codebase branch:** `main`
 
@@ -10,16 +10,16 @@
 
 | Section | Items | ✅ Met / Exceeded | ⚠️ Partial | ❌ Not Met |
 |---|---|---|---|---|
-| Smart Contracts (Solidity) | 35 | 28 (80%) | 5 (14%) | 2 (6%) |
-| REST API Endpoints | 17 | 15 (88%) | 0 (0%) | 2 (12%) |
+| Smart Contracts (Solidity) | 35 | 29 (83%) | 4 (11%) | 2 (6%) |
+| REST API Endpoints | 17 | 16 (94%) | 0 (0%) | 1 (6%) |
 | Backend Infrastructure | 17 | 8 (47%) | 6 (35%) | 3 (18%) |
 | Web App UI (Angular) | 15 | 14 (93%) | 0 (0%) | 1 (7%) |
-| Mobile App UI (Flutter) | 13 | 8 (62%) | 4 (31%) | 1 (8%) |
+| Mobile App UI (Flutter) | 13 | 9 (69%) | 3 (23%) | 1 (8%) |
 | Ganache / Deployment | 13 | 10 (77%) | 2 (15%) | 1 (8%) |
 | Testing | 13 | 6 (46%) | 2 (15%) | 5 (38%) |
-| **TOTAL** | **123** | **94 (76%)** | **15 (12%)** | **14 (11%)** |
+| **TOTAL** | **123** | **97 (79%)** | **13 (11%)** | **13 (11%)** |
 
-> **Weighted score** (partials = 0.5): **101.5 / 123 = 82%** of FYP1 scope implemented — up from 60% at initial audit.
+> **Weighted score** (partials = 0.5): **103.5 / 123 = 84%** of FYP1 scope implemented — up from 60% at initial audit.
 
 Key remaining gaps: **push notification delivery** (Firebase), **usability study**, PDF export, and the 30/60/90-day timeout mechanism.
 
@@ -58,7 +58,7 @@ The following features were **not in the FYP1 plan** but are now implemented —
 
 ## Section 1: Smart Contracts (Solidity)
 
-35 items · **✅ 28 · ⚠️ 5 · ❌ 2**
+35 items · **✅ 29 · ⚠️ 4 · ❌ 2**
 
 | # | Checklist Item | Status | Notes |
 |---|---|---|---|
@@ -72,7 +72,7 @@ The following features were **not in the FYP1 plan** but are now implemented —
 | 8 | `disputeService(bytes32 vin, uint256 recordIndex, string reason)` — owner | ✅ Met | Exact match |
 | 9 | `getPendingServices(bytes32 vin)` returns `ServiceRecord[]` | ✅ Met | View function, exact match |
 | 10 | `getServiceHistory(bytes32 vin)` filtering verified | ✅ Met | Named `getFinalizedServices()` — same semantics |
-| 11 | `resolveDispute(vin, recordIndex, decision, resolutionNotes)` — MANUFACTURER_ADMIN_ROLE | ✅ Met | Uses `DEFAULT_ADMIN_ROLE` (see item 31); resolutionNotes stored as `bytes32` hash |
+| 11 | `resolveDispute(vin, recordIndex, decision, resolutionNotes)` — MANUFACTURER_ADMIN_ROLE | ✅ Met | Uses dedicated `MANUFACTURER_ADMIN_ROLE` (see item 31); resolutionNotes stored as `bytes32` hash |
 | 12 | ServiceRecord struct: `vin, metadataHash, timestamp, technician, serviceCenter, verified, disputed` | ⚠️ Partial | Has all fields except `technician`. Technician stored off-chain in `ServiceMetadata` SQLite table (gas saving decision) |
 | 13 | DisputeResolution struct + `DisputeDecision` enum (APPROVE/REJECT/MODIFY) | ✅ Exceeded | Struct fully implemented. Enum has `PENDING/APPROVE/REJECT/MODIFY`. MODIFY keeps record in disputed state pending SC resubmission. Backend (decision=3), Angular UI, and test suite all wired end-to-end |
 | 14 | `event ServiceSubmitted(bytes32 vin, bytes32 metadataHash, uint256 timestamp, address serviceCenter)` | ✅ Met | Exact match |
@@ -92,7 +92,7 @@ The following features were **not in the FYP1 plan** but are now implemented —
 | 28 | `MANUFACTURER_ROLE` via OpenZeppelin AccessControl | ✅ Met | Granted on registration and in deploy script |
 | 29 | `SERVICE_CENTER_ROLE` via OpenZeppelin AccessControl | ✅ Met | Granted on registration by backend |
 | 30 | `OWNER_ROLE` via OpenZeppelin AccessControl | ✅ Met | Granted on vehicle registration; conditionally revoked on transfer |
-| 31 | `MANUFACTURER_ADMIN_ROLE` for dispute resolution | ⚠️ Partial | FYP1 specified a dedicated `MANUFACTURER_ADMIN_ROLE`. Current implementation uses `DEFAULT_ADMIN_ROLE` instead. Functionally identical but role name differs from spec |
+| 31 | `MANUFACTURER_ADMIN_ROLE` for dispute resolution | ✅ Met | Dedicated `MANUFACTURER_ADMIN_ROLE = keccak256("MANUFACTURER_ADMIN_ROLE")` added to `ServiceLog.sol`. Granted to deployer in constructor; `auth_service.py` grants it to manufacturers on registration. `resolveDispute` enforces this role |
 | 32 | SHA-256 metadata hashing | ✅ Met | `compute_metadata_hash()` in `backend/blockchain/utils.py` uses SHA-256 of key-sorted JSON |
 | 33 | OpenZeppelin Ownable base for system admin | ✅ Exceeded | Uses `AccessControl` (OZ) instead of `Ownable`. `AccessControl` is strictly more powerful and appropriate for a multi-role system |
 | 34 | Gas optimization via events instead of storage | ✅ Exceeded | Events used throughout; additionally, swap-and-pop O(1) deletion for pending records |
@@ -102,7 +102,7 @@ The following features were **not in the FYP1 plan** but are now implemented —
 
 ## Section 2: REST API Endpoints
 
-17 items · **✅ 15 · ⚠️ 0 · ❌ 2**
+17 items · **✅ 16 · ⚠️ 0 · ❌ 1**
 
 > Note: FYP1 spec used flat paths (`/api/login`). Actual implementation uses blueprint-prefixed paths (`/api/auth/login`). All functional mappings below note both.
 
@@ -123,7 +123,7 @@ The following features were **not in the FYP1 plan** but are now implemented —
 | 13 | `GET /api/owner/vehicles` | ✅ Met | `GET /api/vehicle/owner/vehicles`. OWNER role required |
 | 14 | `GET /api/service-center/pending-records` (all SC's records) | ✅ Met | `GET /api/service/sc/pending` — returns all pending records across all VINs for the authenticated service centre (no VIN parameter required). Also `GET /api/service/pending/<vin>` for per-VIN lookup |
 | 15 | `GET /api/manufacturer/dashboard-stats` | ✅ Met | `GET /api/vehicle/dashboard-stats` — returns all KPIs, service type distribution, warranty claim trend (6 months), top 5 service centres by volume with dispute rates |
-| 16 | `POST /api/dispute-response` (SC uploads rebuttal evidence) | ❌ Not Met | Not implemented. Disputes go directly to manufacturer resolution |
+| 16 | `POST /api/dispute-response` (SC uploads rebuttal evidence) | ✅ Met | `POST /api/service/dispute-response`. SERVICE_CENTER role required. Validates metadata hash + SC ownership, sets `rebuttal_notes` + `rebuttal_submitted_at` on `ServiceMetadata`. Manufacturer sees rebuttal in dispute resolution UI before deciding |
 | 17 | `POST /api/escalate-dispute` | ❌ Not Met | Not implemented. No escalation step |
 
 **Implemented beyond FYP1 spec:**
@@ -193,7 +193,7 @@ The following features were **not in the FYP1 plan** but are now implemented —
 
 ## Section 5: Mobile App UI — Vehicle Owner
 
-13 items · **✅ 8 · ⚠️ 4 · ❌ 1**
+13 items · **✅ 9 · ⚠️ 3 · ❌ 1**
 
 > FYP1 referenced "5 screens". The Flutter app implements **11 distinct screens**: Login, Register, My Vehicles, Vehicle Detail, Claim Vehicle, Transfer Vehicle, Pending Services, Service History, Warranty Claims, Submit Claim, Profile, Change Password.
 
@@ -203,7 +203,7 @@ The following features were **not in the FYP1 plan** but are now implemented —
 | 2 | JWT in secure mobile storage, push notification permission after login | ⚠️ Partial | `flutter_secure_storage` used for JWT: ✓. **No push notification permission dialog after login** |
 | 3 | My Vehicles: vehicle photo, Make/Model/Year, VIN (last 6), warranty badge, pending verification red dot badge | ⚠️ Partial | Cards with display name, VIN, warranty badge, pending-verification red dot (shows when `pendingCount > 0`): ✓. **No vehicle photo** |
 | 4 | Vehicle detail: full VIN with copy button, warranty coverage, "View Service History" + "File Warranty Claim" buttons | ✅ Met | Full VIN with "Copy VIN" button (copies to clipboard + snackbar): ✓. Warranty status + expiry date: ✓. "View Service History" OutlinedButton: ✓. "Submit Warranty Claim" button (in Warranty tab): ✓ |
-| 5 | Pending service card: SC name, date, type, mileage, parts, technician, expandable notes, swipeable photo gallery | ⚠️ Partial | SC display name now shown (resolved from blockchain address via User table): ✓. Type, date, mileage, technician, parts, notes: ✓. **No photo gallery. Notes shown directly** |
+| 5 | Pending service card: SC name, date, type, mileage, parts, technician, expandable notes, swipeable photo gallery | ✅ Met | SC display name: ✓. Type, date, mileage, technician, parts, notes: ✓. Horizontal photo gallery: thumbnail strip (80×80) with broken-image fallback; tap opens fullscreen `InteractiveViewer` dialog via `_showPhotoDialog` |
 | 6 | Metadata hash in collapsible "Technical Details" section | ✅ Met | Pending services screen has collapsible "Technical Details" section showing full SHA-256 hash. History screen shows truncated hash with copy button on verified records |
 | 7 | "✓ Approve Service" (green) and "✗ Dispute Service" (red) buttons with "permanently recorded" helper text | ✅ Met | "Verify" (green) and "Dispute" (red) buttons on every pending service card |
 | 8 | Dispute modal with reason textarea and "Submit Dispute" button | ✅ Met | `AlertDialog` with required `TextField` (max 3 lines), validated before submission |
@@ -271,8 +271,8 @@ These are intentional design improvements, not omissions. They should be documen
 ### 1. `pendingServices[]` moved out of `VehicleRegistry`
 FYP1 placed pending services in the `Vehicle` struct inside `VehicleRegistry`. The implementation keeps them in `ServiceLog`. This is architecturally cleaner — `VehicleRegistry` is the ownership and finalized-hash store; `ServiceLog` owns the mutable pending state. The on-chain separation reduces coupling and avoids VehicleRegistry becoming a god contract.
 
-### 2. `MANUFACTURER_ADMIN_ROLE` → `DEFAULT_ADMIN_ROLE`
-FYP1 specified a separate `MANUFACTURER_ADMIN_ROLE`. Using `DEFAULT_ADMIN_ROLE` is functionally equivalent for a single-admin deployment (Ganache) and avoids an extra role grant in the deploy script. If the system scales to multiple manufacturers, a dedicated role should be added.
+### 2. `MANUFACTURER_ADMIN_ROLE` — dedicated role as per FYP1 spec
+A dedicated `MANUFACTURER_ADMIN_ROLE = keccak256("MANUFACTURER_ADMIN_ROLE")` was added to `ServiceLog.sol`, matching the FYP1 spec exactly. The deployer is granted this role in the constructor; `auth_service.py` grants it to manufacturers on registration. This replaces the earlier shortcut of reusing `DEFAULT_ADMIN_ROLE`.
 
 ### 3. `OpenZeppelin Ownable` → `AccessControl`
 FYP1 specified `Ownable` as the admin base. `AccessControl` is strictly more powerful: it supports multiple roles, role-based revocation, and role hierarchies. This was the right call for a multi-role system.
@@ -307,7 +307,6 @@ FYP1 specified `submitClaim` should check service history compliance on-chain. D
 
 | Gap | Effort | Why Important |
 |---|---|---|
-| Separate `MANUFACTURER_ADMIN_ROLE` | Low | Matches FYP1 spec exactly; currently uses `DEFAULT_ADMIN_ROLE` |
 | Blockchain green dot indicator on login page | Low | Currently only on dashboards; spec shows it on login |
 | "Export History" PDF (Flutter) | Medium | Not in current scope; web has CSV export |
 | Security analysis with MythX | Medium | FYP2 report; Slither already done |
@@ -344,15 +343,30 @@ FYP1 specified `submitClaim` should check service history compliance on-chain. D
 - ✅ Rate limit on public vehicle endpoint (`GET /api/vehicle/public/<vin>`) — 30 req/min to prevent VIN enumeration
 - ✅ `service_count` in owner vehicle list now queries live DB count instead of returning hardcoded 0
 - ✅ Backend test suite expanded to 168 tests: added `TestTransferVehicle`, `service_count` assertion, and MODIFY decision tests
+- ✅ `POST /api/service/dispute-response` — SC rebuttal endpoint; SERVICE_CENTER only; stores `rebuttal_notes` + `rebuttal_submitted_at` on `ServiceMetadata`
+- ✅ Manufacturer dispute resolution UI shows SC rebuttal (blue info box) before manufacturer decides
+- ✅ Dealer pending-records UI: inline rebuttal textarea + submit for each disputed record; shows existing rebuttal in green
+- ✅ Flutter pending services photo gallery — horizontal thumbnail strip + fullscreen `InteractiveViewer` dialog
+- ✅ Dedicated `MANUFACTURER_ADMIN_ROLE = keccak256("MANUFACTURER_ADMIN_ROLE")` in `ServiceLog.sol` — matches FYP1 spec; granted to deployer in constructor and to manufacturers on registration
+- ✅ Brand isolation hardened end-to-end: all 6 SC management endpoints now enforce brand; dashboard stats (`/stats`, `/dashboard-stats`) scope SC counts to mfr brand and all vehicle metrics to mfr's VINs via scalar subquery; activity feed scoped to mfr's registrations/claims/disputes
+- ✅ Role enforcement tightened: `POST /api/vehicle/transfer`, `POST /api/service/verify`, `POST /api/service/dispute` changed from `@token_required` to `@role_required('OWNER')`
+- ✅ Backend test suite at 92 tests (test_vehicles + test_services + test_sc_management): added brand-isolation stats tests, activity feed isolation, SC role enforcement, and legacy verify/dispute role enforcement
 
 ---
 
 ## Summary
 
-The system has progressed from **60% (73.5/123)** to **82% (101.5/123)** of FYP1 scope through Groups A–H improvements. Group H hardened three correctness issues without changing the headline score: the `MODIFY` dispute decision is now end-to-end functional (API validation → service-layer string mapping → test coverage); the public vehicle lookup endpoint is rate-limited at 30 req/min to prevent VIN enumeration; and `service_count` in the owner vehicle list now reflects the live SQLite count rather than a hardcoded zero. Backend test suite grew from 142 to 168 passing tests, adding transfer vehicle, service_count, and MODIFY decision coverage. The blockchain core — three Solidity contracts with 100% line coverage, 48 passing tests, Slither analysis, and a gas benchmark suite — is formally verified as well as functionally complete.
+The system has progressed from **60% (73.5/123)** to **84% (103.5/123)** of FYP1 scope through Groups A–J improvements.
+
+Groups I–J delivered three new feature completions:
+- **`MANUFACTURER_ADMIN_ROLE`** — now a true dedicated role (`keccak256("MANUFACTURER_ADMIN_ROLE")`) in `ServiceLog.sol`, matching the FYP1 spec exactly (Smart Contracts item 31: ⚠️ → ✅)
+- **SC dispute rebuttal** — `POST /api/service/dispute-response` with manufacturer UI integration (REST API item 16: ❌ → ✅)
+- **Flutter photo gallery** — horizontal thumbnail strip + fullscreen dialog on pending services screen (Mobile App item 5: ⚠️ → ✅)
+
+Group J also hardened real-world correctness without new FYP1 items: brand isolation extended to all SC management endpoints and all manufacturer dashboard/feed queries (SC counts, warranty claims, service metrics, top-SC chart, and activity feed now scoped to the requesting manufacturer's brand/VINs); role enforcement tightened on `/transfer`, `/verify`, and `/dispute` from `@token_required` to `@role_required('OWNER')`.
 
 The remaining gaps fall into two categories:
 1. **Academic requirements** — usability study, SUS questionnaire (planned activities, not code gaps)
 2. **Push delivery** — Firebase/FCM integration (device token infra already complete)
 
-The 22 features built beyond FYP1 scope — especially service centre lifecycle management, vehicle claim flow, encrypted keystore, token rotation, Leaflet map, and the full dispute resolution workflow with APPROVE/REJECT/MODIFY — represent a genuine improvement over the original plan and should be highlighted in the FYP2 report as system enhancements.
+The 22+ features built beyond FYP1 scope — especially service centre lifecycle management, vehicle claim flow, encrypted keystore, token rotation, Leaflet map, the full dispute resolution workflow with APPROVE/REJECT/MODIFY, and the SC rebuttal step — represent a genuine improvement over the original plan and should be highlighted in the FYP2 report as system enhancements.
