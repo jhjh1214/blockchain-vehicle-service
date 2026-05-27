@@ -35,8 +35,9 @@ export class LoginComponent implements OnInit {
     }
 
     this.loginForm = this.formBuilder.group({
-      email:    ['', [Validators.required, Validators.email]],
-      password: ['', Validators.required]
+      email:      ['', [Validators.required, Validators.email]],
+      password:   ['', Validators.required],
+      rememberMe: [true]
     });
   }
 
@@ -56,7 +57,8 @@ export class LoginComponent implements OnInit {
     this.error = '';
     this.lockoutMessage = '';
 
-    this.authService.login(this.loginForm.value).subscribe({
+    const { email, password, rememberMe } = this.loginForm.value;
+    this.authService.login({ email, password }, rememberMe).subscribe({
       next: (response) => {
         const user = response.user;
         if (user.role === 'MANUFACTURER') {

@@ -147,7 +147,7 @@
       <div class="table-wrap">
         <table>
           <thead>
-            <tr><th>Service Type</th><th>Date</th><th>Mileage</th><th>Technician</th><th>Notes</th></tr>
+            <tr><th>Service Type</th><th>Date</th><th>Mileage</th><th>Technician</th><th>Notes</th><th>On-Chain Hash</th></tr>
           </thead>
           <tbody>
             @for (n of [1,2,3,4]; track n) {
@@ -157,6 +157,7 @@
                 <td><div class="sk-cell w-40"></div></td>
                 <td><div class="sk-cell w-70"></div></td>
                 <td><div class="sk-cell w-85"></div></td>
+                <td><div class="sk-cell w-55"></div></td>
               </tr>
             }
           </tbody>
@@ -190,6 +191,7 @@
                 <th>Mileage</th>
                 <th>Technician</th>
                 <th>Notes</th>
+                <th>On-Chain Hash</th>
               </tr>
             </thead>
             <tbody>
@@ -200,6 +202,15 @@
                   <td>{{ s.metadata?.mileage ? (s.metadata?.mileage + ' km') : '—' }}</td>
                   <td>{{ s.metadata?.technician_name || '—' }}</td>
                   <td class="td-muted">{{ s.metadata?.service_notes || '—' }}</td>
+                  <td>
+                    @if (s.metadata_hash) {
+                      <span class="hash-cell mono text-muted" [title]="s.metadata_hash">
+                        {{ s.metadata_hash.slice(0, 10) }}…
+                      </span>
+                    } @else {
+                      <span class="td-muted">—</span>
+                    }
+                  </td>
                 </tr>
               }
             </tbody>

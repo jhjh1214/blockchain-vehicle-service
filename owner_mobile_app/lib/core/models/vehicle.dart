@@ -7,6 +7,7 @@ class Vehicle {
   final String? registrationStatus;
   final int? warrantyExpiry;
   final bool warrantyValid;
+  final int serviceCount;
 
   const Vehicle({
     required this.vin,
@@ -17,6 +18,7 @@ class Vehicle {
     this.registrationStatus,
     this.warrantyExpiry,
     this.warrantyValid = false,
+    this.serviceCount = 0,
   });
 
   factory Vehicle.fromJson(Map<String, dynamic> j) {
@@ -30,6 +32,7 @@ class Vehicle {
       registrationStatus: j['registration_status'],
       warrantyExpiry: j['warranty_expiry'] as int?,
       warrantyValid: j['warranty_valid'] as bool? ?? false,
+      serviceCount: j['service_count'] as int? ?? 0,
     );
   }
 

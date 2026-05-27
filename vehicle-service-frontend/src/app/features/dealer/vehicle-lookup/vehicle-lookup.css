@@ -1,1 +1,7 @@
 /* Vehicle lookup — all layout from global styles */
+
+.hash-cell {
+  font-size: 11px;
+  cursor: help;
+  letter-spacing: 0.02em;
+}

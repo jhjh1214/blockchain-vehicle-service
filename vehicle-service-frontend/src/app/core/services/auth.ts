@@ -12,7 +12,7 @@ export class AuthService {
   currentUser: Observable<User | null>;
 
   constructor(private http: HttpClient) {
-    const stored = localStorage.getItem('currentUser');
+    const stored = sessionStorage.getItem('currentUser') || localStorage.getItem('currentUser');
     this.currentUserSubject = new BehaviorSubject<User | null>(
       stored ? JSON.parse(stored) : null
     );
@@ -23,38 +23,40 @@ export class AuthService {
     return this.currentUserSubject.value;
   }
 
-  login(credentials: LoginRequest): Observable<AuthResponse> {
+  login(credentials: LoginRequest, rememberMe = true): Observable<AuthResponse> {
     return this.http.post<AuthResponse>(`${environment.apiUrl}/auth/login`, credentials).pipe(
-      tap(r => this._storeSession(r))
+      tap(r => this._storeSession(r, rememberMe))
     );
   }
 
   register(data: RegisterRequest): Observable<AuthResponse> {
     return this.http.post<AuthResponse>(`${environment.apiUrl}/auth/register`, data).pipe(
-      tap(r => this._storeSession(r))
+      tap(r => this._storeSession(r, true))
     );
   }
 
   refreshTokens(): Observable<AuthResponse> {
-    const refreshToken = localStorage.getItem('refresh_token');
+    const refreshToken = sessionStorage.getItem('refresh_token') || localStorage.getItem('refresh_token');
+    const remember = !!localStorage.getItem('refresh_token');
     return this.http.post<AuthResponse>(`${environment.apiUrl}/auth/refresh`, { refresh_token: refreshToken }).pipe(
-      tap(r => this._storeSession(r))
+      tap(r => this._storeSession(r, remember))
     );
   }
 
   logout(): void {
-    const refreshToken = localStorage.getItem('refresh_token');
+    const refreshToken = sessionStorage.getItem('refresh_token') || localStorage.getItem('refresh_token');
     if (refreshToken) {
       this.http.post(`${environment.apiUrl}/auth/logout`, { refresh_token: refreshToken }).subscribe();
     }
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('currentUser');
+    ['access_token', 'refresh_token', 'currentUser'].forEach(k => {
+      localStorage.removeItem(k);
+      sessionStorage.removeItem(k);
+    });
     this.currentUserSubject.next(null);
   }
 
   getToken(): string | null {
-    return localStorage.getItem('access_token');
+    return sessionStorage.getItem('access_token') || localStorage.getItem('access_token');
   }
 
   isAuthenticated(): boolean {
@@ -73,9 +75,11 @@ export class AuthService {
   }
 
   updateProfile(data: { name?: string; phone?: string; city?: string; state?: string }): Observable<{ user: User; message: string }> {
+    const remember = !!localStorage.getItem('access_token');
     return this.http.put<{ user: User; message: string }>(`${environment.apiUrl}/auth/profile`, data).pipe(
       tap(r => {
-        localStorage.setItem('currentUser', JSON.stringify(r.user));
+        const store = remember ? localStorage : sessionStorage;
+        store.setItem('currentUser', JSON.stringify(r.user));
         this.currentUserSubject.next(r.user);
       })
     );
@@ -88,10 +92,16 @@ export class AuthService {
     });
   }
 
-  private _storeSession(r: AuthResponse): void {
-    localStorage.setItem('access_token', r.access_token);
-    localStorage.setItem('refresh_token', r.refresh_token);
-    localStorage.setItem('currentUser', JSON.stringify(r.user));
+  private _storeSession(r: AuthResponse, remember: boolean): void {
+    // Clear both storages to avoid stale tokens in the other one
+    ['access_token', 'refresh_token', 'currentUser'].forEach(k => {
+      localStorage.removeItem(k);
+      sessionStorage.removeItem(k);
+    });
+    const store = remember ? localStorage : sessionStorage;
+    store.setItem('access_token', r.access_token);
+    store.setItem('refresh_token', r.refresh_token);
+    store.setItem('currentUser', JSON.stringify(r.user));
     this.currentUserSubject.next(r.user);
   }
 }

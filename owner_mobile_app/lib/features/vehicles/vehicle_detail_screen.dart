@@ -109,6 +109,7 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen>
           'Make': v.make,
           'Model': v.model,
           'Year': v.year?.toString() ?? '-',
+          'Verified Services': '${v.serviceCount} records on-chain',
         }),
         Align(
           alignment: Alignment.centerLeft,
