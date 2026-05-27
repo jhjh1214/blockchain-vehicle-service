@@ -40,7 +40,7 @@ export class DisputeResolutionComponent {
   currentVin = '';
   disputedRecords: DisputedRecord[] = [];
   resolvingIndex: number | null = null;
-  resolvingDecision: 'approve' | 'reject' | null = null;
+  resolvingDecision: 'approve' | 'reject' | 'modify' | null = null;
 
   constructor(private fb: FormBuilder, private serviceService: ServiceService) {
     this.searchForm = this.fb.group({
@@ -81,7 +81,7 @@ export class DisputeResolutionComponent {
     });
   }
 
-  startResolve(index: number, decision: 'approve' | 'reject'): void {
+  startResolve(index: number, decision: 'approve' | 'reject' | 'modify'): void {
     this.resolvingIndex = index;
     this.resolvingDecision = decision;
     this.resolveForm.reset();
@@ -101,7 +101,7 @@ export class DisputeResolutionComponent {
     if (this.resolvingIndex === null || !this.resolvingDecision) return;
 
     const record = this.disputedRecords[this.resolvingIndex];
-    const decision = this.resolvingDecision === 'approve' ? 1 : 2;
+    const decision = this.resolvingDecision === 'approve' ? 1 : this.resolvingDecision === 'reject' ? 2 : 3;
     const notes = this.resolveForm.value.resolution_notes;
 
     this.actionLoading = true;
@@ -110,7 +110,7 @@ export class DisputeResolutionComponent {
 
     this.serviceService.resolveDispute(record.vin, record.record_index, decision, notes).subscribe({
       next: () => {
-        const label = this.resolvingDecision === 'approve' ? 'approved' : 'rejected';
+        const label = this.resolvingDecision === 'approve' ? 'approved' : this.resolvingDecision === 'reject' ? 'rejected' : 'flagged for modification';
         this.actionSuccess = `Dispute ${label} successfully for ${record.metadata?.service_type || 'record'}.`;
         this.resolvingIndex = null;
         this.resolvingDecision = null;

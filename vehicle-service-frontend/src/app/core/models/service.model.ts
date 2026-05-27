@@ -1,5 +1,6 @@
 export interface ServiceRecord {
   vin: string;
+  record_index: number;
   metadata_hash: string;
   timestamp: number;
   service_center: string;

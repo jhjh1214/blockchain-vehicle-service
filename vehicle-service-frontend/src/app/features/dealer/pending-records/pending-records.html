@@ -57,7 +57,7 @@
         <table>
           <thead>
             <tr>
-              <th>#</th><th>Service Type</th><th>Service Date</th><th>Mileage</th><th>Technician</th><th>Submitted</th><th>Status</th>
+              <th>ID</th><th>Service Type</th><th>Service Date</th><th>Mileage</th><th>Technician</th><th>Submitted</th><th>Status</th><th></th>
             </tr>
           </thead>
           <tbody>
@@ -70,6 +70,7 @@
                 <td><div class="sk-cell w-70"></div></td>
                 <td><div class="sk-cell w-55"></div></td>
                 <td><div class="sk-badge"></div></td>
+                <td></td>
               </tr>
             }
           </tbody>
@@ -102,19 +103,20 @@
         <table>
           <thead>
             <tr>
-              <th>#</th>
+              <th>ID</th>
               <th>Service Type</th>
               <th>Service Date</th>
               <th>Mileage</th>
               <th>Technician</th>
               <th>Submitted</th>
               <th>Status</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
             @for (record of filteredRecords; track record; let i = $index) {
-              <tr>
-                <td class="td-muted">{{ i + 1 }}</td>
+              <tr [class.row-expanded]="expandedIndex === i">
+                <td class="td-muted td-id">{{ record.record_index }}</td>
                 <td><strong>{{ record.metadata?.service_type || '—' }}</strong></td>
                 <td>{{ formatDateTime(record.metadata?.service_date || '') }}</td>
                 <td>{{ record.metadata?.mileage ? (record.metadata?.mileage + ' km') : '—' }}</td>
@@ -129,7 +131,46 @@
                     <span class="badge badge-disputed">Disputed</span>
                   }
                 </td>
+                <td>
+                  <button class="btn-expand" (click)="toggleDetails(i)" [class.open]="expandedIndex === i" title="Toggle details">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                    </svg>
+                  </button>
+                </td>
               </tr>
+              @if (expandedIndex === i) {
+                <tr class="detail-row">
+                  <td colspan="8">
+                    <div class="detail-panel">
+                      <div class="detail-panel-grid">
+                        <div class="detail-panel-item">
+                          <div class="detail-panel-label">On-chain Record ID</div>
+                          <div class="detail-panel-value mono">#{{ record.record_index }}</div>
+                        </div>
+                        <div class="detail-panel-item">
+                          <div class="detail-panel-label">Metadata Hash</div>
+                          <div class="detail-panel-value mono text-muted" style="font-size:11px;">{{ record.metadata_hash.slice(0, 26) }}…</div>
+                        </div>
+                        <div class="detail-panel-item">
+                          <div class="detail-panel-label">Parts Replaced</div>
+                          <div class="detail-panel-value">{{ record.metadata?.parts_replaced || '—' }}</div>
+                        </div>
+                        <div class="detail-panel-item" style="grid-column: span 3;">
+                          <div class="detail-panel-label">Service Notes</div>
+                          <div class="detail-panel-value">{{ record.metadata?.service_notes || '—' }}</div>
+                        </div>
+                        @if (record.disputed && record.dispute_reason) {
+                          <div class="detail-panel-item" style="grid-column: span 3;">
+                            <div class="detail-panel-label" style="color:#dc2626;">Dispute Reason</div>
+                            <div class="detail-panel-value" style="color:#dc2626;">{{ record.dispute_reason }}</div>
+                          </div>
+                        }
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              }
             }
           </tbody>
         </table>

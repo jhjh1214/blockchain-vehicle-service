@@ -21,6 +21,7 @@ export class PendingRecordsComponent {
   pendingRecords: ServiceRecord[] = [];
   currentVin = '';
   activeFilter: FilterTab = 'all';
+  expandedIndex: number | null = null;
 
   constructor(private fb: FormBuilder, private serviceService: ServiceService) {
     this.searchForm = this.fb.group({
@@ -51,11 +52,12 @@ export class PendingRecordsComponent {
     this.error = '';
     this.pendingRecords = [];
     this.activeFilter = 'all';
+    this.expandedIndex = null;
     this.currentVin = this.searchForm.value.vin;
 
     this.serviceService.getPendingServices(this.currentVin).subscribe({
       next: (data) => {
-        this.pendingRecords = data.pending_services;
+        this.pendingRecords = (data.pending_services || []).map((r: any, i: number) => ({ ...r, record_index: i }));
         this.loading = false;
       },
       error: (err) => {
@@ -63,6 +65,10 @@ export class PendingRecordsComponent {
         this.loading = false;
       }
     });
+  }
+
+  toggleDetails(i: number): void {
+    this.expandedIndex = this.expandedIndex === i ? null : i;
   }
 
   formatDate(timestamp: number): string {
