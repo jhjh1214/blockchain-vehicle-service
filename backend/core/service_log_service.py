@@ -4,6 +4,7 @@ from blockchain.adapters.service_log import service_log
 from blockchain.adapters.vehicle_registry import vehicle_registry
 from blockchain.utils import compute_metadata_hash, compute_string_hash
 from db.repositories import services as service_repo, vehicles as vehicle_repo
+from db.models import User as _User
 
 
 def submit_service(vin: str, service_type: str, service_date: str, mileage: int,
@@ -156,6 +157,8 @@ def _flatten_owner_record(record, index: int, mapping) -> dict:
         status = 'verified'
     else:
         status = 'pending'
+    sc_address = record.get('service_center', '')
+    sc_user = _User.query.filter_by(blockchain_address=sc_address.lower()).first() if sc_address else None
     return {
         'vin': mapping.vin,
         'record_index': index,
@@ -167,7 +170,8 @@ def _flatten_owner_record(record, index: int, mapping) -> dict:
         'service_notes': meta.get('service_notes'),
         'status': status,
         'dispute_reason': record.get('dispute_reason'),
-        'submitted_by': record.get('service_center', ''),
+        'submitted_by': sc_address,
+        'service_center_name': sc_user.name if sc_user else sc_address,
         'make': mapping.make,
         'model': mapping.model,
         'year': mapping.year,

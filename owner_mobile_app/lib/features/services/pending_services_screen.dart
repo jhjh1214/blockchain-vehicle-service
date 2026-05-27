@@ -189,6 +189,8 @@ class _ServiceCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             _row('VIN', record.vin),
+            if (record.serviceCenterName != null)
+              _row('Service Centre', record.serviceCenterName!),
             _row('Date', record.serviceDate),
             if (record.mileage != null)
               _row('Mileage', '${record.mileage} km'),

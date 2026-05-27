@@ -10,6 +10,7 @@ class ServiceRecord {
   final String status;
   final String? disputeReason;
   final String submittedBy;
+  final String? serviceCenterName;
   final String? metadataHash;
 
   const ServiceRecord({
@@ -24,6 +25,7 @@ class ServiceRecord {
     required this.status,
     this.disputeReason,
     required this.submittedBy,
+    this.serviceCenterName,
     this.metadataHash,
   });
 
@@ -39,6 +41,7 @@ class ServiceRecord {
         status: j['status'] ?? '',
         disputeReason: j['dispute_reason'],
         submittedBy: j['submitted_by'] ?? '',
+        serviceCenterName: j['service_center_name'],
         metadataHash: j['metadata_hash'],
       );
 
