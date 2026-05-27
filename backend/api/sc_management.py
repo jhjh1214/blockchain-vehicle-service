@@ -28,16 +28,26 @@ sc_bp = Blueprint('sc_management', __name__)
 _MAX_FUND_ETH = 10.0  # safety cap per transaction
 
 
+def _brand_mismatch(sc, mfr_brand: str) -> bool:
+    """Return True if SC brand doesn't match manufacturer brand (case-insensitive)."""
+    if not mfr_brand:
+        return False
+    sc_brand = sc.brand or ''
+    return sc_brand.lower() != mfr_brand.lower()
+
+
 @sc_bp.route('/service-centers', methods=['GET'])
 @role_required('MANUFACTURER')
 def list_service_centers():
+    mfr_brand = request.user.get('brand', '')
     city   = request.args.get('city', '').strip()
     state  = request.args.get('state', '').strip()
     status = request.args.get('status', '').strip()
     search = request.args.get('search', '').strip()
 
     scs = user_repo.find_service_centers(city=city, state=state,
-                                          status=status, search=search)
+                                          status=status, search=search,
+                                          brand=mfr_brand)
 
     result = [sc.to_dict() for sc in scs]
     paginated = paginate(result, request.args)
@@ -50,6 +60,8 @@ def get_service_center(sc_id):
     sc = user_repo.find_by_id(sc_id)
     if not sc or sc.role != 'SERVICE_CENTER':
         return jsonify({'error': 'Service center not found'}), 404
+    if _brand_mismatch(sc, request.user.get('brand', '')):
+        return jsonify({'error': 'Service center belongs to a different brand'}), 403
 
     d = sc.to_dict()
     d['eth_balance'] = _fetch_eth_balance(sc.blockchain_address)
@@ -59,18 +71,24 @@ def get_service_center(sc_id):
 @sc_bp.route('/service-centers/<int:sc_id>/activate', methods=['POST'])
 @role_required('MANUFACTURER')
 def activate_service_center(sc_id):
-    sc = user_repo.update_status(sc_id, 'active')
-    if not sc:
+    sc = user_repo.find_by_id(sc_id)
+    if not sc or sc.role != 'SERVICE_CENTER':
         return jsonify({'error': 'Service center not found'}), 404
+    if _brand_mismatch(sc, request.user.get('brand', '')):
+        return jsonify({'error': 'Service center belongs to a different brand'}), 403
+    user_repo.update_status(sc_id, 'active')
     return jsonify({'message': f'{sc.name or sc.email} activated', 'sc': sc.to_dict()}), 200
 
 
 @sc_bp.route('/service-centers/<int:sc_id>/suspend', methods=['POST'])
 @role_required('MANUFACTURER')
 def suspend_service_center(sc_id):
-    sc = user_repo.update_status(sc_id, 'suspended')
-    if not sc:
+    sc = user_repo.find_by_id(sc_id)
+    if not sc or sc.role != 'SERVICE_CENTER':
         return jsonify({'error': 'Service center not found'}), 404
+    if _brand_mismatch(sc, request.user.get('brand', '')):
+        return jsonify({'error': 'Service center belongs to a different brand'}), 403
+    user_repo.update_status(sc_id, 'suspended')
     return jsonify({'message': f'{sc.name or sc.email} suspended', 'sc': sc.to_dict()}), 200
 
 
@@ -80,6 +98,8 @@ def fund_service_center(sc_id):
     sc = user_repo.find_by_id(sc_id)
     if not sc or sc.role != 'SERVICE_CENTER':
         return jsonify({'error': 'Service center not found'}), 404
+    if _brand_mismatch(sc, request.user.get('brand', '')):
+        return jsonify({'error': 'Service center belongs to a different brand'}), 403
 
     data = request.get_json() or {}
     try:
@@ -155,7 +175,8 @@ def fund_all_service_centers():
     if not deployer:
         return jsonify({'error': 'Deployer address not configured'}), 500
 
-    scs = user_repo.find_service_centers(status='active')
+    mfr_brand = request.user.get('brand', '')
+    scs = user_repo.find_service_centers(status='active', brand=mfr_brand)
     results = []
     for sc in scs:
         try:

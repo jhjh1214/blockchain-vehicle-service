@@ -41,8 +41,10 @@ def create(email: str, password: str, role: str, name: str, phone: str,
 
 
 def find_service_centers(city: str = '', state: str = '', status: str = '',
-                         search: str = '') -> list:
+                         search: str = '', brand: str = '') -> list:
     q = User.query.filter_by(role='SERVICE_CENTER')
+    if brand:
+        q = q.filter(User.brand.ilike(brand))
     if city:
         q = q.filter(User.city.ilike(f'%{city}%'))
     if state:

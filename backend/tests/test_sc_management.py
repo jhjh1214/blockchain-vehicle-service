@@ -81,6 +81,72 @@ class TestActivateSuspendSC:
         assert r.status_code == 404
 
 
+class TestBrandIsolation:
+    """Manufacturer of brand A cannot see or manage SCs of brand B."""
+
+    def test_manufacturer_only_sees_own_brand_scs(self, client):
+        honda_mfr, _ = register_and_login(client, 'MANUFACTURER', brand='Honda')
+        toyota_mfr, _ = register_and_login(client, 'MANUFACTURER', brand='Toyota')
+        register_and_login(client, 'SERVICE_CENTER', brand='Honda')
+        register_and_login(client, 'SERVICE_CENTER', brand='Toyota')
+
+        honda_list = client.get('/api/sc/service-centers', headers=auth(honda_mfr)).get_json()
+        toyota_list = client.get('/api/sc/service-centers', headers=auth(toyota_mfr)).get_json()
+
+        honda_brands = [sc['brand'] for sc in honda_list.get('items', [])]
+        toyota_brands = [sc['brand'] for sc in toyota_list.get('items', [])]
+
+        assert all(b and b.lower() == 'honda' for b in honda_brands)
+        assert all(b and b.lower() == 'toyota' for b in toyota_brands)
+        assert not any(b and b.lower() == 'toyota' for b in honda_brands)
+        assert not any(b and b.lower() == 'honda' for b in toyota_brands)
+
+    def test_different_brand_manufacturer_cannot_view_sc(self, client):
+        _, honda_sc = register_and_login(client, 'SERVICE_CENTER', brand='Honda')
+        toyota_mfr, _ = register_and_login(client, 'MANUFACTURER', brand='Toyota')
+
+        r = client.get(f'/api/sc/service-centers/{honda_sc["id"]}', headers=auth(toyota_mfr))
+        assert r.status_code == 403
+        assert 'brand' in r.get_json()['error'].lower()
+
+    def test_different_brand_manufacturer_cannot_activate_sc(self, client):
+        _, honda_sc = register_and_login(client, 'SERVICE_CENTER', brand='Honda')
+        toyota_mfr, _ = register_and_login(client, 'MANUFACTURER', brand='Toyota')
+
+        r = client.post(f'/api/sc/service-centers/{honda_sc["id"]}/activate', headers=auth(toyota_mfr))
+        assert r.status_code == 403
+
+    def test_different_brand_manufacturer_cannot_suspend_sc(self, client):
+        _, honda_sc = register_and_login(client, 'SERVICE_CENTER', brand='Honda')
+        toyota_mfr, _ = register_and_login(client, 'MANUFACTURER', brand='Toyota')
+
+        r = client.post(f'/api/sc/service-centers/{honda_sc["id"]}/suspend', headers=auth(toyota_mfr))
+        assert r.status_code == 403
+
+    def test_same_brand_manufacturer_can_activate_sc(self, client):
+        honda_mfr, _ = register_and_login(client, 'MANUFACTURER', brand='Honda')
+        _, honda_sc = register_and_login(client, 'SERVICE_CENTER', brand='Honda')
+
+        r = client.post(f'/api/sc/service-centers/{honda_sc["id"]}/activate', headers=auth(honda_mfr))
+        assert r.status_code == 200
+        assert r.get_json()['sc']['status'] == 'active'
+
+    def test_fund_all_only_funds_own_brand_scs(self, client):
+        honda_mfr, _ = register_and_login(client, 'MANUFACTURER', brand='Honda')
+        _, honda_sc = register_and_login(client, 'SERVICE_CENTER', brand='Honda')
+        _, toyota_sc = register_and_login(client, 'SERVICE_CENTER', brand='Toyota')
+
+        # Activate both SCs (Honda mfr activates Honda SC)
+        client.post(f'/api/sc/service-centers/{honda_sc["id"]}/activate', headers=auth(honda_mfr))
+
+        r = client.post('/api/sc/fund-all', headers=auth(honda_mfr), json={'amount_eth': 0.01})
+        assert r.status_code == 200
+        results = r.get_json()['results']
+        funded_ids = [item['id'] for item in results]
+        assert honda_sc['id'] in funded_ids
+        assert toyota_sc['id'] not in funded_ids
+
+
 class TestSCStats:
     def test_sc_can_get_stats(self, client):
         sc_token, _ = _register_sc(client)
