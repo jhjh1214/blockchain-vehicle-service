@@ -103,6 +103,7 @@ def get_vehicle(vin: str) -> dict:
 
 def get_my_vehicles(owner_address: str) -> list:
     # Only return claimed (active) vehicles for the owner view
+    from db.models import ServiceMetadata
     mappings = vehicle_repo.find_by_owner(owner_address, status='active')
     now = int(time.time())
     return [{
@@ -113,7 +114,7 @@ def get_my_vehicles(owner_address: str) -> list:
         'registration_status': m.registration_status or 'active',
         'warranty_expiry': m.warranty_expiry,
         'warranty_valid': (m.warranty_expiry > now) if m.warranty_expiry else False,
-        'service_count': 0,
+        'service_count': ServiceMetadata.query.filter_by(vin=m.vin).count(),
     } for m in mappings]
 
 

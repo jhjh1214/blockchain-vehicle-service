@@ -124,9 +124,9 @@ def resolve_dispute():
     try:
         decision_int = int(decision)
     except (TypeError, ValueError):
-        return jsonify({'error': 'decision must be 1 (approve) or 2 (reject)'}), 400
-    if decision_int not in (1, 2):
-        return jsonify({'error': 'decision must be 1 (approve) or 2 (reject)'}), 400
+        return jsonify({'error': 'decision must be 1 (approve), 2 (reject), or 3 (modify)'}), 400
+    if decision_int not in (1, 2, 3):
+        return jsonify({'error': 'decision must be 1 (approve), 2 (reject), or 3 (modify)'}), 400
 
     from db.repositories import vehicles as vehicle_repo
     mapping = vehicle_repo.find_by_vin(vin)

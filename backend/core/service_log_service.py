@@ -75,7 +75,7 @@ def resolve_dispute(vin: str, record_index: int, decision: int,
         'message': 'Dispute resolved successfully',
         'vin': vin,
         'record_index': record_index,
-        'decision': 'approved' if decision == 1 else 'rejected',
+        'decision': {1: 'approved', 2: 'rejected', 3: 'modify'}.get(decision, 'rejected'),
         'transaction': result
     }
 

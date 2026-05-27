@@ -6,6 +6,7 @@ from core import vehicle_service
 from db.repositories import vehicles as vehicle_repo, users as user_repo
 from db.models import VehicleVINMapping, WarrantyClaimMetadata
 from config import Config
+from extensions import limiter
 
 vehicle_bp = Blueprint('vehicle', __name__)
 
@@ -250,6 +251,7 @@ def get_dashboard_stats():
 
 
 @vehicle_bp.route('/public/<vin>', methods=['GET'])
+@limiter.limit('30 per minute')
 def get_vehicle_public(vin):
     """Public vehicle verification — no authentication required."""
     try:

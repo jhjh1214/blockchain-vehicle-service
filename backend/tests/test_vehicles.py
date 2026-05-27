@@ -268,3 +268,58 @@ class TestMyVehicles:
         assert r.status_code == 200
         vins = [v['vin'] for v in r.get_json()['vehicles']]
         assert VIN in vins
+
+    def test_my_vehicles_has_service_count_field(self, client):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        owner_token, _ = register_and_login(client, 'OWNER')
+        _register_pending(client, mfr_token)
+        client.post('/api/vehicle/claim', headers=auth(owner_token), json={'vin': VIN})
+
+        r = client.get('/api/vehicle/my-vehicles', headers=auth(owner_token))
+        assert r.status_code == 200
+        vehicles = r.get_json()['vehicles']
+        assert len(vehicles) == 1
+        assert 'service_count' in vehicles[0]
+        assert isinstance(vehicles[0]['service_count'], int)
+
+
+# ---------------------------------------------------------------------------
+# TransferVehicle
+# ---------------------------------------------------------------------------
+
+class TestTransferVehicle:
+    def test_owner_can_transfer_vehicle(self, client):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        owner_token, owner = register_and_login(client, 'OWNER')
+        _, new_owner = register_and_login(client, 'OWNER')
+        _register_with_owner(client, mfr_token, owner['email'])
+
+        r = client.post('/api/vehicle/transfer', headers=auth(owner_token), json={
+            'vin': VIN, 'new_owner_email': new_owner['email'],
+        })
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data['vin'] == VIN
+        assert data['new_owner'] == new_owner['email']
+        assert 'transaction' in data
+
+    def test_transfer_to_unknown_user_returns_404(self, client):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        owner_token, owner = register_and_login(client, 'OWNER')
+        _register_with_owner(client, mfr_token, owner['email'])
+
+        r = client.post('/api/vehicle/transfer', headers=auth(owner_token), json={
+            'vin': VIN, 'new_owner_email': 'nobody@nowhere.com',
+        })
+        assert r.status_code == 404
+
+    def test_transfer_requires_auth(self, client):
+        r = client.post('/api/vehicle/transfer', json={
+            'vin': VIN, 'new_owner_email': 'any@any.com',
+        })
+        assert r.status_code == 401
+
+    def test_transfer_missing_new_owner_email(self, client):
+        owner_token, _ = register_and_login(client, 'OWNER')
+        r = client.post('/api/vehicle/transfer', headers=auth(owner_token), json={'vin': VIN})
+        assert r.status_code == 400
