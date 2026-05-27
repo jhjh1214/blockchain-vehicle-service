@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../core/api/api_client.dart';
 import '../../core/api/api_endpoints.dart';
 import '../../core/models/warranty_claim.dart';
@@ -30,10 +31,24 @@ class WarrantiesProvider extends ChangeNotifier {
     }
   }
 
-  Future<String?> submitClaim(String vin, String issueDescription) async {
+  Future<String?> submitClaim(
+    String vin,
+    String issueDescription, {
+    List<XFile> photos = const [],
+  }) async {
     try {
-      await ApiClient.instance.dio.post(ApiEndpoints.submitClaim,
-          data: {'vin': vin, 'issue_description': issueDescription});
+      if (photos.isNotEmpty) {
+        final formData = FormData.fromMap({
+          'vin': vin,
+          'issue_description': issueDescription,
+          'photos': await Future.wait(photos.map((f) async =>
+              MultipartFile.fromFile(f.path, filename: f.name))),
+        });
+        await ApiClient.instance.dio.post(ApiEndpoints.submitClaim, data: formData);
+      } else {
+        await ApiClient.instance.dio.post(ApiEndpoints.submitClaim,
+            data: {'vin': vin, 'issue_description': issueDescription});
+      }
       await loadClaims();
       return null;
     } on DioException catch (e) {

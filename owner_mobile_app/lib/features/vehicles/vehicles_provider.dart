@@ -71,4 +71,14 @@ class VehiclesProvider extends ChangeNotifier {
       return null;
     }
   }
+
+  Future<Map<String, dynamic>?> checkEligibility(String vin) async {
+    try {
+      final res = await ApiClient.instance.dio
+          .get(ApiEndpoints.warrantyEligibilityCheck(vin));
+      return res.data as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
 }

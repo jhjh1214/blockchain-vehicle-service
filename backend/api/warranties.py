@@ -48,7 +48,22 @@ def check_warranty(vin):
 @warranty_bp.route('/submit-claim', methods=['POST'])
 @role_required('OWNER')
 def submit_claim():
-    data = request.get_json() or {}
+    ct = request.content_type or ''
+    if 'multipart/form-data' in ct:
+        data = request.form.to_dict()
+        from core.upload_service import save_file as _save_file
+        photo_filenames = []
+        for f in request.files.getlist('photos'):
+            if f and f.filename:
+                try:
+                    res = _save_file(f, request.user['user_id'])
+                    photo_filenames.append(res['filename'])
+                except Exception:
+                    pass
+        data['photos'] = photo_filenames
+    else:
+        data = request.get_json() or {}
+
     try:
         vin = validate_vin(data.get('vin', ''))
     except ValueError as e:

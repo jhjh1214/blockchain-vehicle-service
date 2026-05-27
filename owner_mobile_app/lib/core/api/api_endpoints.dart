@@ -13,6 +13,7 @@ class ApiEndpoints {
   static const transferVehicle = '/vehicle/transfer';
   static String vehicleDetail(String vin) => '/vehicle/$vin';
   static String warrantyCheck(String vin) => '/warranty/check/$vin';
+  static String warrantyEligibilityCheck(String vin) => '/warranty/check-eligibility/$vin';
 
   // Services
   static const ownerPendingServices = '/service/owner/pending';

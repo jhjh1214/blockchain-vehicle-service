@@ -20,6 +20,7 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen>
   late final TabController _tabController;
   Vehicle? _vehicle;
   Map<String, dynamic>? _warranty;
+  Map<String, dynamic>? _eligibility;
   bool _loading = true;
 
   @override
@@ -40,11 +41,13 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen>
     final results = await Future.wait([
       provider.getVehicle(widget.vin),
       provider.checkWarranty(widget.vin),
+      provider.checkEligibility(widget.vin),
     ]);
     if (mounted) {
       setState(() {
         _vehicle = results[0] as Vehicle?;
         _warranty = results[1] as Map<String, dynamic>?;
+        _eligibility = results[2] as Map<String, dynamic>?;
         _loading = false;
       });
     }
@@ -193,6 +196,8 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen>
             ),
           ),
         ),
+        const SizedBox(height: 16),
+        _buildEligibilityChecklist(),
         if (isValid) ...[
           const SizedBox(height: 16),
           FilledButton.icon(
@@ -209,6 +214,61 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen>
           label: const Text('View All My Claims'),
         ),
       ],
+    );
+  }
+
+  Widget _buildEligibilityChecklist() {
+    if (_eligibility == null) return const SizedBox.shrink();
+    final warrantyValid = _eligibility!['valid'] as bool? ?? false;
+    final hasHistory = _eligibility!['service_history_maintained'] as bool? ?? false;
+    final serviceCount = _eligibility!['service_record_count'] as int? ?? 0;
+    final eligible = _eligibility!['eligible_to_claim'] as bool? ?? false;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Icon(eligible ? Icons.checklist_rounded : Icons.checklist_outlined,
+                  size: 18, color: eligible ? AppColors.success : Colors.amber),
+              const SizedBox(width: 6),
+              Text('Warranty Eligibility Checklist',
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: eligible ? AppColors.success : Colors.amber)),
+            ]),
+            const Divider(height: 16),
+            _checkItem('Warranty within validity period', warrantyValid),
+            _checkItem(
+                'Service history maintained ($serviceCount record${serviceCount == 1 ? '' : 's'})',
+                hasHistory),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _checkItem(String label, bool passed) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(children: [
+        Icon(
+          passed ? Icons.check_circle_outline : Icons.cancel_outlined,
+          size: 16,
+          color: passed ? AppColors.success : Colors.redAccent,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+            child: Text(label,
+                style: TextStyle(
+                    fontSize: 13,
+                    color: passed
+                        ? const Color(0xFF374151)
+                        : Colors.redAccent))),
+      ]),
     );
   }
 }
