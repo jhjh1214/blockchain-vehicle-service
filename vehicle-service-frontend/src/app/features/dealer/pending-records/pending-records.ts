@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { ServiceService } from '../../../core/services/service';
 import { ServiceRecord } from '../../../core/models/service.model';
@@ -10,7 +10,7 @@ type FilterTab = 'all' | 'pending' | 'disputed';
 @Component({
   selector: 'app-pending-records',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterModule],
   templateUrl: './pending-records.html',
   styleUrls: ['./pending-records.css']
 })
@@ -23,9 +23,48 @@ export class PendingRecordsComponent {
   activeFilter: FilterTab = 'all';
   expandedIndex: number | null = null;
 
+  rebuttalRecord: ServiceRecord | null = null;
+  rebuttalText = '';
+  rebuttalLoading = false;
+  rebuttalSuccess = '';
+  rebuttalError = '';
+
   constructor(private fb: FormBuilder, private serviceService: ServiceService) {
     this.searchForm = this.fb.group({
       vin: ['', [Validators.required, Validators.pattern(/^[A-HJ-NPR-Z0-9]{17}$/i)]]
+    });
+  }
+
+  openRebuttal(record: ServiceRecord): void {
+    this.rebuttalRecord = record;
+    this.rebuttalText = '';
+    this.rebuttalSuccess = '';
+    this.rebuttalError = '';
+  }
+
+  cancelRebuttal(): void {
+    this.rebuttalRecord = null;
+  }
+
+  submitRebuttal(): void {
+    if (!this.rebuttalRecord || !this.rebuttalText.trim()) return;
+    this.rebuttalLoading = true;
+    this.rebuttalError = '';
+    this.rebuttalSuccess = '';
+    this.serviceService.submitDisputeResponse(
+      this.rebuttalRecord.vin,
+      this.rebuttalRecord.metadata_hash,
+      this.rebuttalText.trim()
+    ).subscribe({
+      next: () => {
+        this.rebuttalSuccess = 'Rebuttal submitted. The manufacturer will review it before making a decision.';
+        this.rebuttalRecord = null;
+        this.rebuttalLoading = false;
+      },
+      error: (err: any) => {
+        this.rebuttalError = err.error?.error || 'Failed to submit rebuttal';
+        this.rebuttalLoading = false;
+      }
     });
   }
 

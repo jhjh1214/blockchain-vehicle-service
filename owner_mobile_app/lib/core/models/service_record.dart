@@ -12,6 +12,7 @@ class ServiceRecord {
   final String submittedBy;
   final String? serviceCenterName;
   final String? metadataHash;
+  final List<String> photos;
 
   const ServiceRecord({
     required this.vin,
@@ -27,6 +28,7 @@ class ServiceRecord {
     required this.submittedBy,
     this.serviceCenterName,
     this.metadataHash,
+    this.photos = const [],
   });
 
   factory ServiceRecord.fromJson(Map<String, dynamic> j) => ServiceRecord(
@@ -43,6 +45,7 @@ class ServiceRecord {
         submittedBy: j['submitted_by'] ?? '',
         serviceCenterName: j['service_center_name'],
         metadataHash: j['metadata_hash'],
+        photos: (j['photos'] as List?)?.map((e) => e.toString()).toList() ?? [],
       );
 
   bool get isPending => status == 'pending';

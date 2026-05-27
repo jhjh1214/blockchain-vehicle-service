@@ -114,6 +114,95 @@ class TestSubmitService:
         assert data['metadata_hash'].startswith('0x')
 
 
+class TestDisputeResponse:
+    """POST /api/service/dispute-response — SC rebuttal submission."""
+
+    def _setup_disputed_record(self, client):
+        """Register vehicle, submit service, mark disputed in DB."""
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER', brand='Honda')
+        _, owner = register_and_login(client, 'OWNER')
+        sc_token, _ = register_and_login(client, 'SERVICE_CENTER', brand='Honda')
+        _register_vehicle(client, mfr_token, owner['email'])
+
+        # Submit service to create a ServiceMetadata row
+        r = client.post('/api/service/submit', headers=auth(sc_token), json={
+            'vin': VIN, 'service_type': 'Oil Change',
+            'service_date': SERVICE_DATE, 'mileage': 10000,
+        })
+        assert r.status_code == 200
+        metadata_hash = r.get_json()['metadata_hash']
+
+        # Mark it disputed directly in DB
+        from db.models import db, ServiceMetadata
+        with client.application.app_context():
+            sm = ServiceMetadata.query.filter_by(metadata_hash=metadata_hash).first()
+            sm.disputed = True
+            db.session.commit()
+
+        return sc_token, metadata_hash
+
+    def test_sc_can_submit_rebuttal(self, client):
+        sc_token, metadata_hash = self._setup_disputed_record(client)
+        r = client.post('/api/service/dispute-response', headers=auth(sc_token), json={
+            'vin': VIN,
+            'metadata_hash': metadata_hash,
+            'rebuttal_notes': 'The oil change was performed correctly per manufacturer spec.',
+        })
+        assert r.status_code == 200
+        assert 'message' in r.get_json()
+
+    def test_rebuttal_requires_auth(self, client):
+        r = client.post('/api/service/dispute-response', json={
+            'vin': VIN, 'metadata_hash': '0x' + 'aa' * 32, 'rebuttal_notes': 'test',
+        })
+        assert r.status_code == 401
+
+    def test_non_sc_cannot_submit_rebuttal(self, client):
+        owner_token, _ = register_and_login(client, 'OWNER')
+        r = client.post('/api/service/dispute-response', headers=auth(owner_token), json={
+            'vin': VIN, 'metadata_hash': '0x' + 'aa' * 32, 'rebuttal_notes': 'test',
+        })
+        assert r.status_code == 403
+
+    def test_rebuttal_missing_fields(self, client):
+        sc_token, _ = register_and_login(client, 'SERVICE_CENTER')
+        r = client.post('/api/service/dispute-response', headers=auth(sc_token), json={
+            'vin': VIN,
+        })
+        assert r.status_code == 400
+
+    def test_rebuttal_record_not_found(self, client):
+        sc_token, _ = register_and_login(client, 'SERVICE_CENTER')
+        r = client.post('/api/service/dispute-response', headers=auth(sc_token), json={
+            'vin': VIN,
+            'metadata_hash': '0x' + 'bb' * 32,
+            'rebuttal_notes': 'This record does not exist.',
+        })
+        assert r.status_code == 404
+
+    def test_rebuttal_not_disputed_record(self, client):
+        """SC cannot submit rebuttal on a non-disputed record."""
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER', brand='Honda')
+        _, owner = register_and_login(client, 'OWNER')
+        sc_token, _ = register_and_login(client, 'SERVICE_CENTER', brand='Honda')
+        _register_vehicle(client, mfr_token, owner['email'])
+
+        r = client.post('/api/service/submit', headers=auth(sc_token), json={
+            'vin': VIN, 'service_type': 'Tyre Rotation',
+            'service_date': SERVICE_DATE, 'mileage': 5000,
+        })
+        assert r.status_code == 200
+        metadata_hash = r.get_json()['metadata_hash']
+
+        r = client.post('/api/service/dispute-response', headers=auth(sc_token), json={
+            'vin': VIN,
+            'metadata_hash': metadata_hash,
+            'rebuttal_notes': 'No dispute exists for this record.',
+        })
+        assert r.status_code == 400
+        assert 'not disputed' in r.get_json()['error'].lower()
+
+
 class TestGetPendingServices:
     def test_get_pending_authenticated(self, client):
         token, _ = register_and_login(client, 'OWNER')

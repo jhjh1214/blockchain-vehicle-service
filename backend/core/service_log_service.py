@@ -91,7 +91,9 @@ def _enrich_records(records: list) -> list:
                 'parts_replaced': metadata.parts_replaced,
                 'technician_name': metadata.technician_name,
                 'service_notes': metadata.service_notes,
-                'photos': metadata.photos or []
+                'photos': metadata.photos or [],
+                'rebuttal_notes': metadata.rebuttal_notes,
+                'rebuttal_submitted_at': metadata.rebuttal_submitted_at.isoformat() if metadata.rebuttal_submitted_at else None,
             }
     return records
 
@@ -168,6 +170,7 @@ def _flatten_owner_record(record, index: int, mapping) -> dict:
         'parts_replaced': meta.get('parts_replaced'),
         'technician_name': meta.get('technician_name'),
         'service_notes': meta.get('service_notes'),
+        'photos': meta.get('photos', []),
         'status': status,
         'dispute_reason': record.get('dispute_reason'),
         'submitted_by': sc_address,
@@ -175,6 +178,9 @@ def _flatten_owner_record(record, index: int, mapping) -> dict:
         'make': mapping.make,
         'model': mapping.model,
         'year': mapping.year,
+        'metadata_hash': record.get('metadata_hash', ''),
+        'rebuttal_notes': meta.get('rebuttal_notes'),
+        'rebuttal_submitted_at': meta.get('rebuttal_submitted_at'),
     }
 
 

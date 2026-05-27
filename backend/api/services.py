@@ -1,3 +1,4 @@
+from datetime import datetime
 from flask import Blueprint, request, jsonify
 from api.middleware import token_required, role_required
 from api.utils import sanitize, validate_vin, validate_mileage, paginate
@@ -107,6 +108,38 @@ def dispute_service():
         return jsonify(result), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@service_bp.route('/dispute-response', methods=['POST'])
+@role_required('SERVICE_CENTER')
+def submit_dispute_response():
+    """Service centre submits a rebuttal to an owner's dispute before manufacturer resolves."""
+    data = request.get_json() or {}
+    try:
+        vin = validate_vin(data.get('vin', ''))
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+
+    metadata_hash = sanitize(data.get('metadata_hash', ''), 66)
+    rebuttal = sanitize(data.get('rebuttal_notes', ''), 1000)
+    if not metadata_hash or not rebuttal:
+        return jsonify({'error': 'metadata_hash and rebuttal_notes required'}), 400
+
+    from db.models import db as _db, ServiceMetadata
+    sm = ServiceMetadata.query.filter_by(
+        metadata_hash=metadata_hash,
+        service_center_address=request.user['blockchain_address']
+    ).first()
+    if not sm:
+        return jsonify({'error': 'Service record not found or not owned by your service centre'}), 404
+    if not sm.disputed:
+        return jsonify({'error': 'Record is not disputed'}), 400
+
+    sm.rebuttal_notes = rebuttal
+    sm.rebuttal_submitted_at = datetime.utcnow()
+    _db.session.commit()
+
+    return jsonify({'message': 'Rebuttal submitted successfully', 'vin': vin}), 200
 
 
 @service_bp.route('/resolve-dispute', methods=['POST'])

@@ -6,7 +6,7 @@ import "./VehicleRegistry.sol";
 
 contract ServiceLog is AccessControl {
     bytes32 public constant SERVICE_CENTER_ROLE = keccak256("SERVICE_CENTER_ROLE");
-    bytes32 public constant MANUFACTURER_ADMIN_ROLE = DEFAULT_ADMIN_ROLE;
+    bytes32 public constant MANUFACTURER_ADMIN_ROLE = keccak256("MANUFACTURER_ADMIN_ROLE");
 
     VehicleRegistry public immutable vehicleRegistry;
 
@@ -43,6 +43,7 @@ contract ServiceLog is AccessControl {
     constructor(address _vehicleRegistry) {
         vehicleRegistry = VehicleRegistry(_vehicleRegistry);
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(MANUFACTURER_ADMIN_ROLE, msg.sender);
     }
 
     // Called by Service Center (Web Dashboard)
@@ -113,7 +114,7 @@ contract ServiceLog is AccessControl {
         uint256 recordIndex,
         DisputeDecision decision,
         bytes32 resolutionNotesHash
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    ) external onlyRole(MANUFACTURER_ADMIN_ROLE) {
         require(recordIndex < pendingServices[vin].length, "Invalid record index");
         require(pendingServices[vin][recordIndex].disputed, "Not a disputed record");
 

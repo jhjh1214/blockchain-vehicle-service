@@ -43,4 +43,12 @@ export class ServiceService {
       resolution_notes: resolutionNotes
     });
   }
+
+  submitDisputeResponse(vin: string, metadataHash: string, rebuttalNotes: string): Observable<any> {
+    return this.http.post(`${environment.apiUrl}/service/dispute-response`, {
+      vin,
+      metadata_hash: metadataHash,
+      rebuttal_notes: rebuttalNotes
+    });
+  }
 }

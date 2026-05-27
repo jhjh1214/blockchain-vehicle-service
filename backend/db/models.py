@@ -112,6 +112,8 @@ class ServiceMetadata(db.Model):
     service_notes = db.Column(db.Text)
     photos = db.Column(db.JSON)
     disputed = db.Column(db.Boolean, default=False, nullable=False)
+    rebuttal_notes = db.Column(db.Text, nullable=True)
+    rebuttal_submitted_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def to_dict(self) -> dict:

@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, DatePipe } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ServiceService } from '../../../core/services/service';
 
@@ -17,13 +17,15 @@ interface DisputedRecord {
     technician_name: string;
     parts_replaced: string;
     service_notes: string;
+    rebuttal_notes?: string;
+    rebuttal_submitted_at?: string;
   };
 }
 
 @Component({
   selector: 'app-dispute-resolution',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, DatePipe, ReactiveFormsModule],
   templateUrl: './dispute-resolution.html',
   styleUrl: './dispute-resolution.css'
 })

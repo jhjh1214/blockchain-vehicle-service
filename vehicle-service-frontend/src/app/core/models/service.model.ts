@@ -22,6 +22,8 @@ export interface ServiceMetadata {
   technician_name: string;
   service_notes: string;
   photos: string[];
+  rebuttal_notes?: string;
+  rebuttal_submitted_at?: string;
 }
 
 export interface SubmitServiceRequest {

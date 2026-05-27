@@ -5,6 +5,8 @@ import '../../core/models/service_record.dart';
 import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/error_view.dart';
 
+const _uploadBase = 'http://10.0.2.2:5000/api/upload/files';
+
 class PendingServicesScreen extends StatefulWidget {
   const PendingServicesScreen({super.key});
 
@@ -202,6 +204,42 @@ class _ServiceCard extends StatelessWidget {
             if (record.serviceNotes != null &&
                 record.serviceNotes!.isNotEmpty)
               _row('Notes', record.serviceNotes!),
+            if (record.photos.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              const Text('Photos',
+                  style: TextStyle(fontSize: 12, color: Colors.grey)),
+              const SizedBox(height: 6),
+              SizedBox(
+                height: 80,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: record.photos.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (ctx, i) {
+                    final url = '$_uploadBase/${record.photos[i]}';
+                    return GestureDetector(
+                      onTap: () => _showPhotoDialog(ctx, url),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: Image.network(
+                          url,
+                          width: 80,
+                          height: 80,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            width: 80,
+                            height: 80,
+                            color: Colors.grey.shade200,
+                            child: const Icon(Icons.broken_image,
+                                color: Colors.grey),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
             if (record.metadataHash != null &&
                 record.metadataHash!.isNotEmpty) ...[
               const SizedBox(height: 4),
@@ -266,6 +304,29 @@ class _ServiceCard extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static void _showPhotoDialog(BuildContext context, String url) {
+    showDialog(
+      context: context,
+      builder: (_) => Dialog(
+        child: Stack(
+          children: [
+            InteractiveViewer(
+              child: Image.network(url, fit: BoxFit.contain),
+            ),
+            Positioned(
+              top: 4,
+              right: 4,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white),
+                onPressed: () => Navigator.pop(context),
+              ),
             ),
           ],
         ),

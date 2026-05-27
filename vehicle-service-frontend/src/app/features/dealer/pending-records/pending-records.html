@@ -177,12 +177,22 @@
       </div>
     </div>
 
+    <!-- Rebuttal success -->
+    @if (rebuttalSuccess) {
+      <div class="alert alert-success" style="margin-top:16px;">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+        </svg>
+        {{ rebuttalSuccess }}
+      </div>
+    }
+
     <!-- Disputed records detail -->
     @for (record of pendingRecords; track record) {
       @if (record.disputed) {
         <div class="card" style="margin-top:16px;">
           <div class="card-body">
-            <div class="alert alert-warning" style="margin-bottom:0;">
+            <div class="alert alert-warning" style="margin-bottom:12px;">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
               </svg>
@@ -193,6 +203,39 @@
                 }
               </div>
             </div>
+
+            <!-- Existing rebuttal -->
+            @if (record.metadata?.rebuttal_notes) {
+              <div style="padding:10px 12px;background:#f0fdf4;border-left:3px solid #16a34a;border-radius:4px;font-size:13px;margin-bottom:8px;">
+                <strong>Your rebuttal:</strong> {{ record.metadata?.rebuttal_notes }}
+              </div>
+            }
+
+            <!-- Rebuttal form (inline) -->
+            @if (rebuttalRecord === record) {
+              <div style="margin-top:8px;">
+                <textarea
+                  class="form-control"
+                  rows="3"
+                  [(ngModel)]="rebuttalText"
+                  placeholder="Explain why this service was performed correctly…"
+                  style="margin-bottom:8px;"
+                ></textarea>
+                @if (rebuttalError) {
+                  <div class="invalid-feedback" style="display:block;margin-bottom:8px;">{{ rebuttalError }}</div>
+                }
+                <div style="display:flex;gap:8px;">
+                  <button class="btn btn-secondary btn-sm" (click)="cancelRebuttal()">Cancel</button>
+                  <button class="btn btn-primary btn-sm" (click)="submitRebuttal()" [disabled]="rebuttalLoading || !rebuttalText.trim()">
+                    @if (rebuttalLoading) { <span class="spinner"></span> } @else { Submit Rebuttal }
+                  </button>
+                </div>
+              </div>
+            } @else if (!record.metadata?.rebuttal_notes) {
+              <button class="btn btn-secondary btn-sm" (click)="openRebuttal(record)">
+                Submit Rebuttal
+              </button>
+            }
           </div>
         </div>
       }

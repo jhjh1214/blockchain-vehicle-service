@@ -9,6 +9,7 @@ from blockchain.client import web3_client
 from db.repositories import users as user_repo
 
 _MANUFACTURER_ROLE = Web3.keccak(text="MANUFACTURER_ROLE")
+_MANUFACTURER_ADMIN_ROLE = Web3.keccak(text="MANUFACTURER_ADMIN_ROLE")
 _SERVICE_CENTER_ROLE = Web3.keccak(text="SERVICE_CENTER_ROLE")
 
 # Password policy — matches NIST SP 800-63B + OWASP recommendations
@@ -104,7 +105,7 @@ def register_user(email: str, password: str, role: str, name: str, phone: str,
             from blockchain.adapters.warranty_tracker import warranty_tracker
             _DEFAULT_ADMIN_ROLE = b'\x00' * 32
             web3_client.grant_role(vehicle_registry.contract, _MANUFACTURER_ROLE, account['address'], deployer)
-            web3_client.grant_role(service_log.contract, _DEFAULT_ADMIN_ROLE, account['address'], deployer)
+            web3_client.grant_role(service_log.contract, _MANUFACTURER_ADMIN_ROLE, account['address'], deployer)
             web3_client.grant_role(warranty_tracker.contract, _DEFAULT_ADMIN_ROLE, account['address'], deployer)
         elif role == 'SERVICE_CENTER':
             from blockchain.adapters.service_log import service_log
