@@ -1,59 +1,200 @@
-# VehicleServiceFrontend
+# Vehicle Service Frontend
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.10.
+Angular 21 web application for the Blockchain Vehicle Service system. Provides dashboards for **Manufacturers** and **Service Centres** (Dealers). Vehicle Owners use the Flutter mobile app instead.
 
-## Development server
+---
 
-To start a local development server, run:
+## Features
 
-```bash
-ng serve
+### Manufacturer Dashboard
+- Register new vehicles on-chain (VIN, owner email, warranty period, make/model/year)
+- Pre-register vehicles without an owner (owner claims via mobile app later)
+- View all vehicles registered under the manufacturer's brand
+- Manage authorised service centres
+- Review and approve or deny warranty claims submitted by owners
+- Resolve disputed service records (approve or reject with resolution notes)
+
+### Service Centre (Dealer) Dashboard
+- Submit service records for a vehicle (metadata hashed to SHA-256, hash anchored on-chain)
+- View pending (unverified) and finalized service history for any VIN
+- Look up vehicle details and warranty status by VIN
+
+### Public
+- Verify any vehicle by VIN — ownership, warranty status, service hash count
+
+---
+
+## Tech Stack
+
+| Technology | Version |
+|---|---|
+| Angular | 21.2.x |
+| Angular Material | 21.2.x |
+| TypeScript | ~5.7 |
+| RxJS | ~7.8 |
+| ng2-charts + Chart.js | 10.0 / 4.5 |
+| Leaflet | 1.9.4 |
+| jwt-decode | 4.0.0 |
+
+Architecture: standalone components throughout (no NgModules), lazy-loaded feature routes, HTTP interceptor for Bearer token injection, Angular signals for reactive state.
+
+---
+
+## Project Structure
+
+```
+vehicle-service-frontend/
+└── src/
+    └── app/
+        ├── core/
+        │   ├── guards/
+        │   │   └── auth-guard.ts          # Redirects to /login if no JWT
+        │   ├── interceptors/
+        │   │   └── auth-interceptor.ts    # Attaches Authorization: Bearer <token>
+        │   ├── services/
+        │   │   ├── auth.ts                # Login, register, logout, currentUser signal
+        │   │   ├── vehicle.ts             # Register, getVehicle, getMyVehicles
+        │   │   ├── service.ts             # Submit, pending, history, verify, dispute, resolve
+        │   │   ├── warranty.ts            # Check, submitClaim, approveClaim, denyClaim
+        │   │   ├── sc-management.service.ts
+        │   │   └── theme.service.ts
+        │   └── models/
+        │       └── service.model.ts
+        │
+        ├── features/
+        │   ├── auth/
+        │   │   ├── login/                 # Login form
+        │   │   └── register/             # Role selection + registration form
+        │   │
+        │   ├── manufacturer/
+        │   │   ├── dashboard/            # Overview cards, quick links, charts
+        │   │   ├── register-vehicle/     # New vehicle registration form
+        │   │   ├── dispute-resolution/   # Search VIN, view and resolve disputes
+        │   │   ├── warranty-claims/      # List and approve/deny warranty claims
+        │   │   ├── fleet/                # Vehicle fleet view
+        │   │   └── service-centers/      # Manage authorised service centres
+        │   │
+        │   ├── dealer/
+        │   │   ├── dashboard/            # Overview cards, quick links
+        │   │   ├── vehicle-lookup/       # Search VIN, view history
+        │   │   ├── pending-records/      # List pending service records
+        │   │   └── submit-service/       # New service submission form
+        │   │
+        │   └── public/
+        │       └── verify/              # Public VIN verification page
+        │
+        ├── shared/
+        │   └── shell/
+        │       ├── manufacturer-shell.ts  # Manufacturer nav layout
+        │       └── dealer-shell.ts        # Dealer nav layout
+        │
+        ├── app.routes.ts                  # Root routes (lazy loads shells)
+        └── app.ts                         # Root standalone component
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+---
 
-## Code scaffolding
+## Prerequisites
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+- Node.js 18+ and npm
 
-```bash
-ng generate component component-name
-```
+---
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+## Setup
 
 ```bash
-ng generate --help
+cd vehicle-service-frontend
+npm install
 ```
 
-## Building
+---
 
-To build the project run:
+## Development Server
 
 ```bash
-ng build
+npx ng serve
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+App is available at `http://localhost:4200`. The backend must be running at `http://localhost:5000` (see root README for backend setup).
 
-## Running unit tests
+The Angular dev server proxies API requests to `http://localhost:5000` based on configuration in `proxy.conf.json` (if present) or uses the environment base URL.
 
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
+---
+
+## Build
 
 ```bash
-ng test
+# Development build (type-check only)
+npx ng build --configuration development
+
+# Production build
+npx ng build --configuration production
 ```
 
-## Running end-to-end tests
+Production output lands in `dist/vehicle-service-frontend/`. Serve it with Nginx or any static file server.
 
-For end-to-end (e2e) testing, run:
+---
+
+## Environment Configuration
+
+Edit `src/environments/environment.ts` for development:
+
+```typescript
+export const environment = {
+  production: false,
+  apiUrl: 'http://localhost:5000/api'
+};
+```
+
+Edit `src/environments/environment.prod.ts` for production. The auth interceptor appends `Authorization: Bearer <token>` from `localStorage` to every outgoing HTTP request.
+
+---
+
+## Authentication
+
+- JWT is stored in `localStorage` under the key `token`
+- `auth-guard.ts` checks for a valid token before allowing access to protected routes
+- `auth-interceptor.ts` attaches the token to all HTTP requests automatically
+- Roles (`MANUFACTURER`, `SERVICE_CENTER`) determine which shell layout and feature routes are accessible
+- Login redirects to the appropriate dashboard based on the user's role
+
+---
+
+## API Integration
+
+All API calls go to the Flask backend at `/api`. The services in `core/services/` map to backend blueprints:
+
+| Angular service | Backend blueprint | URL prefix |
+|---|---|---|
+| `auth.ts` | `auth` | `/api/auth` |
+| `vehicle.ts` | `vehicles` | `/api/vehicle` |
+| `service.ts` | `services` | `/api/service` |
+| `warranty.ts` | `warranties` | `/api/warranty` |
+
+---
+
+## Type Check
 
 ```bash
-ng e2e
+npx ng build --configuration development
 ```
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
+A clean build with no TypeScript or template errors confirms the frontend is type-safe.
 
-## Additional Resources
+---
 
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+## Dependencies
+
+Key packages (see `package.json` for full list):
+
+```json
+{
+  "@angular/core": "^21.2.0",
+  "@angular/material": "^21.2.10",
+  "rxjs": "~7.8.0",
+  "ng2-charts": "^10.0.0",
+  "chart.js": "^4.5.1",
+  "leaflet": "^1.9.4",
+  "jwt-decode": "^4.0.0"
+}
+```
