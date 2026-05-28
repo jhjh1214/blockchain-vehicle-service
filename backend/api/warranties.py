@@ -146,6 +146,10 @@ def deny_claim():
     except (TypeError, ValueError):
         return jsonify({'error': 'claim_index must be a non-negative integer'}), 400
 
+    reason = sanitize(data.get('reason', ''), 500)
+    if not reason:
+        return jsonify({'error': 'reason required for claim denial'}), 400
+
     from db.repositories import vehicles as vehicle_repo
     mapping = vehicle_repo.find_by_vin(vin)
     if mapping and mapping.registered_by and mapping.registered_by != request.user['blockchain_address']:
@@ -155,7 +159,7 @@ def deny_claim():
         result = warranty_service.deny_claim(
             vin=vin,
             claim_index=claim_index,
-            reason=sanitize(data.get('reason', ''), 500),
+            reason=reason,
             from_address=request.user['blockchain_address']
         )
         return jsonify(result), 200

@@ -226,8 +226,13 @@ class TestDisputeResponse:
 
 class TestGetPendingServices:
     def test_get_pending_authenticated(self, client):
-        token, _ = register_and_login(client, 'OWNER')
-        r = client.get(f'/api/service/pending/{VIN}', headers=auth(token))
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        owner_token, owner = register_and_login(client, 'OWNER')
+        client.post('/api/vehicle/register', headers=auth(mfr_token), json={
+            'vin': VIN, 'warranty_years': 3, 'make': 'Honda', 'model': 'Civic', 'year': 2024,
+            'owner_email': owner['email'],
+        })
+        r = client.get(f'/api/service/pending/{VIN}', headers=auth(owner_token))
         assert r.status_code == 200
         data = r.get_json()
         assert 'pending_services' in data

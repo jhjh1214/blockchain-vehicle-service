@@ -57,6 +57,18 @@ def fix_ownership():
     model = data.get('model', '')
     year  = data.get('year')
 
+    warranty_years_raw = data.get('warranty_years')
+    warranty_expiry_new = None
+    if warranty_years_raw is not None:
+        try:
+            warranty_years = int(warranty_years_raw)
+        except (TypeError, ValueError):
+            return jsonify({'error': 'warranty_years must be an integer'}), 400
+        if not (1 <= warranty_years <= 20):
+            return jsonify({'error': 'warranty_years must be between 1 and 20'}), 400
+        import time as _time
+        warranty_expiry_new = int(_time.time()) + warranty_years * 365 * 24 * 3600
+
     new_owner = user_repo.find_by_email(new_owner_email)
     if not new_owner:
         return jsonify({'error': f'User {new_owner_email} not found'}), 404
@@ -113,6 +125,7 @@ def fix_ownership():
                 owner_address=new_owner.blockchain_address,
                 make=make, model=model,
                 year=int(year) if year else None,
+                warranty_expiry=warranty_expiry_new,
                 registered_by=request.user['blockchain_address'],
             )
     except Exception as e:

@@ -16,10 +16,6 @@ def submit_service():
         import json as _json
         data = request.form.to_dict()
         try:
-            data['mileage'] = int(data.get('mileage', 0))
-        except (ValueError, TypeError):
-            data['mileage'] = 0
-        try:
             data['ecu_modules'] = _json.loads(data.get('ecu_modules', '[]'))
         except Exception:
             data['ecu_modules'] = []
@@ -43,8 +39,15 @@ def submit_service():
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
 
+    ecu_modules = data.get('ecu_modules', [])
+    if not isinstance(ecu_modules, list):
+        return jsonify({'error': 'ecu_modules must be a list'}), 400
+    if len(ecu_modules) > 20:
+        return jsonify({'error': 'ecu_modules cannot contain more than 20 entries'}), 400
+    ecu_modules = [str(m)[:100] for m in ecu_modules]
+
     service_type = sanitize(data.get('service_type', ''), 100)
-    service_date = sanitize(data.get('service_date', ''), 20)
+    service_date = sanitize(data.get('service_date', ''), 35)
     if not service_type or not service_date:
         return jsonify({'error': 'Missing required fields: service_type, service_date'}), 400
 
@@ -84,7 +87,7 @@ def submit_service():
             parts_replaced=sanitize(data.get('parts_replaced', ''), 500),
             technician_name=sanitize(data.get('technician_name', ''), 100),
             service_notes=sanitize(data.get('service_notes', ''), 1000),
-            ecu_modules=data.get('ecu_modules', []),
+            ecu_modules=ecu_modules,
             photos=data.get('photos', []),
             from_address=request.user['blockchain_address']
         )
@@ -227,6 +230,20 @@ def get_pending_services(vin):
         vin = validate_vin(vin)
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
+
+    from db.repositories import vehicles as vehicle_repo
+    mapping = vehicle_repo.find_by_vin(vin)
+    role = request.user.get('role')
+    if role == 'OWNER':
+        if not mapping or mapping.owner_address.lower() != request.user['blockchain_address'].lower():
+            return jsonify({'error': 'You do not own this vehicle'}), 403
+    elif role in ('MANUFACTURER', 'SERVICE_CENTER'):
+        user_brand = request.user.get('brand', '')
+        if user_brand and mapping and mapping.make and mapping.make.lower() != user_brand.lower():
+            return jsonify({'error': 'Vehicle belongs to a different brand'}), 403
+    else:
+        return jsonify({'error': 'Insufficient permissions'}), 403
+
     try:
         records = service_log_service.get_pending_services(vin)
         result  = paginate(records, request.args)
