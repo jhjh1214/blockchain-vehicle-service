@@ -5,14 +5,25 @@ except ImportError:
     from web3.middleware import geth_poa_middleware
 import json
 import os
+import threading
 from config import Config
 from blockchain.keystore import keystore
 
 
 class Web3Client:
     def __init__(self):
-        self.w3 = Web3(Web3.HTTPProvider(Config.GANACHE_URL, request_kwargs={'timeout': 5}))
+        self.w3 = Web3(Web3.HTTPProvider(Config.GANACHE_URL, request_kwargs={'timeout': 30}))
         self.w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+        # Per-address locks prevent nonce collisions when requests arrive concurrently
+        self._nonce_locks: dict[str, threading.Lock] = {}
+        self._locks_meta = threading.Lock()
+
+    def _nonce_lock(self, address: str) -> threading.Lock:
+        addr = address.lower()
+        with self._locks_meta:
+            if addr not in self._nonce_locks:
+                self._nonce_locks[addr] = threading.Lock()
+            return self._nonce_locks[addr]
 
     def load_contract(self, abi_filename: str, address: str):
         abi_path = os.path.join(Config.ABI_DIR, abi_filename)
@@ -28,49 +39,58 @@ class Web3Client:
         if not private_key:
             raise ValueError(f"No private key found for address {from_address}")
 
-        nonce = self.w3.eth.get_transaction_count(from_address, 'pending')
-        # Strip EIP-1559 fee fields so we always use legacy gasPrice format
+        # Strip EIP-1559 fee fields; always use legacy gasPrice
         transaction.pop('maxFeePerGas', None)
         transaction.pop('maxPriorityFeePerGas', None)
         transaction.pop('type', None)
-        transaction.update({
-            'from': from_address,
-            'nonce': nonce,
-            'gas': 3000000,
-            'gasPrice': self.w3.eth.gas_price,
-            'chainId': Config.CHAIN_ID
-        })
+        transaction['from'] = from_address
+        transaction['chainId'] = Config.CHAIN_ID
+        transaction['gasPrice'] = self.w3.eth.gas_price
 
-        signed = self.w3.eth.account.sign_transaction(transaction, private_key)
-        raw = signed.rawTransaction if hasattr(signed, 'rawTransaction') else signed.raw_transaction
-        tx_hash = self.w3.eth.send_raw_transaction(raw)
-        receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
+        # Estimate gas with 20 % buffer; fall back to 3 M if estimation fails
+        if 'gas' not in transaction:
+            try:
+                transaction['gas'] = int(self.w3.eth.estimate_gas(transaction) * 1.2)
+            except Exception:
+                transaction['gas'] = 3_000_000
+
+        # Hold the per-address lock only while acquiring the nonce and broadcasting.
+        # Waiting for the receipt happens outside the lock so other addresses can proceed.
+        with self._nonce_lock(from_address):
+            transaction['nonce'] = self.w3.eth.get_transaction_count(from_address, 'pending')
+            signed = self.w3.eth.account.sign_transaction(transaction, private_key)
+            raw = signed.rawTransaction if hasattr(signed, 'rawTransaction') else signed.raw_transaction
+            tx_hash = self.w3.eth.send_raw_transaction(raw)
+
+        receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
+
+        if receipt.get('status') == 0:
+            raise RuntimeError(f"Transaction reverted on-chain: {tx_hash.hex()}")
 
         return {
             'tx_hash': tx_hash.hex(),
             'block_number': receipt['blockNumber'],
             'gas_used': receipt['gasUsed'],
-            'status': receipt['status']
+            'status': receipt['status'],
         }
 
     def transfer_eth(self, from_address: str, to_address: str, amount_wei: int):
         private_key = keystore.get_key(from_address)
         if not private_key:
             raise ValueError(f"No private key found for address {from_address}")
-        nonce = self.w3.eth.get_transaction_count(from_address, 'pending')
         tx = {
-            'from': from_address,
             'to': to_address,
             'value': amount_wei,
             'gas': 21000,
             'gasPrice': self.w3.eth.gas_price,
-            'nonce': nonce,
             'chainId': Config.CHAIN_ID,
         }
-        signed = self.w3.eth.account.sign_transaction(tx, private_key)
-        raw = signed.rawTransaction if hasattr(signed, 'rawTransaction') else signed.raw_transaction
-        tx_hash = self.w3.eth.send_raw_transaction(raw)
-        self.w3.eth.wait_for_transaction_receipt(tx_hash)
+        with self._nonce_lock(from_address):
+            tx['nonce'] = self.w3.eth.get_transaction_count(from_address, 'pending')
+            signed = self.w3.eth.account.sign_transaction(tx, private_key)
+            raw = signed.rawTransaction if hasattr(signed, 'rawTransaction') else signed.raw_transaction
+            tx_hash = self.w3.eth.send_raw_transaction(raw)
+        self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=60)
 
     def grant_role(self, contract, role_hash: bytes, account: str, from_address: str):
         tx = contract.functions.grantRole(

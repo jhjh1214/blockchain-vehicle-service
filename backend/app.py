@@ -1,4 +1,5 @@
-from flask import Flask, request, jsonify
+import uuid
+from flask import Flask, request, jsonify, g
 from flask_cors import CORS
 from config import Config
 from db.models import db
@@ -9,6 +10,9 @@ import threading
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
+
+    # Warn (dev) or raise (prod) when insecure defaults are in use
+    Config.validate()
 
     db.init_app(app)
     limiter.init_app(app)
@@ -35,7 +39,6 @@ def create_app():
                         "ALTER TABLE vehicle_vin_mapping ADD COLUMN registered_by VARCHAR(42)"
                     ))
                     conn.commit()
-                # Backfill existing rows: attribute them to the first MANUFACTURER user
                 from db.models import User
                 mfr = User.query.filter_by(role='MANUFACTURER').first()
                 if mfr:
@@ -56,19 +59,27 @@ def create_app():
         except Exception:
             pass
 
+    # CORS origins are configurable via CORS_ORIGINS env var (comma-separated)
+    allowed_origins = [o.strip() for o in Config.CORS_ORIGINS.split(',') if o.strip()]
     CORS(app, resources={
         r'/api/*': {
-            'origins': [
-                'http://localhost:4200',
-                'http://localhost:3000',
-                'http://192.168.*.*:*',
-                'http://10.0.*.*:*',
-            ],
+            'origins': allowed_origins,
             'methods': ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-            'allow_headers': ['Content-Type', 'Authorization'],
+            'allow_headers': ['Content-Type', 'Authorization', 'X-Request-ID'],
+            'expose_headers': ['X-Request-ID'],
             'supports_credentials': True,
         }
     })
+
+    # ── Request-ID propagation ────────────────────────────────
+    @app.before_request
+    def _inject_request_id():
+        g.request_id = request.headers.get('X-Request-ID') or str(uuid.uuid4())
+
+    @app.after_request
+    def _add_request_id(response):
+        response.headers['X-Request-ID'] = getattr(g, 'request_id', '')
+        return response
 
     # ── Security headers ─────────────────────────────────────
     @app.after_request
@@ -78,9 +89,8 @@ def create_app():
         response.headers['X-XSS-Protection'] = '1; mode=block'
         response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
         response.headers['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=()'
-        # CSP — tightened for API-only service (no HTML served)
         response.headers['Content-Security-Policy'] = "default-src 'none'; frame-ancestors 'none'"
-        # HSTS — enable once HTTPS is in place (commented out for local dev)
+        # Enable once HTTPS is in place:
         # response.headers['Strict-Transport-Security'] = 'max-age=63072000; includeSubDomains; preload'
         return response
 
@@ -110,11 +120,28 @@ def create_app():
     @app.route('/api/health')
     def health():
         from blockchain.client import web3_client
+        from sqlalchemy import text as _text
+
+        blockchain_ok = False
         try:
-            connected = web3_client.w3.is_connected()
+            blockchain_ok = web3_client.w3.is_connected()
         except Exception:
-            connected = False
-        return {'status': 'healthy', 'blockchain': {'connected': connected}}, 200
+            pass
+
+        db_ok = False
+        try:
+            db.session.execute(_text('SELECT 1'))
+            db_ok = True
+        except Exception:
+            pass
+
+        status = 'healthy' if (blockchain_ok and db_ok) else 'degraded'
+        code = 200 if db_ok else 503  # DB down means we can't serve requests
+        return jsonify({
+            'status': status,
+            'db': {'ok': db_ok},
+            'blockchain': {'connected': blockchain_ok},
+        }), code
 
     # ── Keystore bootstrap ───────────────────────────────────
     from blockchain.keystore import keystore
@@ -131,4 +158,4 @@ def create_app():
 
 if __name__ == '__main__':
     app = create_app()
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5000)

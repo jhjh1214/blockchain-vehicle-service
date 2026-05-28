@@ -1,8 +1,12 @@
+import logging
 import time
 from blockchain.adapters.vehicle_registry import vehicle_registry
 from blockchain.utils import vin_to_hex
 from config import Config
+from db.models import db
 from db.repositories import vehicles as vehicle_repo, users as user_repo
+
+logger = logging.getLogger(__name__)
 
 
 def register_vehicle(vin: str, owner_email: str, warranty_years: int,
@@ -28,21 +32,28 @@ def register_vehicle(vin: str, owner_email: str, warranty_years: int,
         owner_address = owner.blockchain_address
         status = 'active'
         owner_result = owner.email
-        intended_owner_email = None  # direct registration; reservation not needed
+        intended_owner_email = None
     else:
-        # Pre-register: manufacturer placeholder until owner claims via mobile
         owner_address = mfr_address
         status = 'pending'
         owner_result = None
-        # Validate intended owner email if provided
         if intended_owner_email:
             intended_owner_email = intended_owner_email.strip().lower()
 
     result = vehicle_registry.register_vehicle(vin, owner_address, warranty_expiry, from_address)
-    vehicle_repo.create(vin=vin, vin_hash=vin_hash, owner_address=owner_address,
-                        make=make, model=model, year=year, warranty_expiry=warranty_expiry,
-                        registered_by=mfr_address, registration_status=status,
-                        intended_owner_email=intended_owner_email)
+
+    try:
+        vehicle_repo.create(vin=vin, vin_hash=vin_hash, owner_address=owner_address,
+                            make=make, model=model, year=year, warranty_expiry=warranty_expiry,
+                            registered_by=mfr_address, registration_status=status,
+                            intended_owner_email=intended_owner_email)
+    except Exception as exc:
+        db.session.rollback()
+        logger.error('DB sync failed after on-chain vehicle registration for VIN %s: %s', vin, exc)
+        raise RuntimeError(
+            'Vehicle was registered on-chain but the database record could not be saved. '
+            'Contact support and quote VIN: ' + vin
+        ) from exc
 
     return {
         'message': 'Vehicle registered successfully',
@@ -63,7 +74,6 @@ def claim_vehicle(vin: str, owner_address: str) -> dict:
     if mapping.registration_status == 'active':
         raise ValueError('Vehicle already claimed by an owner')
 
-    # If manufacturer reserved this VIN for a specific email, enforce it
     if mapping.intended_owner_email:
         claimant = user_repo.find_by_blockchain_address(owner_address)
         if not claimant or claimant.email.lower() != mapping.intended_owner_email.lower():
@@ -75,8 +85,16 @@ def claim_vehicle(vin: str, owner_address: str) -> dict:
 
     result = vehicle_registry.admin_transfer_ownership(vin, owner_address, deployer)
 
-    vehicle_repo.update_owner(vin, owner_address)
-    vehicle_repo.update_registration_status(vin, 'active')
+    try:
+        vehicle_repo.update_owner(vin, owner_address)
+        vehicle_repo.update_registration_status(vin, 'active')
+    except Exception as exc:
+        db.session.rollback()
+        logger.error('DB sync failed after on-chain claim of VIN %s: %s', vin, exc)
+        raise RuntimeError(
+            'Vehicle was transferred on-chain but the database record could not be updated. '
+            'Contact support and quote VIN: ' + vin
+        ) from exc
 
     return {
         'message': 'Vehicle claimed successfully',
@@ -94,7 +112,6 @@ def get_vehicle(vin: str) -> dict:
         raise LookupError('Vehicle not found')
 
     mapping = vehicle_repo.find_by_vin(vin)
-    # Prefer DB owner_address (always current after transfers) over the blockchain value
     owner_address = mapping.owner_address if mapping else vehicle['owner']
     owner = user_repo.find_by_blockchain_address(owner_address)
 
@@ -121,7 +138,6 @@ def get_vehicle(vin: str) -> dict:
 
 
 def get_my_vehicles(owner_address: str) -> list:
-    # Only return claimed (active) vehicles for the owner view
     from db.models import ServiceMetadata
     mappings = vehicle_repo.find_by_owner(owner_address, status='active')
     now = int(time.time())
@@ -153,7 +169,16 @@ def transfer_vehicle(vin: str, new_owner_email: str, from_address: str) -> dict:
         raise ValueError('Cannot transfer a vehicle to yourself')
 
     result = vehicle_registry.transfer_ownership(vin, new_owner.blockchain_address, from_address)
-    vehicle_repo.update_owner(vin, new_owner.blockchain_address)
+
+    try:
+        vehicle_repo.update_owner(vin, new_owner.blockchain_address)
+    except Exception as exc:
+        db.session.rollback()
+        logger.error('DB sync failed after on-chain transfer of VIN %s: %s', vin, exc)
+        raise RuntimeError(
+            'Vehicle was transferred on-chain but the database record could not be updated. '
+            'Contact support and quote VIN: ' + vin
+        ) from exc
 
     return {
         'message': 'Vehicle transferred successfully',

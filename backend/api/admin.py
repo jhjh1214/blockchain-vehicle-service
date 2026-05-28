@@ -10,11 +10,13 @@ from blockchain.utils import vin_to_bytes32, vin_to_hex
 from config import Config  # needed for DEPLOYER_ADDRESS / DEPLOYER_PRIVATE_KEY
 from db.models import db
 from db.repositories import vehicles as vehicle_repo, users as user_repo
+from extensions import limiter
 
 admin_bp = Blueprint('admin', __name__)
 
 
 @admin_bp.route('/reset-db', methods=['POST'])
+@limiter.limit('5 per minute')
 def reset_db():
     """Wipe all DB tables (drop+recreate) and keep only the deployer key in the keystore."""
     secret = request.headers.get('X-Admin-Secret', '')

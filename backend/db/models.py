@@ -101,8 +101,8 @@ class ServiceMetadata(db.Model):
     __tablename__ = 'service_metadata'
 
     id = db.Column(db.Integer, primary_key=True)
-    vin = db.Column(db.String(17), nullable=False)
-    metadata_hash = db.Column(db.String(66), nullable=False)
+    vin = db.Column(db.String(17), nullable=False, index=True)
+    metadata_hash = db.Column(db.String(66), nullable=False, index=True)
     service_center_address = db.Column(db.String(42), nullable=True, index=True)
     service_type = db.Column(db.String(100))
     service_date = db.Column(db.DateTime)
