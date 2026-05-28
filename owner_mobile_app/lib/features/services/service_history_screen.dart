@@ -314,6 +314,8 @@ class _DetailsPanel extends StatelessWidget {
         children: [
           if (record.vin.isNotEmpty)
             _row('VIN', record.vin),
+          if (record.serviceCenterName != null)
+            _row('Service centre', record.serviceCenterName!),
           if (record.technicianName != null)
             _row('Technician', record.technicianName!),
           if (record.partsReplaced != null && record.partsReplaced!.isNotEmpty)

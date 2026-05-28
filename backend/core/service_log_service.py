@@ -157,7 +157,11 @@ def get_sc_pending_services(sc_address: str) -> list:
                     'technician_name': metadata.technician_name,
                     'parts_replaced': metadata.parts_replaced,
                     'service_notes': metadata.service_notes,
-                    'photos': metadata.photos or []
+                    'photos': metadata.photos or [],
+                    'rebuttal_notes': metadata.rebuttal_notes,
+                    'rebuttal_submitted_at': metadata.rebuttal_submitted_at.isoformat() if metadata.rebuttal_submitted_at else None,
+                    'escalated': metadata.escalated,
+                    'escalated_at': metadata.escalated_at.isoformat() if metadata.escalated_at else None,
                 }
             raw_collected.append((record, idx, mapping))
 
@@ -250,7 +254,11 @@ def get_owner_finalized_services(owner_address: str) -> list:
                     'technician_name': metadata.technician_name,
                     'parts_replaced': metadata.parts_replaced,
                     'service_notes': metadata.service_notes,
-                    'photos': metadata.photos or []
+                    'photos': metadata.photos or [],
+                    'rebuttal_notes': metadata.rebuttal_notes,
+                    'rebuttal_submitted_at': metadata.rebuttal_submitted_at.isoformat() if metadata.rebuttal_submitted_at else None,
+                    'escalated': metadata.escalated,
+                    'escalated_at': metadata.escalated_at.isoformat() if metadata.escalated_at else None,
                 }
             collected.append((record, idx, mapping))
 
@@ -278,7 +286,11 @@ def get_owner_pending_services(owner_address: str) -> list:
                     'technician_name': metadata.technician_name,
                     'parts_replaced': metadata.parts_replaced,
                     'service_notes': metadata.service_notes,
-                    'photos': metadata.photos or []
+                    'photos': metadata.photos or [],
+                    'rebuttal_notes': metadata.rebuttal_notes,
+                    'rebuttal_submitted_at': metadata.rebuttal_submitted_at.isoformat() if metadata.rebuttal_submitted_at else None,
+                    'escalated': metadata.escalated,
+                    'escalated_at': metadata.escalated_at.isoformat() if metadata.escalated_at else None,
                 }
             collected.append((record, idx, mapping))
 

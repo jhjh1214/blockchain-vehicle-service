@@ -127,6 +127,8 @@
                     <span [class]="ageBadgeClass(getDaysPending(record.timestamp))">
                       {{ ageLabel(getDaysPending(record.timestamp)) }}
                     </span>
+                  } @else if (record.metadata?.escalated) {
+                    <span class="badge badge-disputed" style="background:var(--color-warning-light,#fff7ed);color:var(--color-warning,#d97706);border:1px solid var(--color-warning,#d97706);">Escalated</span>
                   } @else {
                     <span class="badge badge-disputed">Disputed</span>
                   }
