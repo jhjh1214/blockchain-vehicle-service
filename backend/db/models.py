@@ -117,6 +117,8 @@ class ServiceMetadata(db.Model):
     resolution_decision = db.Column(db.String(20), nullable=True)  # approved | rejected | modified
     resolution_notes = db.Column(db.Text, nullable=True)
     resolved_at = db.Column(db.DateTime, nullable=True)
+    escalated = db.Column(db.Boolean, default=False, nullable=False)
+    escalated_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def to_dict(self) -> dict:
@@ -132,6 +134,8 @@ class ServiceMetadata(db.Model):
             'service_notes': self.service_notes,
             'photos': self.photos,
             'disputed': self.disputed,
+            'escalated': self.escalated,
+            'escalated_at': self.escalated_at.isoformat() if self.escalated_at else None,
             'resolution_decision': self.resolution_decision,
             'resolution_notes': self.resolution_notes,
             'resolved_at': self.resolved_at.isoformat() if self.resolved_at else None,

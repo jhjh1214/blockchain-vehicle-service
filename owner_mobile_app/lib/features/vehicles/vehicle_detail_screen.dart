@@ -1,10 +1,15 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:open_file/open_file.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'vehicles_provider.dart';
 import '../../core/models/vehicle.dart';
+import '../../core/api/api_client.dart';
+import '../../core/api/api_endpoints.dart';
 import '../../shared/theme/app_theme.dart';
 
 class VehicleDetailScreen extends StatefulWidget {
@@ -22,6 +27,7 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen>
   Map<String, dynamic>? _warranty;
   Map<String, dynamic>? _eligibility;
   bool _loading = true;
+  bool _exporting = false;
 
   @override
   void initState() {
@@ -34,6 +40,27 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen>
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  Future<void> _exportPdf() async {
+    setState(() => _exporting = true);
+    try {
+      final bytes = await ApiClient.instance.downloadBytes(
+        ApiEndpoints.vehicleExport(widget.vin),
+      );
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/VehicleChain_${widget.vin}.pdf');
+      await file.writeAsBytes(bytes);
+      await OpenFile.open(file.path);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to generate PDF report')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _exporting = false);
+    }
   }
 
   Future<void> _loadData() async {
@@ -145,6 +172,16 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen>
           onPressed: () => context.go('/services/history'),
           icon: const Icon(Icons.history),
           label: const Text('View Service History'),
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          onPressed: _exporting ? null : _exportPdf,
+          icon: _exporting
+              ? const SizedBox(
+                  width: 18, height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.picture_as_pdf_outlined),
+          label: Text(_exporting ? 'Generating PDF…' : 'Export History PDF'),
         ),
         const SizedBox(height: 8),
         OutlinedButton.icon(

@@ -25,4 +25,7 @@ class ApiEndpoints {
   static const submitClaim = '/warranty/submit-claim';
   static const ownerClaims = '/warranty/owner/claims';
   static String vehicleClaims(String vin) => '/warranty/claims/$vin';
+
+  // Export
+  static String vehicleExport(String vin) => '/vehicle/export/$vin';
 }

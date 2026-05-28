@@ -48,6 +48,10 @@ export class VehicleService {
   getActivityFeed(): Observable<{ feed: ActivityItem[] }> {
     return this.http.get<{ feed: ActivityItem[] }>(`${environment.apiUrl}/vehicle/activity-feed`);
   }
+
+  getFleetExport(): Observable<Blob> {
+    return this.http.get(`${environment.apiUrl}/vehicle/fleet-export`, { responseType: 'blob' });
+  }
 }
 
 export interface ManufacturerStats {

@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import '../storage/token_storage.dart';
 
@@ -48,6 +49,14 @@ class ApiClient {
 
   // ignore: invalid_use_of_visible_for_testing_member
   void injectDio(Dio dio) => _dio = dio;
+
+  Future<Uint8List> downloadBytes(String path) async {
+    final response = await _dio.get<List<int>>(
+      path,
+      options: Options(responseType: ResponseType.bytes),
+    );
+    return Uint8List.fromList(response.data!);
+  }
 
   Future<bool> _refreshToken() async {
     final refresh = await TokenStorage.getRefreshToken();

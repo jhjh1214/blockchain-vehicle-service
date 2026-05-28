@@ -181,6 +181,42 @@ def submit_dispute_response():
     return jsonify({'message': 'Rebuttal submitted successfully', 'vin': vin}), 200
 
 
+@service_bp.route('/escalate-dispute', methods=['POST'])
+@role_required('SERVICE_CENTER')
+def escalate_dispute():
+    """Service centre formally escalates a disputed record to manufacturer priority review."""
+    data = request.get_json() or {}
+    try:
+        vin = validate_vin(data.get('vin', ''))
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+
+    metadata_hash = sanitize(data.get('metadata_hash', ''), 66)
+    if not metadata_hash:
+        return jsonify({'error': 'metadata_hash required'}), 400
+
+    from db.models import ServiceMetadata
+    sm = ServiceMetadata.query.filter_by(
+        metadata_hash=metadata_hash,
+        service_center_address=request.user['blockchain_address']
+    ).first()
+    if not sm:
+        return jsonify({'error': 'Service record not found or not owned by your service centre'}), 404
+    if not sm.disputed:
+        return jsonify({'error': 'Only disputed records can be escalated'}), 400
+    if sm.escalated:
+        return jsonify({'message': 'Record already escalated', 'vin': vin}), 200
+
+    from db.repositories import services as service_repo
+    service_repo.set_escalated(metadata_hash)
+
+    return jsonify({
+        'message': 'Dispute escalated successfully',
+        'vin': vin,
+        'metadata_hash': metadata_hash,
+    }), 200
+
+
 @service_bp.route('/resolve-dispute', methods=['POST'])
 @role_required('MANUFACTURER')
 def resolve_dispute():

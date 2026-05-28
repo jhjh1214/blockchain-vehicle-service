@@ -39,6 +39,7 @@ export class ManufacturerDashboardComponent implements OnInit, OnDestroy {
   statsError = false;
   activityFeed: ActivityItem[] = [];
   activityLoading = true;
+  exportLoading = false;
   private subs = new Subscription();
 
   pieChartData: ChartData<'pie'> = { labels: [], datasets: [{ data: [] }] };
@@ -218,6 +219,26 @@ export class ManufacturerDashboardComponent implements OnInit, OnDestroy {
       if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
       return `${Math.floor(diff / 86400)}d ago`;
     } catch { return '—'; }
+  }
+
+  exportAuditReport(): void {
+    this.exportLoading = true;
+    this.vehicleService.getFleetExport().subscribe({
+      next: blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `VehicleChain_Fleet_Audit_${new Date().toISOString().slice(0,10)}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+        this.exportLoading = false;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.exportLoading = false;
+        this.cdr.detectChanges();
+      }
+    });
   }
 
   private buildCharts(s: DashboardStats, isDark: boolean): void {

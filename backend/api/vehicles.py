@@ -1,5 +1,8 @@
 import time
 from flask import Blueprint, request, jsonify
+
+_stats_cache: dict = {}  # {mfr_address: {'data': dict, 'expires': float}}
+_STATS_TTL = 60  # seconds
 from api.middleware import token_required, role_required
 from api.utils import sanitize, validate_vin, paginate
 from core import vehicle_service
@@ -228,6 +231,10 @@ def get_dashboard_stats():
     mfr_address = request.user['blockchain_address']
     mfr_brand   = request.user.get('brand', '')
 
+    cached = _stats_cache.get(mfr_address)
+    if cached and cached['expires'] > time.time():
+        return jsonify(cached['data']), 200
+
     total_vehicles    = VehicleVINMapping.query.filter_by(registered_by=mfr_address).count()
     active_warranties = VehicleVINMapping.query.filter(
         VehicleVINMapping.registered_by == mfr_address,
@@ -338,7 +345,7 @@ def get_dashboard_stats():
     except Exception:
         pass
 
-    return jsonify({
+    payload = {
         'total_vehicles':            total_vehicles,
         'active_warranties':         active_warranties,
         'sc_total':                  sc_total,
@@ -351,7 +358,9 @@ def get_dashboard_stats():
         'top_service_centers':       top_service_centers,
         'fleet_health_score':        fleet_health_score,
         'manufacturer_eth_balance':  manufacturer_eth_balance,
-    }), 200
+    }
+    _stats_cache[mfr_address] = {'data': payload, 'expires': time.time() + _STATS_TTL}
+    return jsonify(payload), 200
 
 
 @vehicle_bp.route('/public/<vin>', methods=['GET'])
@@ -578,6 +587,119 @@ def export_vehicle_pdf(vin):
             mimetype='application/pdf',
             as_attachment=True,
             download_name=f'VehicleChain_{safe_vin}.pdf',
+        )
+    except ImportError:
+        return jsonify({'error': 'PDF generation not available — install reportlab'}), 503
+
+
+@vehicle_bp.route('/fleet-export', methods=['GET'])
+@role_required('MANUFACTURER')
+@limiter.limit('5 per minute')
+def export_fleet_pdf():
+    """Generate a manufacturer-level fleet audit report PDF."""
+    import io
+    from datetime import datetime as _dt
+
+    mfr_address = request.user['blockchain_address']
+    mfr_brand   = request.user.get('brand', '') or 'Fleet'
+
+    vehicles_list = VehicleVINMapping.query.filter_by(registered_by=mfr_address).order_by(
+        VehicleVINMapping.created_at.desc()
+    ).all()
+
+    try:
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib import colors
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import mm
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+        from reportlab.lib.enums import TA_CENTER
+
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4,
+                                leftMargin=20*mm, rightMargin=20*mm,
+                                topMargin=20*mm, bottomMargin=20*mm)
+
+        styles = getSampleStyleSheet()
+        title_style   = ParagraphStyle('Title',   parent=styles['Title'],   fontSize=20, spaceAfter=4)
+        sub_style     = ParagraphStyle('Sub',     parent=styles['Normal'],  fontSize=11, textColor=colors.HexColor('#64748b'), spaceAfter=14)
+        section_style = ParagraphStyle('Section', parent=styles['Heading2'],fontSize=13, spaceBefore=16, spaceAfter=8, textColor=colors.HexColor('#1e293b'))
+        footer_style  = ParagraphStyle('Footer',  parent=styles['Normal'],  fontSize=8,  textColor=colors.HexColor('#94a3b8'), alignment=TA_CENTER, spaceBefore=20)
+
+        story = []
+        story.append(Paragraph('VehicleChain', title_style))
+        story.append(Paragraph(f'Fleet Audit Report — {mfr_brand}', sub_style))
+        story.append(HRFlowable(width='100%', thickness=1, color=colors.HexColor('#e2e8f0'), spaceAfter=12))
+
+        # Summary block
+        now = _dt.utcnow()
+        active_count = sum(1 for v in vehicles_list if v.warranty_expiry and v.warranty_expiry > int(time.time()))
+        summary_data = [
+            ['Total Vehicles', str(len(vehicles_list)), 'Active Warranties', str(active_count)],
+            ['Brand', mfr_brand, 'Report Date', now.strftime('%d %b %Y %H:%M UTC')],
+        ]
+        summary_table = Table(summary_data, colWidths=[40*mm, 60*mm, 40*mm, 30*mm])
+        summary_table.setStyle(TableStyle([
+            ('FONTNAME',   (0,0), (-1,-1), 'Helvetica'),
+            ('FONTSIZE',   (0,0), (-1,-1), 10),
+            ('FONTNAME',   (0,0), (0,-1), 'Helvetica-Bold'),
+            ('FONTNAME',   (2,0), (2,-1), 'Helvetica-Bold'),
+            ('TEXTCOLOR',  (0,0), (0,-1), colors.HexColor('#64748b')),
+            ('TEXTCOLOR',  (2,0), (2,-1), colors.HexColor('#64748b')),
+            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#f8fafc')),
+            ('GRID',       (0,0), (-1,-1), 0.5, colors.HexColor('#e2e8f0')),
+            ('PADDING',    (0,0), (-1,-1), 6),
+        ]))
+        story.append(summary_table)
+
+        # Vehicle table
+        story.append(Paragraph('Registered Vehicles', section_style))
+        if vehicles_list:
+            from db.models import ServiceMetadata
+            hdr = ['VIN', 'Make', 'Model', 'Year', 'Warranty', 'Services']
+            rows = [hdr]
+            for v in vehicles_list:
+                warranty_ok = v.warranty_expiry and v.warranty_expiry > int(time.time())
+                svc_count = ServiceMetadata.query.filter_by(vin=v.vin).count()
+                rows.append([
+                    v.vin or '—',
+                    v.make or '—',
+                    v.model or '—',
+                    str(v.year) if v.year else '—',
+                    'Active' if warranty_ok else 'Expired',
+                    str(svc_count),
+                ])
+            col_w = [38*mm, 25*mm, 25*mm, 14*mm, 25*mm, 18*mm]
+            tbl = Table(rows, colWidths=col_w)
+            tbl.setStyle(TableStyle([
+                ('FONTNAME',       (0,0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE',       (0,0), (-1,-1), 9),
+                ('BACKGROUND',     (0,0), (-1, 0), colors.HexColor('#1e293b')),
+                ('TEXTCOLOR',      (0,0), (-1, 0), colors.white),
+                ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#f8fafc')]),
+                ('GRID',           (0,0), (-1,-1), 0.4, colors.HexColor('#e2e8f0')),
+                ('PADDING',        (0,0), (-1,-1), 5),
+                ('TEXTCOLOR',      (4,1), (4,-1), colors.HexColor('#16a34a')),
+            ]))
+            story.append(tbl)
+        else:
+            story.append(Paragraph('No vehicles registered.', sub_style))
+
+        story.append(HRFlowable(width='100%', thickness=1, color=colors.HexColor('#e2e8f0'), spaceBefore=20))
+        story.append(Paragraph(
+            f'Generated by VehicleChain on {now.strftime("%d %b %Y %H:%M")} UTC  ·  Data verified on-chain',
+            footer_style
+        ))
+
+        doc.build(story)
+        buffer.seek(0)
+        from flask import send_file
+        safe_brand = mfr_brand.replace(' ', '_').replace('/', '_')
+        return send_file(
+            buffer,
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=f'VehicleChain_Fleet_{safe_brand}.pdf',
         )
     except ImportError:
         return jsonify({'error': 'PDF generation not available — install reportlab'}), 503
