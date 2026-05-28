@@ -149,6 +149,8 @@ def transfer_vehicle(vin: str, new_owner_email: str, from_address: str) -> dict:
         raise LookupError('New owner not found')
     if new_owner.role != 'OWNER':
         raise ValueError('Recipient must have the OWNER role')
+    if new_owner.blockchain_address.lower() == from_address.lower():
+        raise ValueError('Cannot transfer a vehicle to yourself')
 
     result = vehicle_registry.transfer_ownership(vin, new_owner.blockchain_address, from_address)
     vehicle_repo.update_owner(vin, new_owner.blockchain_address)

@@ -4,6 +4,7 @@ from werkzeug.utils import secure_filename
 
 UPLOAD_FOLDER = 'uploads/'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf'}
+MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB per file
 
 
 def _allowed_file(filename: str) -> bool:
@@ -15,6 +16,12 @@ def save_file(file, user_id: int) -> dict:
         raise ValueError('No file selected')
     if not _allowed_file(file.filename):
         raise ValueError('Invalid file type. Allowed: png, jpg, jpeg, gif, pdf')
+
+    file.seek(0, 2)
+    size = file.tell()
+    file.seek(0)
+    if size > MAX_FILE_SIZE:
+        raise ValueError(f'File too large. Maximum size is {MAX_FILE_SIZE // (1024 * 1024)} MB')
 
     filename = secure_filename(file.filename)
     timestamp = int(datetime.now().timestamp())

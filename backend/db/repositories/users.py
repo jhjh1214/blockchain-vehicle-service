@@ -16,7 +16,7 @@ def find_by_email(email: str) -> User | None:
 
 
 def find_by_blockchain_address(address: str) -> User | None:
-    return User.query.filter_by(blockchain_address=address).first()
+    return User.query.filter(User.blockchain_address.ilike(address)).first()
 
 
 def find_all_by_role(role: str) -> list:

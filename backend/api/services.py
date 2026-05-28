@@ -53,6 +53,8 @@ def submit_service():
         svc_dt = datetime.fromisoformat(service_date.replace('Z', '+00:00'))
         if svc_dt.date() > _date.today():
             return jsonify({'error': 'service_date cannot be in the future'}), 400
+        if svc_dt.year < 2000:
+            return jsonify({'error': 'service_date must be on or after year 2000'}), 400
     except ValueError:
         return jsonify({'error': 'Invalid service_date format. Use ISO 8601 (e.g. 2024-01-15T10:00:00)'}), 400
 
@@ -184,10 +186,15 @@ def resolve_dispute():
         vin = validate_vin(data.get('vin', ''))
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
-    record_index = data.get('record_index')
-    decision     = data.get('decision')
-    if record_index is None or decision is None:
-        return jsonify({'error': 'record_index and decision required'}), 400
+    try:
+        record_index = int(data.get('record_index'))
+        if record_index < 0:
+            raise ValueError()
+    except (TypeError, ValueError):
+        return jsonify({'error': 'record_index must be a non-negative integer'}), 400
+    decision = data.get('decision')
+    if decision is None:
+        return jsonify({'error': 'decision required'}), 400
     try:
         decision_int = int(decision)
     except (TypeError, ValueError):

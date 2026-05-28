@@ -23,10 +23,16 @@ def register_vehicle():
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
 
+    year_raw = data.get('year')
     try:
-        year = int(data.get('year', 0)) if data.get('year') else None
+        year = int(year_raw) if year_raw is not None else None
     except (TypeError, ValueError):
         return jsonify({'error': 'year must be an integer'}), 400
+    if year is not None:
+        import time as _time
+        current_year = int(_time.strftime('%Y'))
+        if year < 1886 or year > current_year + 1:
+            return jsonify({'error': f'year must be between 1886 and {current_year + 1}'}), 400
 
     mfr_brand = request.user.get('brand', '')
     if mfr_brand and make.lower() != mfr_brand.lower():

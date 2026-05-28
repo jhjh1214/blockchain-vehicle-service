@@ -22,6 +22,8 @@ def token_required(f):
             return jsonify({'error': 'Token has expired'}), 401
         except jwt.InvalidTokenError:
             return jsonify({'error': 'Token is invalid'}), 401
+        if request.user.get('type') != 'access':
+            return jsonify({'error': 'Token is invalid'}), 401
         return f(*args, **kwargs)
     return decorated
 

@@ -105,6 +105,8 @@ def fix_ownership():
         mapping = vehicle_repo.find_by_vin(vin)
         if mapping:
             vehicle_repo.update_owner(vin, new_owner.blockchain_address)
+            if mapping.registration_status != 'active':
+                vehicle_repo.update_registration_status(vin, 'active')
         else:
             vehicle_repo.create(
                 vin=vin, vin_hash=vin_hash,

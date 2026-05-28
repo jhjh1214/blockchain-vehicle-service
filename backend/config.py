@@ -25,3 +25,4 @@ class Config:
     JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', 'jwt-secret-change-in-production')
     JWT_EXPIRATION_HOURS = 24
     ADMIN_SECRET = os.getenv('ADMIN_SECRET', '')
+    MAX_CONTENT_LENGTH = 10 * 1024 * 1024  # 10 MB max request body

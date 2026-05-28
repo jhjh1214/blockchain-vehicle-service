@@ -67,8 +67,10 @@ def app():
     # Web3 client — mock transfer and role-grant so register_user needs no Ganache
     wc.transfer_eth = MagicMock()
     wc.grant_role = MagicMock()
+    wc.sign_and_send = MagicMock(return_value={'status': 1})
 
     # VehicleRegistry adapter
+    vr.contract = MagicMock()
     vr.register_vehicle = MagicMock(return_value=MOCK_TX)
     vr.transfer_ownership = MagicMock(return_value=MOCK_TX)
     vr.admin_transfer_ownership = MagicMock(return_value=MOCK_TX)
