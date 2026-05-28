@@ -47,7 +47,7 @@ export class PendingRecordsComponent {
       next: () => {
         this.escalateSuccess = 'Dispute escalated. The manufacturer will prioritise this review.';
         this.escalatingRecord = null;
-        record.metadata = { ...record.metadata, escalated: true };
+        if (record.metadata) record.metadata = { ...record.metadata, escalated: true };
       },
       error: (err: any) => {
         this.escalateError = err.error?.error || 'Failed to escalate dispute';
