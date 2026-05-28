@@ -29,9 +29,30 @@ export class PendingRecordsComponent {
   rebuttalSuccess = '';
   rebuttalError = '';
 
+  escalatingRecord: ServiceRecord | null = null;
+  escalateSuccess = '';
+  escalateError = '';
+
   constructor(private fb: FormBuilder, private serviceService: ServiceService) {
     this.searchForm = this.fb.group({
       vin: ['', [Validators.required, Validators.pattern(/^[A-HJ-NPR-Z0-9]{17}$/i)]]
+    });
+  }
+
+  escalateDispute(record: ServiceRecord): void {
+    this.escalatingRecord = record;
+    this.escalateSuccess = '';
+    this.escalateError = '';
+    this.serviceService.escalateDispute(record.vin, record.metadata_hash).subscribe({
+      next: () => {
+        this.escalateSuccess = 'Dispute escalated. The manufacturer will prioritise this review.';
+        this.escalatingRecord = null;
+        record.metadata = { ...record.metadata, escalated: true };
+      },
+      error: (err: any) => {
+        this.escalateError = err.error?.error || 'Failed to escalate dispute';
+        this.escalatingRecord = null;
+      }
     });
   }
 

@@ -51,4 +51,11 @@ export class ServiceService {
       rebuttal_notes: rebuttalNotes
     });
   }
+
+  escalateDispute(vin: string, metadataHash: string): Observable<any> {
+    return this.http.post(`${environment.apiUrl}/service/escalate-dispute`, {
+      vin,
+      metadata_hash: metadataHash
+    });
+  }
 }

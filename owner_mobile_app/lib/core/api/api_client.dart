@@ -8,6 +8,8 @@ class ApiClient {
   static ApiClient? _instance;
   late Dio _dio;
 
+  static void Function()? onSessionExpired;
+
   ApiClient._() {
     _dio = Dio(BaseOptions(
       baseUrl: _baseUrl,
@@ -71,6 +73,7 @@ class ApiClient {
       return true;
     } catch (_) {
       await TokenStorage.clear();
+      onSessionExpired?.call();
       return false;
     }
   }

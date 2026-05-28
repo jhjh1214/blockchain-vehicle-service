@@ -10,6 +10,15 @@ class AuthProvider extends ChangeNotifier {
   bool _loading = false;
   String? _error;
 
+  AuthProvider() {
+    ApiClient.onSessionExpired = _handleSessionExpired;
+  }
+
+  void _handleSessionExpired() {
+    _user = null;
+    notifyListeners();
+  }
+
   User? get user => _user;
   bool get loading => _loading;
   String? get error => _error;

@@ -312,6 +312,8 @@ class _DetailsPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (record.vin.isNotEmpty)
+            _row('VIN', record.vin),
           if (record.technicianName != null)
             _row('Technician', record.technicianName!),
           if (record.partsReplaced != null && record.partsReplaced!.isNotEmpty)

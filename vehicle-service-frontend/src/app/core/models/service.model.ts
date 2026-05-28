@@ -24,6 +24,8 @@ export interface ServiceMetadata {
   photos: string[];
   rebuttal_notes?: string;
   rebuttal_submitted_at?: string;
+  escalated?: boolean;
+  escalated_at?: string;
 }
 
 export interface SubmitServiceRequest {

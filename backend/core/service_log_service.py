@@ -121,6 +121,8 @@ def _enrich_records(records: list) -> list:
                 'resolution_decision': metadata.resolution_decision,
                 'resolution_notes': metadata.resolution_notes,
                 'resolved_at': metadata.resolved_at.isoformat() if metadata.resolved_at else None,
+                'escalated': metadata.escalated,
+                'escalated_at': metadata.escalated_at.isoformat() if metadata.escalated_at else None,
             }
     return records
 

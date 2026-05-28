@@ -10,6 +10,11 @@ service_bp = Blueprint('service', __name__)
 @service_bp.route('/submit', methods=['POST'])
 @role_required('SERVICE_CENTER')
 def submit_service():
+    from db.models import User as _UserModel
+    _sc_user = _UserModel.query.filter_by(blockchain_address=request.user['blockchain_address']).first()
+    if _sc_user and _sc_user.status != 'active':
+        return jsonify({'error': 'Your service centre account is suspended and cannot submit records'}), 403
+
     # Support both JSON (no photos) and multipart/form-data (with photo files)
     ct = request.content_type or ''
     if 'multipart/form-data' in ct:
