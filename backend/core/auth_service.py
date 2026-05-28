@@ -62,6 +62,7 @@ def generate_access_token(user) -> str:
         'role': user.role,
         'brand': user.brand or '',
         'blockchain_address': user.blockchain_address,
+        'status': user.status or 'active',
         'exp': datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_MINUTES),
         'type': 'access',
     }
@@ -148,6 +149,10 @@ def login_user(email: str, password: str):
         )
 
     user_repo.reset_failed_login(user)
+
+    if user.role == 'SERVICE_CENTER' and user.status == 'suspended':
+        raise ValueError('Your account has been suspended. Please contact your manufacturer.')
+
     access_token  = generate_access_token(user)
     refresh_token = user_repo.create_refresh_token(user.id)
     return user, access_token, refresh_token

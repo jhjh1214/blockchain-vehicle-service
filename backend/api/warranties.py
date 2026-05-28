@@ -112,9 +112,12 @@ def approve_claim():
         vin = validate_vin(data.get('vin', ''))
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
-    claim_index = data.get('claim_index')
-    if claim_index is None:
-        return jsonify({'error': 'claim_index required'}), 400
+    try:
+        claim_index = int(data.get('claim_index'))
+        if claim_index < 0:
+            raise ValueError()
+    except (TypeError, ValueError):
+        return jsonify({'error': 'claim_index must be a non-negative integer'}), 400
 
     from db.repositories import vehicles as vehicle_repo
     mapping = vehicle_repo.find_by_vin(vin)
@@ -136,9 +139,12 @@ def deny_claim():
         vin = validate_vin(data.get('vin', ''))
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
-    claim_index = data.get('claim_index')
-    if claim_index is None:
-        return jsonify({'error': 'claim_index required'}), 400
+    try:
+        claim_index = int(data.get('claim_index'))
+        if claim_index < 0:
+            raise ValueError()
+    except (TypeError, ValueError):
+        return jsonify({'error': 'claim_index must be a non-negative integer'}), 400
 
     from db.repositories import vehicles as vehicle_repo
     mapping = vehicle_repo.find_by_vin(vin)

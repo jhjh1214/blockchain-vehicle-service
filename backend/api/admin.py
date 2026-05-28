@@ -17,6 +17,9 @@ admin_bp = Blueprint('admin', __name__)
 @admin_bp.route('/reset-db', methods=['POST'])
 def reset_db():
     """Wipe all DB tables (drop+recreate) and keep only the deployer key in the keystore."""
+    secret = request.headers.get('X-Admin-Secret', '')
+    if not Config.ADMIN_SECRET or secret != Config.ADMIN_SECRET:
+        return jsonify({'error': 'Unauthorized'}), 401
     try:
         db.drop_all()
         db.create_all()
@@ -57,6 +60,18 @@ def fix_ownership():
     new_owner = user_repo.find_by_email(new_owner_email)
     if not new_owner:
         return jsonify({'error': f'User {new_owner_email} not found'}), 404
+    if new_owner.role != 'OWNER':
+        return jsonify({'error': 'Target user must have the OWNER role'}), 400
+
+    mfr_brand = request.user.get('brand', '')
+    if mfr_brand and make and make.lower() != mfr_brand.lower():
+        return jsonify({'error': f"Brand mismatch: your account is authorised for '{mfr_brand}' vehicles only"}), 403
+    existing_mapping = vehicle_repo.find_by_vin(vin)
+    if existing_mapping and mfr_brand:
+        if existing_mapping.make and existing_mapping.make.lower() != mfr_brand.lower():
+            return jsonify({'error': 'Vehicle belongs to a different brand'}), 403
+        if existing_mapping.registered_by and existing_mapping.registered_by != request.user['blockchain_address']:
+            return jsonify({'error': 'You can only fix ownership of vehicles your brand registered'}), 403
 
     deployer = Config.DEPLOYER_ADDRESS
     if not deployer:

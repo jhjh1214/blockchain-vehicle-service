@@ -35,10 +35,17 @@ def register_vehicle():
     intended_owner_email = sanitize(data.get('intended_owner_email', ''), 255).lower() or None
 
     try:
+        warranty_years = int(data.get('warranty_years', 3))
+    except (TypeError, ValueError):
+        return jsonify({'error': 'warranty_years must be an integer'}), 400
+    if not (1 <= warranty_years <= 20):
+        return jsonify({'error': 'warranty_years must be between 1 and 20'}), 400
+
+    try:
         result = vehicle_service.register_vehicle(
             vin=vin,
             owner_email=owner_email,
-            warranty_years=int(data.get('warranty_years', 3)),
+            warranty_years=warranty_years,
             make=make,
             model=model,
             year=year,

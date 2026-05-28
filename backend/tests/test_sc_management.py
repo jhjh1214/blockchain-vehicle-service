@@ -149,8 +149,13 @@ class TestBrandIsolation:
 
 class TestSCStats:
     def test_sc_can_get_stats(self, client):
-        sc_token, _ = _register_sc(client)
-        r = client.get('/api/sc/my-stats', headers=auth(sc_token))
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        sc_token, sc_user = _register_sc(client)
+        # SC must be active to access SC-role endpoints
+        client.post(f'/api/sc/service-centers/{sc_user["id"]}/activate', headers=auth(mfr_token))
+        fresh = client.post('/api/auth/login', json={'email': sc_user['email'], 'password': 'TestPass1!'})
+        active_token = fresh.get_json()['access_token']
+        r = client.get('/api/sc/my-stats', headers=auth(active_token))
         assert r.status_code == 200
         data = r.get_json()
         assert 'services_submitted' in data

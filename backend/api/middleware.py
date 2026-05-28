@@ -34,6 +34,8 @@ def role_required(*allowed_roles):
         def decorated(*args, **kwargs):
             if request.user['role'] not in allowed_roles:
                 return jsonify({'error': 'Insufficient permissions'}), 403
+            if request.user['role'] == 'SERVICE_CENTER' and request.user.get('status', 'active') != 'active':
+                return jsonify({'error': 'Your service center account is not active'}), 403
             return f(*args, **kwargs)
         return decorated
     return decorator

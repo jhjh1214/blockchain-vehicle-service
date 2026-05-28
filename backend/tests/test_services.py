@@ -1,7 +1,7 @@
 """Tests for /api/service endpoints."""
 import time
 import pytest
-from conftest import register_and_login, auth
+from conftest import register_and_login, auth, STRONG_PASSWORD
 
 VIN = '1HGCM82633A004352'
 SERVICE_DATE = time.strftime('%Y-%m-%dT%H:%M:%S')
@@ -14,12 +14,21 @@ def _register_vehicle(client, mfr_token, owner_email, make='Honda'):
     })
 
 
+def _activate_sc_fresh_token(client, mfr_token, sc_user):
+    """Activate SC and return a fresh access token with active status."""
+    client.post(f'/api/sc/service-centers/{sc_user["id"]}/activate', headers=auth(mfr_token))
+    fresh = client.post('/api/auth/login',
+                        json={'email': sc_user['email'], 'password': STRONG_PASSWORD})
+    return fresh.get_json()['access_token']
+
+
 class TestSubmitService:
     def test_service_center_can_submit(self, client):
         mfr_token, _ = register_and_login(client, 'MANUFACTURER', brand='Honda')
         _, owner = register_and_login(client, 'OWNER')
-        sc_token, _ = register_and_login(client, 'SERVICE_CENTER', brand='Honda')
+        _, sc_user = register_and_login(client, 'SERVICE_CENTER', brand='Honda')
         _register_vehicle(client, mfr_token, owner['email'], make='Honda')
+        sc_token = _activate_sc_fresh_token(client, mfr_token, sc_user)
 
         r = client.post('/api/service/submit', headers=auth(sc_token), json={
             'vin': VIN,
@@ -36,10 +45,12 @@ class TestSubmitService:
 
     def test_sc_cannot_submit_for_wrong_brand(self, client):
         """Toyota SC cannot submit service for a Honda vehicle."""
-        mfr_token, _ = register_and_login(client, 'MANUFACTURER', brand='Honda')
+        honda_mfr, _ = register_and_login(client, 'MANUFACTURER', brand='Honda')
+        toyota_mfr, _ = register_and_login(client, 'MANUFACTURER', brand='Toyota')
         _, owner = register_and_login(client, 'OWNER')
-        toyota_sc_token, _ = register_and_login(client, 'SERVICE_CENTER', brand='Toyota')
-        _register_vehicle(client, mfr_token, owner['email'], make='Honda')
+        _, toyota_sc = register_and_login(client, 'SERVICE_CENTER', brand='Toyota')
+        _register_vehicle(client, honda_mfr, owner['email'], make='Honda')
+        toyota_sc_token = _activate_sc_fresh_token(client, toyota_mfr, toyota_sc)
 
         r = client.post('/api/service/submit', headers=auth(toyota_sc_token), json={
             'vin': VIN,
@@ -54,8 +65,9 @@ class TestSubmitService:
         """Brand check is case-insensitive (HONDA == honda)."""
         mfr_token, _ = register_and_login(client, 'MANUFACTURER', brand='HONDA')
         _, owner = register_and_login(client, 'OWNER')
-        sc_token, _ = register_and_login(client, 'SERVICE_CENTER', brand='honda')
+        _, sc_user = register_and_login(client, 'SERVICE_CENTER', brand='honda')
         _register_vehicle(client, mfr_token, owner['email'], make='Honda')
+        sc_token = _activate_sc_fresh_token(client, mfr_token, sc_user)
 
         r = client.post('/api/service/submit', headers=auth(sc_token), json={
             'vin': VIN,
@@ -81,7 +93,9 @@ class TestSubmitService:
         assert r.status_code == 401
 
     def test_submit_missing_required_fields(self, client):
-        sc_token, _ = register_and_login(client, 'SERVICE_CENTER')
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        _, sc_user = register_and_login(client, 'SERVICE_CENTER')
+        sc_token = _activate_sc_fresh_token(client, mfr_token, sc_user)
         r = client.post('/api/service/submit', headers=auth(sc_token), json={
             'vin': VIN,  # missing service_type, service_date, mileage
         })
@@ -92,8 +106,9 @@ class TestSubmitService:
         import io
         mfr_token, _ = register_and_login(client, 'MANUFACTURER', brand='Honda')
         _, owner = register_and_login(client, 'OWNER')
-        sc_token, _ = register_and_login(client, 'SERVICE_CENTER', brand='Honda')
+        _, sc_user = register_and_login(client, 'SERVICE_CENTER', brand='Honda')
         _register_vehicle(client, mfr_token, owner['email'], make='Honda')
+        sc_token = _activate_sc_fresh_token(client, mfr_token, sc_user)
 
         photo = (io.BytesIO(b'\xff\xd8\xff\xe0' + b'\x00' * 16), 'engine.jpg')
         r = client.post('/api/service/submit',
@@ -121,8 +136,9 @@ class TestDisputeResponse:
         """Register vehicle, submit service, mark disputed in DB."""
         mfr_token, _ = register_and_login(client, 'MANUFACTURER', brand='Honda')
         _, owner = register_and_login(client, 'OWNER')
-        sc_token, _ = register_and_login(client, 'SERVICE_CENTER', brand='Honda')
+        _, sc_user = register_and_login(client, 'SERVICE_CENTER', brand='Honda')
         _register_vehicle(client, mfr_token, owner['email'])
+        sc_token = _activate_sc_fresh_token(client, mfr_token, sc_user)
 
         # Submit service to create a ServiceMetadata row
         r = client.post('/api/service/submit', headers=auth(sc_token), json={
@@ -165,14 +181,18 @@ class TestDisputeResponse:
         assert r.status_code == 403
 
     def test_rebuttal_missing_fields(self, client):
-        sc_token, _ = register_and_login(client, 'SERVICE_CENTER')
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        _, sc_user = register_and_login(client, 'SERVICE_CENTER')
+        sc_token = _activate_sc_fresh_token(client, mfr_token, sc_user)
         r = client.post('/api/service/dispute-response', headers=auth(sc_token), json={
             'vin': VIN,
         })
         assert r.status_code == 400
 
     def test_rebuttal_record_not_found(self, client):
-        sc_token, _ = register_and_login(client, 'SERVICE_CENTER')
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        _, sc_user = register_and_login(client, 'SERVICE_CENTER')
+        sc_token = _activate_sc_fresh_token(client, mfr_token, sc_user)
         r = client.post('/api/service/dispute-response', headers=auth(sc_token), json={
             'vin': VIN,
             'metadata_hash': '0x' + 'bb' * 32,
@@ -184,8 +204,9 @@ class TestDisputeResponse:
         """SC cannot submit rebuttal on a non-disputed record."""
         mfr_token, _ = register_and_login(client, 'MANUFACTURER', brand='Honda')
         _, owner = register_and_login(client, 'OWNER')
-        sc_token, _ = register_and_login(client, 'SERVICE_CENTER', brand='Honda')
+        _, sc_user = register_and_login(client, 'SERVICE_CENTER', brand='Honda')
         _register_vehicle(client, mfr_token, owner['email'])
+        sc_token = _activate_sc_fresh_token(client, mfr_token, sc_user)
 
         r = client.post('/api/service/submit', headers=auth(sc_token), json={
             'vin': VIN, 'service_type': 'Tyre Rotation',
@@ -232,8 +253,10 @@ class TestGetServiceHistory:
 
 class TestVerifyService:
     def test_verify_service(self, client):
-        token, _ = register_and_login(client, 'OWNER')
-        r = client.post('/api/service/verify', headers=auth(token), json={
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        owner_token, owner = register_and_login(client, 'OWNER')
+        _register_vehicle(client, mfr_token, owner['email'])
+        r = client.post('/api/service/verify', headers=auth(owner_token), json={
             'vin': VIN, 'record_index': 0,
         })
         assert r.status_code == 200
@@ -248,8 +271,10 @@ class TestVerifyService:
 
 class TestDisputeService:
     def test_dispute_service(self, client):
-        token, _ = register_and_login(client, 'OWNER')
-        r = client.post('/api/service/dispute', headers=auth(token), json={
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        owner_token, owner = register_and_login(client, 'OWNER')
+        _register_vehicle(client, mfr_token, owner['email'])
+        r = client.post('/api/service/dispute', headers=auth(owner_token), json={
             'vin': VIN, 'record_index': 0, 'reason': 'Wrong parts used',
         })
         assert r.status_code == 200
@@ -350,15 +375,19 @@ class TestOwnerServiceEndpoints:
         assert 'service_history' in r.get_json()
 
     def test_owner_verify(self, client):
-        token, _ = register_and_login(client, 'OWNER')
-        r = client.post('/api/service/owner/verify', headers=auth(token), json={
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        owner_token, owner = register_and_login(client, 'OWNER')
+        _register_vehicle(client, mfr_token, owner['email'])
+        r = client.post('/api/service/owner/verify', headers=auth(owner_token), json={
             'vin': VIN, 'record_index': 0,
         })
         assert r.status_code == 200
 
     def test_owner_dispute(self, client):
-        token, _ = register_and_login(client, 'OWNER')
-        r = client.post('/api/service/owner/dispute', headers=auth(token), json={
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        owner_token, owner = register_and_login(client, 'OWNER')
+        _register_vehicle(client, mfr_token, owner['email'])
+        r = client.post('/api/service/owner/dispute', headers=auth(owner_token), json={
             'vin': VIN, 'record_index': 0, 'reason': 'Unauthorized service',
         })
         assert r.status_code == 200
@@ -401,14 +430,18 @@ class TestLegacyVerifyDisputeRoleEnforcement:
         assert r.status_code == 403
 
     def test_owner_can_use_legacy_verify(self, client):
-        owner_token, _ = register_and_login(client, 'OWNER')
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        owner_token, owner = register_and_login(client, 'OWNER')
+        _register_vehicle(client, mfr_token, owner['email'])
         r = client.post('/api/service/verify', headers=auth(owner_token), json={
             'vin': VIN, 'record_index': 0,
         })
         assert r.status_code == 200
 
     def test_owner_can_use_legacy_dispute(self, client):
-        owner_token, _ = register_and_login(client, 'OWNER')
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        owner_token, owner = register_and_login(client, 'OWNER')
+        _register_vehicle(client, mfr_token, owner['email'])
         r = client.post('/api/service/dispute', headers=auth(owner_token), json={
             'vin': VIN, 'record_index': 0, 'reason': 'Wrong parts used',
         })
@@ -420,7 +453,8 @@ class TestServiceOnPendingVehicle:
 
     def test_sc_cannot_submit_for_pending_vehicle(self, client):
         mfr_token, _ = register_and_login(client, 'MANUFACTURER', brand='Honda')
-        sc_token, _ = register_and_login(client, 'SERVICE_CENTER', brand='Honda')
+        _, sc_user = register_and_login(client, 'SERVICE_CENTER', brand='Honda')
+        sc_token = _activate_sc_fresh_token(client, mfr_token, sc_user)
 
         # Pre-register with no owner (status=pending)
         client.post('/api/vehicle/register', headers=auth(mfr_token), json={
@@ -437,8 +471,9 @@ class TestServiceOnPendingVehicle:
     def test_sc_can_submit_for_active_vehicle(self, client):
         mfr_token, _ = register_and_login(client, 'MANUFACTURER', brand='Honda')
         _, owner = register_and_login(client, 'OWNER')
-        sc_token, _ = register_and_login(client, 'SERVICE_CENTER', brand='Honda')
+        _, sc_user = register_and_login(client, 'SERVICE_CENTER', brand='Honda')
         _register_vehicle(client, mfr_token, owner['email'], make='Honda')
+        sc_token = _activate_sc_fresh_token(client, mfr_token, sc_user)
 
         r = client.post('/api/service/submit', headers=auth(sc_token), json={
             'vin': VIN, 'service_type': 'Oil Change',

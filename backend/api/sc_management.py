@@ -89,6 +89,7 @@ def suspend_service_center(sc_id):
     if _brand_mismatch(sc, request.user.get('brand', '')):
         return jsonify({'error': 'Service center belongs to a different brand'}), 403
     user_repo.update_status(sc_id, 'suspended')
+    user_repo.revoke_all_refresh_tokens(sc_id)
     return jsonify({'message': f'{sc.name or sc.email} suspended', 'sc': sc.to_dict()}), 200
 
 

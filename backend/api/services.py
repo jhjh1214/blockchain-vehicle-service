@@ -48,6 +48,14 @@ def submit_service():
     if not service_type or not service_date:
         return jsonify({'error': 'Missing required fields: service_type, service_date'}), 400
 
+    from datetime import date as _date
+    try:
+        svc_dt = datetime.fromisoformat(service_date.replace('Z', '+00:00'))
+        if svc_dt.date() > _date.today():
+            return jsonify({'error': 'service_date cannot be in the future'}), 400
+    except ValueError:
+        return jsonify({'error': 'Invalid service_date format. Use ISO 8601 (e.g. 2024-01-15T10:00:00)'}), 400
+
     from db.repositories import vehicles as vehicle_repo
     mapping = vehicle_repo.find_by_vin(vin)
     if mapping and mapping.registration_status == 'pending':
@@ -57,6 +65,13 @@ def submit_service():
     if sc_brand:
         if mapping and mapping.make and mapping.make.lower() != sc_brand.lower():
             return jsonify({'error': f"Brand mismatch: your service centre is authorised for '{sc_brand}' vehicles only"}), 403
+
+    from db.models import ServiceMetadata, db as _db
+    max_mileage = _db.session.query(_db.func.max(ServiceMetadata.mileage)).filter(
+        ServiceMetadata.vin == vin
+    ).scalar()
+    if max_mileage is not None and mileage < max_mileage:
+        return jsonify({'error': f'Mileage cannot decrease: last recorded mileage is {max_mileage} km'}), 400
 
     try:
         result = service_log_service.submit_service(
@@ -84,9 +99,16 @@ def verify_service():
         vin = validate_vin(data.get('vin', ''))
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
-    record_index = data.get('record_index')
-    if record_index is None:
-        return jsonify({'error': 'record_index required'}), 400
+    try:
+        record_index = int(data.get('record_index'))
+        if record_index < 0:
+            raise ValueError()
+    except (TypeError, ValueError):
+        return jsonify({'error': 'record_index must be a non-negative integer'}), 400
+    from db.repositories import vehicles as vehicle_repo
+    mapping = vehicle_repo.find_by_vin(vin)
+    if not mapping or mapping.owner_address.lower() != request.user['blockchain_address'].lower():
+        return jsonify({'error': 'You do not own this vehicle'}), 403
     try:
         result = service_log_service.verify_service(vin, record_index, request.user['blockchain_address'])
         return jsonify(result), 200
@@ -102,10 +124,19 @@ def dispute_service():
         vin = validate_vin(data.get('vin', ''))
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
-    record_index = data.get('record_index')
+    try:
+        record_index = int(data.get('record_index'))
+        if record_index < 0:
+            raise ValueError()
+    except (TypeError, ValueError):
+        return jsonify({'error': 'record_index must be a non-negative integer'}), 400
     reason = sanitize(data.get('reason', ''), 500)
-    if record_index is None or not reason:
-        return jsonify({'error': 'record_index and reason required'}), 400
+    if not reason:
+        return jsonify({'error': 'reason required'}), 400
+    from db.repositories import vehicles as vehicle_repo
+    mapping = vehicle_repo.find_by_vin(vin)
+    if not mapping or mapping.owner_address.lower() != request.user['blockchain_address'].lower():
+        return jsonify({'error': 'You do not own this vehicle'}), 403
     try:
         result = service_log_service.dispute_service(vin, record_index, reason, request.user['blockchain_address'])
         return jsonify(result), 200
@@ -231,9 +262,16 @@ def owner_verify_service():
         vin = validate_vin(data.get('vin', ''))
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
-    record_index = data.get('record_index')
-    if record_index is None:
-        return jsonify({'error': 'record_index required'}), 400
+    try:
+        record_index = int(data.get('record_index'))
+        if record_index < 0:
+            raise ValueError()
+    except (TypeError, ValueError):
+        return jsonify({'error': 'record_index must be a non-negative integer'}), 400
+    from db.repositories import vehicles as vehicle_repo
+    mapping = vehicle_repo.find_by_vin(vin)
+    if not mapping or mapping.owner_address.lower() != request.user['blockchain_address'].lower():
+        return jsonify({'error': 'You do not own this vehicle'}), 403
     try:
         result = service_log_service.verify_service(vin, record_index, request.user['blockchain_address'])
         return jsonify(result), 200
@@ -249,10 +287,19 @@ def owner_dispute_service():
         vin = validate_vin(data.get('vin', ''))
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
-    record_index = data.get('record_index')
+    try:
+        record_index = int(data.get('record_index'))
+        if record_index < 0:
+            raise ValueError()
+    except (TypeError, ValueError):
+        return jsonify({'error': 'record_index must be a non-negative integer'}), 400
     reason = sanitize(data.get('reason', ''), 500)
-    if record_index is None or not reason:
-        return jsonify({'error': 'record_index and reason required'}), 400
+    if not reason:
+        return jsonify({'error': 'reason required'}), 400
+    from db.repositories import vehicles as vehicle_repo
+    mapping = vehicle_repo.find_by_vin(vin)
+    if not mapping or mapping.owner_address.lower() != request.user['blockchain_address'].lower():
+        return jsonify({'error': 'You do not own this vehicle'}), 403
     try:
         # Fetch pending record to get metadata_hash before disputing
         from blockchain.adapters.service_log import service_log as _sl

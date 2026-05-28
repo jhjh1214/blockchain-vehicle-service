@@ -36,6 +36,7 @@ def update_owner(vin: str, new_owner_address: str) -> VehicleVINMapping | None:
     mapping = find_by_vin(vin)
     if mapping:
         mapping.owner_address = new_owner_address
+        mapping.intended_owner_email = None
         db.session.commit()
     return mapping
 

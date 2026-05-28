@@ -106,6 +106,8 @@ def get_current_user():
 def update_profile():
     data = request.get_json() or {}
     from api.utils import sanitize
+    if 'brand' in data and request.user.get('role') in ('MANUFACTURER', 'SERVICE_CENTER'):
+        return jsonify({'error': 'Brand cannot be changed for MANUFACTURER or SERVICE_CENTER accounts'}), 400
     name  = sanitize(data['name'],  255) if 'name'  in data else None
     phone = sanitize(data['phone'],  20) if 'phone' in data else None
     city  = sanitize(data['city'],  100) if 'city'  in data else None

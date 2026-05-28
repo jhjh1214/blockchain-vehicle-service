@@ -12,6 +12,15 @@ def _register_vehicle(client, mfr_token, make='Honda'):
     })
 
 
+def _register_vehicle_to_owner(client, owner_email, make='Honda'):
+    """Register a vehicle directly to the given owner."""
+    mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+    client.post('/api/vehicle/register', headers=auth(mfr_token), json={
+        'vin': VIN, 'owner_email': owner_email,
+        'warranty_years': 3, 'make': make, 'model': 'Civic', 'year': 2024,
+    })
+
+
 class TestCheckWarranty:
     def test_check_warranty_authenticated(self, client):
         token, _ = register_and_login(client, 'OWNER')
@@ -29,7 +38,8 @@ class TestCheckWarranty:
 
 class TestSubmitClaim:
     def test_owner_can_submit_claim(self, client):
-        token, _ = register_and_login(client, 'OWNER')
+        token, owner = register_and_login(client, 'OWNER')
+        _register_vehicle_to_owner(client, owner['email'])
         r = client.post('/api/warranty/submit-claim', headers=auth(token), json={
             'vin': VIN,
             'issue_description': 'Engine knocking noise at startup',
@@ -72,7 +82,8 @@ class TestSubmitClaim:
 
     def test_claim_hash_is_deterministic_for_same_input(self, client):
         """Two separate claims with same description produce different hashes (timestamp differs)."""
-        token, _ = register_and_login(client, 'OWNER')
+        token, owner = register_and_login(client, 'OWNER')
+        _register_vehicle_to_owner(client, owner['email'])
         payload = {'vin': VIN, 'issue_description': 'Squeaky brakes', 'photos': []}
         r1 = client.post('/api/warranty/submit-claim', headers=auth(token), json=payload)
         r2 = client.post('/api/warranty/submit-claim', headers=auth(token), json=payload)
@@ -84,7 +95,8 @@ class TestSubmitClaim:
     def test_submit_claim_with_photo(self, client):
         """Multipart/form-data submission with an attached photo file."""
         import io
-        token, _ = register_and_login(client, 'OWNER')
+        token, owner = register_and_login(client, 'OWNER')
+        _register_vehicle_to_owner(client, owner['email'])
         photo = (io.BytesIO(b'\xff\xd8\xff\xe0' + b'\x00' * 16), 'damage.jpg')
         r = client.post('/api/warranty/submit-claim',
             headers=auth(token),

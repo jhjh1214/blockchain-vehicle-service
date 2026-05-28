@@ -24,3 +24,4 @@ class Config:
     
     JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', 'jwt-secret-change-in-production')
     JWT_EXPIRATION_HOURS = 24
+    ADMIN_SECRET = os.getenv('ADMIN_SECRET', '')

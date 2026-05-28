@@ -24,6 +24,9 @@ def submit_claim(vin: str, issue_description: str, photos: list, from_address: s
     if not mapping or mapping.owner_address.lower() != from_address.lower():
         raise ValueError('You do not own this vehicle')
 
+    if mapping.warranty_expiry and mapping.warranty_expiry < int(time.time()):
+        raise ValueError('Warranty has expired')
+
     claim_details = {
         'issue_description': issue_description,
         'photos': photos or [],

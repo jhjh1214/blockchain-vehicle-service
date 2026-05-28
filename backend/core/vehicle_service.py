@@ -12,6 +12,9 @@ def register_vehicle(vin: str, owner_email: str, warranty_years: int,
     if len(vin) != 17:
         raise ValueError('VIN must be 17 characters')
 
+    if vehicle_repo.find_by_vin(vin):
+        raise ValueError('Vehicle with this VIN is already registered')
+
     warranty_expiry = int(time.time()) + (warranty_years * 365 * 24 * 60 * 60)
     vin_hash = vin_to_hex(vin)
     mfr_address = registered_by or from_address
@@ -135,6 +138,12 @@ def get_my_vehicles(owner_address: str) -> list:
 
 
 def transfer_vehicle(vin: str, new_owner_email: str, from_address: str) -> dict:
+    mapping = vehicle_repo.find_by_vin(vin)
+    if not mapping:
+        raise LookupError('Vehicle not found')
+    if mapping.owner_address.lower() != from_address.lower():
+        raise ValueError('You do not own this vehicle')
+
     new_owner = user_repo.find_by_email(new_owner_email)
     if not new_owner:
         raise LookupError('New owner not found')
