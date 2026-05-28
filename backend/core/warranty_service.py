@@ -1,9 +1,13 @@
+import logging
 import time
 from datetime import datetime
 from blockchain.adapters.warranty_tracker import warranty_tracker
 from blockchain.adapters.vehicle_registry import vehicle_registry
 from blockchain.utils import compute_metadata_hash, compute_string_hash
+from db.models import db
 from db.repositories import warranties as warranty_repo, vehicles as vehicle_repo
+
+logger = logging.getLogger(__name__)
 
 
 def check_warranty(vin: str) -> dict:
@@ -34,14 +38,23 @@ def submit_claim(vin: str, issue_description: str, photos: list, from_address: s
     }
     claim_hash = compute_metadata_hash(claim_details)
 
-    warranty_repo.create(
-        vin=vin,
-        claim_hash=claim_hash,
-        issue_description=issue_description,
-        photos=photos or []
-    )
-
+    # Blockchain first — DB is the read cache, not the source of truth
     result = warranty_tracker.submit_claim(vin, claim_hash, from_address)
+
+    try:
+        warranty_repo.create(
+            vin=vin,
+            claim_hash=claim_hash,
+            issue_description=issue_description,
+            photos=photos or []
+        )
+    except Exception as exc:
+        db.session.rollback()
+        logger.error('DB sync failed after on-chain warranty claim for VIN %s: %s', vin, exc)
+        raise RuntimeError(
+            'Warranty claim was submitted on-chain but the database record could not be saved. '
+            'Contact support and quote VIN: ' + vin
+        ) from exc
 
     return {
         'message': 'Warranty claim submitted successfully',

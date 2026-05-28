@@ -1,10 +1,13 @@
-import json
+import logging
 from datetime import datetime
 from blockchain.adapters.service_log import service_log
 from blockchain.adapters.vehicle_registry import vehicle_registry
 from blockchain.utils import compute_metadata_hash, compute_string_hash
+from db.models import db
 from db.repositories import services as service_repo, vehicles as vehicle_repo
 from db.models import User as _User
+
+logger = logging.getLogger(__name__)
 
 
 def submit_service(vin: str, service_type: str, service_date: str, mileage: int,
@@ -22,20 +25,29 @@ def submit_service(vin: str, service_type: str, service_date: str, mileage: int,
     }
     metadata_hash = compute_metadata_hash(metadata)
 
-    service_repo.create(
-        vin=vin,
-        metadata_hash=metadata_hash,
-        service_type=service_type,
-        service_date=datetime.fromisoformat(service_date.replace('Z', '+00:00')),
-        mileage=mileage,
-        parts_replaced=parts_replaced,
-        technician_name=technician_name,
-        service_notes=service_notes,
-        photos=photos or [],
-        service_center_address=from_address
-    )
-
+    # Blockchain first — DB is the read cache, not the source of truth
     result = service_log.submit_service(vin, metadata_hash, from_address)
+
+    try:
+        service_repo.create(
+            vin=vin,
+            metadata_hash=metadata_hash,
+            service_type=service_type,
+            service_date=datetime.fromisoformat(service_date.replace('Z', '+00:00')),
+            mileage=mileage,
+            parts_replaced=parts_replaced,
+            technician_name=technician_name,
+            service_notes=service_notes,
+            photos=photos or [],
+            service_center_address=from_address
+        )
+    except Exception as exc:
+        db.session.rollback()
+        logger.error('DB sync failed after on-chain service submission for VIN %s: %s', vin, exc)
+        raise RuntimeError(
+            'Service was submitted on-chain but the database record could not be saved. '
+            'Contact support and quote VIN: ' + vin
+        ) from exc
 
     return {
         'message': 'Service submitted successfully',
@@ -112,7 +124,7 @@ def get_sc_pending_services(sc_address: str) -> list:
         .distinct()
         .all()
     )
-    all_pending = []
+    raw_collected = []
     for (vin,) in sc_vins:
         mapping = vehicle_repo.find_by_vin(vin)
         raw_records = service_log.get_pending_services(vin)
@@ -130,25 +142,41 @@ def get_sc_pending_services(sc_address: str) -> list:
                     'service_notes': metadata.service_notes,
                     'photos': metadata.photos or []
                 }
-            flat = _flatten_owner_record(record, idx, mapping) if mapping else {}
-            if not flat:
-                flat = {
-                    'vin': vin,
-                    'record_index': idx,
-                    'metadata_hash': record.get('metadata_hash', ''),
-                    'status': 'disputed' if record.get('disputed') else 'pending',
-                    'dispute_reason': record.get('dispute_reason'),
-                    **record.get('metadata', {}),
-                }
-            all_pending.append(flat)
-    return all_pending
+            raw_collected.append((record, idx, mapping))
+
+    if not raw_collected:
+        return []
+    sc_user_cache = _load_sc_user_cache([r for r, _, _ in raw_collected])
+    result = []
+    for record, idx, mapping in raw_collected:
+        if mapping:
+            result.append(_flatten_owner_record(record, idx, mapping, sc_user_cache))
+        else:
+            result.append({
+                'vin': None,
+                'record_index': idx,
+                'metadata_hash': record.get('metadata_hash', ''),
+                'status': 'disputed' if record.get('disputed') else 'pending',
+                'dispute_reason': record.get('dispute_reason'),
+                **record.get('metadata', {}),
+            })
+    return result
 
 
 def get_finalized_services(vin: str) -> list:
     return _enrich_records(service_log.get_finalized_services(vin))
 
 
-def _flatten_owner_record(record, index: int, mapping) -> dict:
+def _load_sc_user_cache(raw_records: list) -> dict:
+    """Batch-load service center users to avoid per-record DB queries."""
+    addresses = {r.get('service_center', '').lower() for r in raw_records if r.get('service_center')}
+    if not addresses:
+        return {}
+    users = _User.query.filter(_User.blockchain_address.in_(list(addresses))).all()
+    return {u.blockchain_address.lower(): u for u in users}
+
+
+def _flatten_owner_record(record, index: int, mapping, sc_user_cache=None) -> dict:
     """Produce a flat dict matching what the Flutter ServiceRecord.fromJson expects."""
     meta = record.get('metadata', {})
     verified = record.get('verified', False)
@@ -160,7 +188,10 @@ def _flatten_owner_record(record, index: int, mapping) -> dict:
     else:
         status = 'pending'
     sc_address = record.get('service_center', '')
-    sc_user = _User.query.filter_by(blockchain_address=sc_address.lower()).first() if sc_address else None
+    if sc_user_cache is not None:
+        sc_user = sc_user_cache.get(sc_address.lower()) if sc_address else None
+    else:
+        sc_user = _User.query.filter_by(blockchain_address=sc_address.lower()).first() if sc_address else None
     return {
         'vin': mapping.vin,
         'record_index': index,
@@ -186,7 +217,7 @@ def _flatten_owner_record(record, index: int, mapping) -> dict:
 
 def get_owner_finalized_services(owner_address: str) -> list:
     vin_hashes = vehicle_registry.get_owned_vehicles(owner_address)
-    all_finalized = []
+    collected = []
     for vin_hash in vin_hashes:
         mapping = vehicle_repo.find_by_vin_hash(vin_hash)
         if not mapping:
@@ -204,13 +235,17 @@ def get_owner_finalized_services(owner_address: str) -> list:
                     'service_notes': metadata.service_notes,
                     'photos': metadata.photos or []
                 }
-            all_finalized.append(_flatten_owner_record(record, idx, mapping))
-    return all_finalized
+            collected.append((record, idx, mapping))
+
+    if not collected:
+        return []
+    sc_user_cache = _load_sc_user_cache([r for r, _, _ in collected])
+    return [_flatten_owner_record(r, idx, m, sc_user_cache) for r, idx, m in collected]
 
 
 def get_owner_pending_services(owner_address: str) -> list:
     vin_hashes = vehicle_registry.get_owned_vehicles(owner_address)
-    all_pending = []
+    collected = []
     for vin_hash in vin_hashes:
         mapping = vehicle_repo.find_by_vin_hash(vin_hash)
         if not mapping:
@@ -228,5 +263,9 @@ def get_owner_pending_services(owner_address: str) -> list:
                     'service_notes': metadata.service_notes,
                     'photos': metadata.photos or []
                 }
-            all_pending.append(_flatten_owner_record(record, idx, mapping))
-    return all_pending
+            collected.append((record, idx, mapping))
+
+    if not collected:
+        return []
+    sc_user_cache = _load_sc_user_cache([r for r, _, _ in collected])
+    return [_flatten_owner_record(r, idx, m, sc_user_cache) for r, idx, m in collected]

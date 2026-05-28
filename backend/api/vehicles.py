@@ -3,6 +3,7 @@ from flask import Blueprint, request, jsonify
 from api.middleware import token_required, role_required
 from api.utils import sanitize, validate_vin, paginate
 from core import vehicle_service
+from core import service_log_service
 from db.repositories import vehicles as vehicle_repo, users as user_repo
 from db.models import VehicleVINMapping, WarrantyClaimMetadata
 from config import Config
@@ -368,14 +369,16 @@ def get_vehicle_public(vin):
 
     try:
         from blockchain.adapters.vehicle_registry import vehicle_registry
-        from blockchain.adapters.service_log import service_log
         vehicle_data = vehicle_registry.get_vehicle(vin)
         if not vehicle_data.get('exists'):
             return jsonify({'error': 'Vehicle not found on blockchain'}), 404
-
-        finalized = service_log.get_finalized_services(vin) or []
     except Exception:
         vehicle_data = {}
+
+    try:
+        raw_finalized = service_log_service.get_finalized_services(vin) or []
+        finalized = [dict(r, record_index=i) for i, r in enumerate(raw_finalized)]
+    except Exception:
         finalized = []
 
     warranty_expiry = vehicle_data.get('warranty_expiry', 0)
@@ -469,11 +472,13 @@ def export_vehicle_pdf(vin):
 
     try:
         from blockchain.adapters.vehicle_registry import vehicle_registry
-        from blockchain.adapters.service_log import service_log
         vehicle_data = vehicle_registry.get_vehicle(vin)
-        finalized = service_log.get_finalized_services(vin) or []
     except Exception:
         vehicle_data = {}
+
+    try:
+        finalized = service_log_service.get_finalized_services(vin) or []
+    except Exception:
         finalized = []
 
     warranty_expiry = vehicle_data.get('warranty_expiry', 0)
@@ -535,10 +540,10 @@ def export_vehicle_pdf(vin):
         if finalized:
             hdr = ['#', 'Service Type', 'Date', 'Mileage (km)', 'Technician']
             rows = [hdr]
-            for rec in finalized:
+            for idx, rec in enumerate(finalized):
                 meta = rec.get('metadata') or {}
                 rows.append([
-                    str(rec.get('record_index', '—')),
+                    str(idx + 1),
                     meta.get('service_type') or '—',
                     meta.get('service_date', '')[:10] if meta.get('service_date') else '—',
                     str(meta.get('mileage') or '—'),
