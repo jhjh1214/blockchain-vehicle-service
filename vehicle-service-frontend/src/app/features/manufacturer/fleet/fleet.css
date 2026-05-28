@@ -1,0 +1,8 @@
+.service-due-ok    { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 500; color: #16a34a; }
+.service-due-warn  { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 500; color: #b45309; }
+.service-due-alert { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: #dc2626; }
+.service-due-none  { font-size: 12px; color: var(--text-muted); }
+
+[data-theme="dark"] .service-due-ok    { color: #86efac; }
+[data-theme="dark"] .service-due-warn  { color: #fcd34d; }
+[data-theme="dark"] .service-due-alert { color: #fca5a5; }

@@ -13,6 +13,18 @@
     </div>
   </div>
 
+  <!-- Low ETH balance warning -->
+  @if (!statsLoading && !statsError && stats && stats.manufacturer_eth_balance !== null && stats.manufacturer_eth_balance < 0.5) {
+    <div class="alert alert-warning" style="margin-bottom:16px;display:flex;align-items:center;gap:10px;">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:20px;height:20px;flex-shrink:0;">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+      </svg>
+      <div>
+        <strong>Low ETH balance:</strong> Your account has {{ stats.manufacturer_eth_balance }} ETH — contact the network administrator to top up before registering more vehicles.
+      </div>
+    </div>
+  }
+
   <!-- KPI row -->
   <div class="kpi-row kpi-row-6">
     <div class="kpi-card">
@@ -52,6 +64,34 @@
       @else { <div class="kpi-value">{{ stats?.services_this_month ?? '—' }}</div> }
     </div>
   </div>
+
+  <!-- Fleet health score -->
+  @if (!statsLoading && !statsError && stats) {
+    <div class="card mb-24" style="padding:20px 24px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+        <div>
+          <div style="font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);margin-bottom:4px;">Fleet Health Score</div>
+          <div style="font-size:12px;color:var(--text-muted);">Based on warranty coverage (50%) + service activity in last 90 days (50%)</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;">
+          <div style="font-size:36px;font-weight:800;line-height:1;"
+               [style.color]="stats.fleet_health_score >= 75 ? '#16a34a' : stats.fleet_health_score >= 50 ? '#b45309' : '#dc2626'">
+            {{ stats.fleet_health_score }}<span style="font-size:20px;font-weight:600;">%</span>
+          </div>
+          <div style="width:120px;">
+            <div style="height:8px;border-radius:4px;background:var(--border);overflow:hidden;">
+              <div style="height:100%;border-radius:4px;transition:width 0.6s ease;"
+                   [style.width]="stats.fleet_health_score + '%'"
+                   [style.background]="stats.fleet_health_score >= 75 ? '#16a34a' : stats.fleet_health_score >= 50 ? '#f59e0b' : '#ef4444'"></div>
+            </div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:4px;text-align:right;">
+              {{ stats.fleet_health_score >= 75 ? 'Healthy' : stats.fleet_health_score >= 50 ? 'Fair' : 'Needs Attention' }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
 
   <!-- Charts row 1: pie + doughnut -->
   @if (!statsLoading && !statsError && stats) {

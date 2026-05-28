@@ -10,7 +10,7 @@
         <span class="verify-brand-name">VehicleChain</span>
       </div>
       <h2 style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:6px;">Vehicle Verification</h2>
-      <p style="font-size:14px;color:var(--text-muted);margin-bottom:0;">Enter a VIN to check blockchain-verified vehicle history</p>
+      <p style="font-size:14px;color:var(--text-muted);margin-bottom:0;">Enter a VIN to view blockchain-verified vehicle history</p>
     </div>
 
     <div class="verify-search">
@@ -29,6 +29,7 @@
 
     @if (result) {
       <div class="verify-result">
+        <!-- Identity -->
         <div class="verify-vin-display">{{ result.vin }}</div>
         <div class="verify-vehicle-name">{{ result.year }} {{ result.make }} {{ result.model }}</div>
 
@@ -65,11 +66,77 @@
           </div>
         </div>
 
-        <div style="font-size:13px;color:var(--text-muted);padding:12px 0;border-top:1px solid var(--border);">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:14px;height:14px;display:inline;vertical-align:middle;margin-right:4px;color:var(--color-success);">
+        <!-- QR code + PDF export -->
+        <div class="verify-qr-row">
+          <div>
+            <canvas #qrCanvas width="160" height="160" style="border-radius:8px;display:block;"></canvas>
+            <div class="verify-qr-label">Scan to verify this vehicle</div>
+          </div>
+          <div class="verify-export-area">
+            <div class="verify-export-title">Vehicle History Report</div>
+            <div class="verify-export-desc">Download a blockchain-verified PDF report of this vehicle's complete service history.</div>
+            <a [href]="exportPdfUrl()" target="_blank" class="btn btn-secondary" style="align-self:flex-start;display:inline-flex;align-items:center;gap:6px;">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:16px;height:16px;">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+              Export PDF
+            </a>
+          </div>
+        </div>
+
+        <!-- Mileage chart -->
+        @if (hasMileageChart) {
+          <div class="verify-section-title">Mileage History</div>
+          <div class="verify-chart-wrap">
+            <canvas baseChart [data]="lineChartData" [type]="'line'" [options]="lineChartOptions" style="max-height:200px;"></canvas>
+          </div>
+        }
+
+        <!-- Service records -->
+        <div class="verify-section-title">
+          Service Records
+          <span style="font-size:12px;font-weight:400;color:var(--text-muted);margin-left:8px;">{{ serviceRecords.length }} on-chain record{{ serviceRecords.length !== 1 ? 's' : '' }}</span>
+        </div>
+        @if (serviceRecords.length > 0) {
+          <div class="verify-table-wrap">
+            <table class="verify-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Service Type</th>
+                  <th>Date</th>
+                  <th>Mileage</th>
+                  <th>Technician</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (rec of serviceRecords; track rec.record_index) {
+                  <tr>
+                    <td class="mono" style="color:var(--text-muted);font-size:12px;">{{ rec.record_index }}</td>
+                    <td><strong>{{ rec.metadata?.service_type || '—' }}</strong></td>
+                    <td>{{ formatDate(rec.metadata?.service_date) }}</td>
+                    <td>{{ rec.metadata?.mileage ? (rec.metadata.mileage + ' km') : '—' }}</td>
+                    <td style="color:var(--text-muted);">{{ rec.metadata?.technician_name || '—' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
+          <div style="padding:24px;text-align:center;color:var(--text-muted);font-size:14px;border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:20px;">
+            No finalized service records found for this vehicle.
+          </div>
+        }
+
+        <!-- Blockchain footer -->
+        <div style="font-size:12px;color:var(--text-muted);padding-top:12px;border-top:1px solid var(--border);display:flex;align-items:center;gap:6px;">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:14px;height:14px;color:var(--color-success);flex-shrink:0;">
             <path fill-rule="evenodd" d="M10 1a4.5 4.5 0 0 0-4.5 4.5V9H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-.5V5.5A4.5 4.5 0 0 0 10 1Zm3 8V5.5a3 3 0 1 0-6 0V9h6Z" clip-rule="evenodd" />
           </svg>
-          Verified on VehicleChain blockchain &nbsp;·&nbsp; {{ result.registered_at ? (result.registered_at | date:'mediumDate') : '' }}
+          All records are immutably stored on the VehicleChain blockchain
+          @if (result.registered_at) {
+            <span style="margin-left:4px;">&nbsp;·&nbsp; Registered {{ result.registered_at | date:'mediumDate' }}</span>
+          }
         </div>
       </div>
     }

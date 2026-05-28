@@ -152,10 +152,41 @@ def get_vehicle(vin):
 @role_required('MANUFACTURER')
 def get_fleet():
     """Paginated list of vehicles registered by this manufacturer."""
+    from db.models import ServiceMetadata, db as _db
+    from datetime import datetime as _dt
+
     mfr_address = request.user['blockchain_address']
-    query = VehicleVINMapping.query.filter_by(registered_by=mfr_address)
-    all_vehicles = query.order_by(VehicleVINMapping.created_at.desc()).all()
-    items = [v.to_dict() for v in all_vehicles]
+    all_vehicles = VehicleVINMapping.query.filter_by(registered_by=mfr_address).order_by(
+        VehicleVINMapping.created_at.desc()
+    ).all()
+
+    vins = [v.vin for v in all_vehicles]
+    service_stats: dict = {}
+    if vins:
+        for row in _db.session.query(
+            ServiceMetadata.vin,
+            _db.func.count(ServiceMetadata.id).label('cnt'),
+            _db.func.max(ServiceMetadata.service_date).label('last_date'),
+        ).filter(ServiceMetadata.vin.in_(vins)).group_by(ServiceMetadata.vin).all():
+            service_stats[row.vin] = {
+                'service_count': row.cnt,
+                'last_service_date': row.last_date.isoformat() if row.last_date else None,
+            }
+
+    now = _dt.utcnow()
+    items = []
+    for v in all_vehicles:
+        d = v.to_dict()
+        st = service_stats.get(v.vin, {})
+        d['service_count'] = st.get('service_count', 0)
+        d['last_service_date'] = st.get('last_service_date')
+        if st.get('last_service_date'):
+            last = _dt.fromisoformat(st['last_service_date'])
+            d['days_since_service'] = (now - last).days
+        else:
+            d['days_since_service'] = None
+        items.append(d)
+
     result = paginate(items, request.args)
     result['vehicles'] = result.pop('items')
     return jsonify(result), 200
@@ -281,6 +312,31 @@ def get_dashboard_stats():
             'flagged': rate > 10.0,
         })
 
+    # Fleet health score: warranty coverage (50%) + recent service activity (50%)
+    recently_serviced = 0
+    if total_vehicles > 0:
+        ninety_days_ago = _dt.utcnow() - _td(days=90)
+        recently_serviced = ServiceMetadata.query.with_entities(
+            ServiceMetadata.vin
+        ).filter(
+            ServiceMetadata.vin.in_(mfr_vins_subq),
+            ServiceMetadata.service_date >= ninety_days_ago,
+        ).distinct().count()
+    warranty_pct = (active_warranties / total_vehicles * 50) if total_vehicles else 0
+    service_pct  = (recently_serviced / total_vehicles * 50) if total_vehicles else 0
+    fleet_health_score = round(warranty_pct + service_pct)
+
+    # Manufacturer ETH balance
+    manufacturer_eth_balance = None
+    try:
+        from blockchain.client import web3_client
+        from web3 import Web3
+        mfr_checksum = Web3.to_checksum_address(mfr_address)
+        balance_wei = web3_client.w3.eth.get_balance(mfr_checksum)
+        manufacturer_eth_balance = round(float(Web3.from_wei(balance_wei, 'ether')), 4)
+    except Exception:
+        pass
+
     return jsonify({
         'total_vehicles':            total_vehicles,
         'active_warranties':         active_warranties,
@@ -292,6 +348,8 @@ def get_dashboard_stats():
         'service_type_distribution': service_type_counts,
         'warranty_claim_trend':      claim_trend,
         'top_service_centers':       top_service_centers,
+        'fleet_health_score':        fleet_health_score,
+        'manufacturer_eth_balance':  manufacturer_eth_balance,
     }), 200
 
 
@@ -391,3 +449,130 @@ def activity_feed():
 
     feed.sort(key=lambda x: x.get('timestamp') or '', reverse=True)
     return jsonify({'feed': feed[:15]}), 200
+
+
+@vehicle_bp.route('/export/<vin>', methods=['GET'])
+@limiter.limit('10 per minute')
+def export_vehicle_pdf(vin):
+    """Generate a PDF vehicle history report (public, rate-limited)."""
+    import io
+    from datetime import datetime as _dt
+
+    try:
+        vin = validate_vin(vin)
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+
+    mapping = vehicle_repo.find_by_vin(vin)
+    if not mapping:
+        return jsonify({'error': 'Vehicle not found'}), 404
+
+    try:
+        from blockchain.adapters.vehicle_registry import vehicle_registry
+        from blockchain.adapters.service_log import service_log
+        vehicle_data = vehicle_registry.get_vehicle(vin)
+        finalized = service_log.get_finalized_services(vin) or []
+    except Exception:
+        vehicle_data = {}
+        finalized = []
+
+    warranty_expiry = vehicle_data.get('warranty_expiry', 0)
+    warranty_valid  = warranty_expiry > int(time.time()) if warranty_expiry else False
+    warranty_date   = _dt.utcfromtimestamp(warranty_expiry).strftime('%d %b %Y') if warranty_expiry else 'N/A'
+
+    try:
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib import colors
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import mm
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+        from reportlab.lib.enums import TA_CENTER, TA_LEFT
+
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4,
+                                leftMargin=20*mm, rightMargin=20*mm,
+                                topMargin=20*mm, bottomMargin=20*mm)
+
+        styles = getSampleStyleSheet()
+        title_style  = ParagraphStyle('Title',  parent=styles['Title'],  fontSize=20, spaceAfter=4)
+        sub_style    = ParagraphStyle('Sub',    parent=styles['Normal'], fontSize=11, textColor=colors.HexColor('#64748b'), spaceAfter=14)
+        label_style  = ParagraphStyle('Label',  parent=styles['Normal'], fontSize=9,  textColor=colors.HexColor('#94a3b8'), spaceBefore=8, spaceAfter=2)
+        value_style  = ParagraphStyle('Value',  parent=styles['Normal'], fontSize=11, textColor=colors.HexColor('#0f172a'))
+        section_style = ParagraphStyle('Section', parent=styles['Heading2'], fontSize=13, spaceBefore=16, spaceAfter=8, textColor=colors.HexColor('#1e293b'))
+        footer_style = ParagraphStyle('Footer',  parent=styles['Normal'], fontSize=8, textColor=colors.HexColor('#94a3b8'), alignment=TA_CENTER, spaceBefore=20)
+
+        story = []
+        story.append(Paragraph('VehicleChain', title_style))
+        story.append(Paragraph('Blockchain-Verified Vehicle History Report', sub_style))
+        story.append(HRFlowable(width='100%', thickness=1, color=colors.HexColor('#e2e8f0'), spaceAfter=16))
+
+        # Vehicle identity
+        story.append(Paragraph('Vehicle Information', section_style))
+        info_data = [
+            ['VIN', vin,         'Make',  mapping.make or '—'],
+            ['Model', mapping.model or '—', 'Year', str(mapping.year) if mapping.year else '—'],
+            ['Warranty Status', 'Active' if warranty_valid else 'Expired',
+             'Warranty Expiry', warranty_date],
+            ['Registered', mapping.created_at.strftime('%d %b %Y') if mapping.created_at else '—', '', ''],
+        ]
+        info_table = Table(info_data, colWidths=[35*mm, 65*mm, 35*mm, 35*mm])
+        info_table.setStyle(TableStyle([
+            ('FONTNAME',    (0,0), (-1,-1), 'Helvetica'),
+            ('FONTSIZE',    (0,0), (-1,-1), 10),
+            ('FONTNAME',    (0,0), (0,-1), 'Helvetica-Bold'),
+            ('FONTNAME',    (2,0), (2,-1), 'Helvetica-Bold'),
+            ('TEXTCOLOR',   (0,0), (0,-1), colors.HexColor('#64748b')),
+            ('TEXTCOLOR',   (2,0), (2,-1), colors.HexColor('#64748b')),
+            ('BACKGROUND',  (0,0), (-1,-1), colors.HexColor('#f8fafc')),
+            ('GRID',        (0,0), (-1,-1), 0.5, colors.HexColor('#e2e8f0')),
+            ('PADDING',     (0,0), (-1,-1), 6),
+            ('ROWBACKGROUNDS', (0,0), (-1,-1), [colors.HexColor('#f8fafc'), colors.white]),
+        ]))
+        story.append(info_table)
+
+        # Service records
+        story.append(Paragraph('Service History', section_style))
+        if finalized:
+            hdr = ['#', 'Service Type', 'Date', 'Mileage (km)', 'Technician']
+            rows = [hdr]
+            for rec in finalized:
+                meta = rec.get('metadata') or {}
+                rows.append([
+                    str(rec.get('record_index', '—')),
+                    meta.get('service_type') or '—',
+                    meta.get('service_date', '')[:10] if meta.get('service_date') else '—',
+                    str(meta.get('mileage') or '—'),
+                    meta.get('technician_name') or '—',
+                ])
+            svc_table = Table(rows, colWidths=[12*mm, 55*mm, 32*mm, 35*mm, 36*mm])
+            svc_table.setStyle(TableStyle([
+                ('FONTNAME',    (0,0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE',    (0,0), (-1,-1), 9),
+                ('BACKGROUND',  (0,0), (-1, 0), colors.HexColor('#1e293b')),
+                ('TEXTCOLOR',   (0,0), (-1, 0), colors.white),
+                ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#f8fafc')]),
+                ('GRID',        (0,0), (-1,-1), 0.4, colors.HexColor('#e2e8f0')),
+                ('PADDING',     (0,0), (-1,-1), 5),
+            ]))
+            story.append(svc_table)
+        else:
+            story.append(Paragraph('No finalized service records found.', sub_style))
+
+        story.append(HRFlowable(width='100%', thickness=1, color=colors.HexColor('#e2e8f0'), spaceBefore=20))
+        story.append(Paragraph(
+            f'Generated by VehicleChain on {_dt.utcnow().strftime("%d %b %Y %H:%M")} UTC  ·  Data verified on-chain',
+            footer_style
+        ))
+
+        doc.build(story)
+        buffer.seek(0)
+        from flask import send_file
+        safe_vin = vin.replace('/', '_')
+        return send_file(
+            buffer,
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=f'VehicleChain_{safe_vin}.pdf',
+        )
+    except ImportError:
+        return jsonify({'error': 'PDF generation not available — install reportlab'}), 503

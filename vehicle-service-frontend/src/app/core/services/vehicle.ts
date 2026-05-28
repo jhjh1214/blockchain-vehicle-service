@@ -67,6 +67,8 @@ export interface DashboardStats extends ManufacturerStats {
   service_type_distribution: Record<string, number>;
   warranty_claim_trend: ClaimTrendPoint[];
   top_service_centers: TopSC[];
+  fleet_health_score: number;
+  manufacturer_eth_balance: number | null;
 }
 
 export interface ActivityItem {
