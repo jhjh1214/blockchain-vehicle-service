@@ -1908,6 +1908,17 @@ tbody tr:hover {
   margin-bottom: 24px;
 }
 
+/* 6-column variant for manufacturer dashboard */
+@media (min-width: 1024px) {
+  .kpi-row-6 { grid-template-columns: repeat(6, 1fr); }
+}
+@media (min-width: 640px) and (max-width: 1023px) {
+  .kpi-row-6 { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 639px) {
+  .kpi-row-6 { grid-template-columns: repeat(2, 1fr); }
+}
+
 .kpi-card {
   background: var(--surface);
   border: 1px solid var(--border);

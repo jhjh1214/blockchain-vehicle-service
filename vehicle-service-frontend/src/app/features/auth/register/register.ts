@@ -68,6 +68,7 @@ export class RegisterComponent {
     this.registerForm = this.fb.group({
       email:           ['', [Validators.required, Validators.email]],
       role:            ['SERVICE_CENTER', Validators.required],
+      brand:           ['', Validators.required],
       name:            [''],
       phone:           [''],
       city:            [''],
@@ -122,7 +123,7 @@ export class RegisterComponent {
     const { confirmPassword, ...rest } = raw;
     const userData = this.isServiceCenter
       ? rest
-      : { email: rest.email, role: rest.role, name: rest.name, password: rest.password };
+      : { email: rest.email, role: rest.role, brand: rest.brand, name: rest.name, password: rest.password };
     this.authService.register(userData).subscribe({
       next: r => {
         if (r.user.role === 'MANUFACTURER') {

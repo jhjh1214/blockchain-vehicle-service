@@ -35,6 +35,18 @@
           <div class="form-hint">Vehicle owners register through the mobile app</div>
         </div>
 
+        <!-- Brand (required for all roles) -->
+        <div class="form-group mb-16">
+          <label class="form-label" for="brand">Brand / Make <span class="required">*</span></label>
+          <input type="text" id="brand" formControlName="brand" class="form-control"
+                 [class.is-invalid]="f['brand'].invalid && f['brand'].touched"
+                 placeholder="e.g. Honda, Toyota, Perodua" autocomplete="off" />
+          @if (f['brand'].invalid && f['brand'].touched) {
+            <div class="invalid-feedback">Brand is required</div>
+          }
+          <div class="form-hint">The vehicle brand your organisation is authorised for</div>
+        </div>
+
         <!-- SC-specific fields -->
         @if (f['role'].value === 'SERVICE_CENTER') {
           <div class="form-group mb-16">

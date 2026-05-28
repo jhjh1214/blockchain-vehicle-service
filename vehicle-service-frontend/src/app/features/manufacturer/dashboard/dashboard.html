@@ -14,7 +14,7 @@
   </div>
 
   <!-- KPI row -->
-  <div class="kpi-row">
+  <div class="kpi-row kpi-row-6">
     <div class="kpi-card">
       <div class="kpi-label">Registered Vehicles</div>
       @if (statsLoading) { <div class="kpi-skeleton"></div> }
@@ -170,7 +170,7 @@
     <div class="card-body" style="padding:0;">
       @if (activityLoading) {
         @for (n of [1,2,3,4,5]; track n) {
-          <div style="display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--color-border);">
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--border);">
             <div class="sk-cell" style="width:32px;height:32px;border-radius:50%;flex-shrink:0;"></div>
             <div style="flex:1;">
               <div class="sk-cell w-55" style="height:12px;margin-bottom:6px;"></div>
@@ -191,7 +191,7 @@
         </div>
       } @else {
         @for (item of activityFeed; track $index) {
-          <div style="display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--color-border);" [style.border-bottom]="$last ? 'none' : ''">
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--border);" [style.border-bottom]="$last ? 'none' : ''">
             <div style="width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;"
                  [style.background]="activityColor(item.type) + '18'">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
@@ -200,13 +200,13 @@
               </svg>
             </div>
             <div style="flex:1;min-width:0;">
-              <div style="font-size:13px;font-weight:500;color:var(--color-text-primary);">
+              <div style="font-size:13px;font-weight:500;color:var(--text);">
                 {{ activityLabel(item.type) }}
                 <span class="mono text-muted" style="font-size:11px;margin-left:4px;">{{ item.vin }}</span>
               </div>
-              <div style="font-size:12px;color:var(--color-text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ item.description }}</div>
+              <div style="font-size:12px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ item.description }}</div>
             </div>
-            <div style="font-size:11px;color:var(--color-text-muted);flex-shrink:0;">{{ formatActivityTime(item.timestamp) }}</div>
+            <div style="font-size:11px;color:var(--text-muted);flex-shrink:0;">{{ formatActivityTime(item.timestamp) }}</div>
           </div>
         }
       }

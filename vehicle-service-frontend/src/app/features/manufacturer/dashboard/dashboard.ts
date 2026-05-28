@@ -13,6 +13,7 @@ import {
 import { AuthService } from '../../../core/services/auth';
 import { BlockchainService } from '../../../core/services/blockchain.service';
 import { VehicleService, DashboardStats, ActivityItem } from '../../../core/services/vehicle';
+import { ThemeService } from '../../../core/services/theme.service';
 import { User } from '../../../core/models/user.model';
 
 Chart.register(
@@ -41,46 +42,39 @@ export class ManufacturerDashboardComponent implements OnInit, OnDestroy {
   private subs = new Subscription();
 
   pieChartData: ChartData<'pie'> = { labels: [], datasets: [{ data: [] }] };
-  pieChartOptions: ChartOptions<'pie'> = {
-    responsive: true,
-    plugins: { legend: { position: 'bottom' } }
-  };
+  pieChartOptions: ChartOptions<'pie'> = this.buildPieOptions(false);
 
   warrantyChartData: ChartData<'doughnut'> = {
-    labels: ['Active', 'Expired'],
+    labels: ['Active', 'Expired / No Warranty'],
     datasets: [{ data: [0, 0], backgroundColor: ['#1D9E75', '#E5E7EB'] }]
   };
-  warrantyChartOptions: ChartOptions<'doughnut'> = {
-    responsive: true,
-    cutout: '65%',
-    plugins: { legend: { position: 'bottom' } }
-  };
+  warrantyChartOptions: ChartOptions<'doughnut'> = this.buildDoughnutOptions(false);
 
   lineChartData: ChartData<'line'> = { labels: [], datasets: [] };
-  lineChartOptions: ChartOptions<'line'> = {
-    responsive: true,
-    plugins: { legend: { display: false } },
-    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
-  };
+  lineChartOptions: ChartOptions<'line'> = this.buildLineOptions(false);
 
   barChartData: ChartData<'bar'> = { labels: [], datasets: [] };
-  barChartOptions: ChartOptions<'bar'> = {
-    responsive: true,
-    plugins: { legend: { display: false } },
-    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
-  };
+  barChartOptions: ChartOptions<'bar'> = this.buildBarOptions(false);
 
   constructor(
     private authService: AuthService,
     private blockchain: BlockchainService,
     private vehicleService: VehicleService,
+    private themeService: ThemeService,
     private cdr: ChangeDetectorRef
   ) {
     this.currentUser = this.authService.currentUserValue;
   }
 
   ngOnInit(): void {
-    this.subs.add(this.blockchain.connected$.subscribe(v => { this.isConnected = v; this.cdr.detectChanges(); }));
+    this.subs.add(this.blockchain.connected$.subscribe(v => {
+      this.isConnected = v;
+      this.cdr.detectChanges();
+    }));
+    this.subs.add(this.themeService.dark$.subscribe(isDark => {
+      this.applyTheme(isDark);
+      this.cdr.detectChanges();
+    }));
     this.loadStats();
     this.loadActivityFeed();
   }
@@ -89,18 +83,99 @@ export class ManufacturerDashboardComponent implements OnInit, OnDestroy {
     this.subs.unsubscribe();
   }
 
+  private applyTheme(isDark: boolean): void {
+    this.pieChartOptions      = this.buildPieOptions(isDark);
+    this.warrantyChartOptions = this.buildDoughnutOptions(isDark);
+    this.lineChartOptions     = this.buildLineOptions(isDark);
+    this.barChartOptions      = this.buildBarOptions(isDark);
+    if (this.stats) this.buildCharts(this.stats, isDark);
+  }
+
+  private scaleColors(isDark: boolean) {
+    return {
+      grid:   { color: isDark ? 'rgba(30,41,59,0.7)' : 'rgba(226,232,240,0.8)' },
+      ticks:  { color: isDark ? '#94a3b8' : '#64748b' },
+      border: { color: isDark ? '#1e293b' : '#e2e8f0' },
+    };
+  }
+
+  private tooltipStyle(isDark: boolean) {
+    return {
+      backgroundColor: isDark ? '#1e293b' : '#ffffff',
+      titleColor:      isDark ? '#f1f5f9' : '#0f172a',
+      bodyColor:       isDark ? '#94a3b8' : '#374151',
+      borderColor:     isDark ? '#334155' : '#e2e8f0',
+      borderWidth:     1,
+      padding:         10,
+    };
+  }
+
+  private legendStyle(isDark: boolean) {
+    return { color: isDark ? '#cbd5e1' : '#374151', font: { size: 12 as const } };
+  }
+
+  private buildPieOptions(isDark: boolean): ChartOptions<'pie'> {
+    return {
+      responsive: true,
+      plugins: {
+        legend:  { position: 'bottom', labels: this.legendStyle(isDark) },
+        tooltip: this.tooltipStyle(isDark),
+      },
+    };
+  }
+
+  private buildDoughnutOptions(isDark: boolean): ChartOptions<'doughnut'> {
+    return {
+      responsive: true,
+      cutout: '65%',
+      plugins: {
+        legend:  { position: 'bottom', labels: this.legendStyle(isDark) },
+        tooltip: this.tooltipStyle(isDark),
+      },
+    };
+  }
+
+  private buildLineOptions(isDark: boolean): ChartOptions<'line'> {
+    const sc = this.scaleColors(isDark);
+    return {
+      responsive: true,
+      plugins: {
+        legend:  { display: false },
+        tooltip: this.tooltipStyle(isDark),
+      },
+      scales: {
+        x: { grid: sc.grid, ticks: sc.ticks, border: sc.border },
+        y: { beginAtZero: true, ticks: { ...sc.ticks, stepSize: 1 }, grid: sc.grid, border: sc.border },
+      },
+    };
+  }
+
+  private buildBarOptions(isDark: boolean): ChartOptions<'bar'> {
+    const sc = this.scaleColors(isDark);
+    return {
+      responsive: true,
+      plugins: {
+        legend:  { display: false },
+        tooltip: this.tooltipStyle(isDark),
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: sc.ticks, border: sc.border },
+        y: { beginAtZero: true, ticks: { ...sc.ticks, stepSize: 1 }, grid: sc.grid, border: sc.border },
+      },
+    };
+  }
+
   private loadStats(): void {
     this.vehicleService.getDashboardStats().subscribe({
       next: s => {
         this.stats = s;
         this.statsLoading = false;
-        this.buildCharts(s);
+        this.buildCharts(s, this.themeService.isDark);
         this.cdr.detectChanges();
       },
       error: () => {
-        // Fall back to basic stats if extended endpoint unavailable
         this.vehicleService.getManufacturerStats().subscribe({
-          next: s => { this.stats = s as DashboardStats; this.statsLoading = false; this.cdr.detectChanges(); },
+          next: s  => { this.stats = s as DashboardStats; this.statsLoading = false; this.cdr.detectChanges(); },
           error: () => { this.statsLoading = false; this.statsError = true; this.cdr.detectChanges(); }
         });
       }
@@ -109,25 +184,25 @@ export class ManufacturerDashboardComponent implements OnInit, OnDestroy {
 
   private loadActivityFeed(): void {
     this.vehicleService.getActivityFeed().subscribe({
-      next: res => { this.activityFeed = res.feed || []; this.activityLoading = false; this.cdr.detectChanges(); },
-      error: () => { this.activityLoading = false; this.cdr.detectChanges(); }
+      next: res  => { this.activityFeed = res.feed || []; this.activityLoading = false; this.cdr.detectChanges(); },
+      error: ()  => { this.activityLoading = false; this.cdr.detectChanges(); }
     });
   }
 
   activityIcon(type: string): string {
-    if (type === 'registration') return 'M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.056 2.056 0 0 0-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 0 0-10.026 0 1.106 1.106 0 0 0-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12';
+    if (type === 'registration')   return 'M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.056 2.056 0 0 0-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 0 0-10.026 0 1.106 1.106 0 0 0-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12';
     if (type === 'warranty_claim') return 'M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z';
     return 'M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z';
   }
 
   activityColor(type: string): string {
-    if (type === 'registration') return '#3B82F6';
+    if (type === 'registration')   return '#3B82F6';
     if (type === 'warranty_claim') return '#10B981';
     return '#F59E0B';
   }
 
   activityLabel(type: string): string {
-    if (type === 'registration') return 'Vehicle Registered';
+    if (type === 'registration')   return 'Vehicle Registered';
     if (type === 'warranty_claim') return 'Warranty Claim';
     return 'Service Disputed';
   }
@@ -135,18 +210,19 @@ export class ManufacturerDashboardComponent implements OnInit, OnDestroy {
   formatActivityTime(ts: string | null): string {
     if (!ts) return '—';
     try {
-      const d = new Date(ts);
-      const now = new Date();
+      const d    = new Date(ts);
+      const now  = new Date();
       const diff = Math.floor((now.getTime() - d.getTime()) / 1000);
-      if (diff < 60) return 'just now';
-      if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+      if (diff < 60)    return 'just now';
+      if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`;
       if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
       return `${Math.floor(diff / 86400)}d ago`;
     } catch { return '—'; }
   }
 
-  private buildCharts(s: DashboardStats): void {
-    // Pie: service type distribution
+  private buildCharts(s: DashboardStats, isDark: boolean): void {
+    const expiredColor = isDark ? '#334155' : '#E5E7EB';
+
     if (s.service_type_distribution) {
       const entries = Object.entries(s.service_type_distribution);
       this.pieChartData = {
@@ -161,40 +237,35 @@ export class ManufacturerDashboardComponent implements OnInit, OnDestroy {
       };
     }
 
-    // Doughnut: warranty coverage
-    const active  = s.active_warranties  ?? 0;
-    const expired = (s.total_vehicles ?? 0) - active;
+    const active  = s.active_warranties ?? 0;
+    const expired = Math.max(0, (s.total_vehicles ?? 0) - active);
     this.warrantyChartData = {
       labels: ['Active', 'Expired / No Warranty'],
-      datasets: [{ data: [active, Math.max(0, expired)], backgroundColor: ['#1D9E75', '#E5E7EB'] }]
+      datasets: [{ data: [active, expired], backgroundColor: ['#1D9E75', expiredColor] }]
     };
 
-    // Line: warranty claim trend (last 6 months)
     if (s.warranty_claim_trend?.length) {
       this.lineChartData = {
         labels: s.warranty_claim_trend.map(p => p.month),
         datasets: [{
-          data: s.warranty_claim_trend.map(p => p.count),
-          borderColor: '#3B82F6',
-          backgroundColor: 'rgba(59,130,246,0.1)',
-          fill: true,
-          tension: 0.35,
-          pointRadius: 4,
+          data:               s.warranty_claim_trend.map(p => p.count),
+          borderColor:        '#3B82F6',
+          backgroundColor:    isDark ? 'rgba(59,130,246,0.15)' : 'rgba(59,130,246,0.08)',
+          fill:               true,
+          tension:            0.35,
+          pointRadius:        4,
           pointBackgroundColor: '#3B82F6',
         }]
       };
     }
 
-    // Bar: top service centres by submissions
     if (s.top_service_centers?.length) {
       this.barChartData = {
         labels: s.top_service_centers.map(sc => sc.label),
         datasets: [{
-          data: s.top_service_centers.map(sc => sc.submissions),
-          backgroundColor: s.top_service_centers.map(sc =>
-            sc.flagged ? '#EF4444' : '#1D9E75'
-          ),
-          borderRadius: 4,
+          data:            s.top_service_centers.map(sc => sc.submissions),
+          backgroundColor: s.top_service_centers.map(sc => sc.flagged ? '#EF4444' : '#1D9E75'),
+          borderRadius:    4,
         }]
       };
     }
