@@ -114,6 +114,9 @@ class ServiceMetadata(db.Model):
     disputed = db.Column(db.Boolean, default=False, nullable=False)
     rebuttal_notes = db.Column(db.Text, nullable=True)
     rebuttal_submitted_at = db.Column(db.DateTime, nullable=True)
+    resolution_decision = db.Column(db.String(20), nullable=True)  # approved | rejected | modified
+    resolution_notes = db.Column(db.Text, nullable=True)
+    resolved_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def to_dict(self) -> dict:
@@ -129,6 +132,9 @@ class ServiceMetadata(db.Model):
             'service_notes': self.service_notes,
             'photos': self.photos,
             'disputed': self.disputed,
+            'resolution_decision': self.resolution_decision,
+            'resolution_notes': self.resolution_notes,
+            'resolved_at': self.resolved_at.isoformat() if self.resolved_at else None,
         }
 
 
@@ -140,6 +146,9 @@ class WarrantyClaimMetadata(db.Model):
     claim_hash = db.Column(db.String(66), nullable=False, unique=True)
     issue_description = db.Column(db.Text)
     photos = db.Column(db.JSON)
+    status = db.Column(db.String(20), default='pending', nullable=False)  # pending | approved | denied
+    approved_at = db.Column(db.DateTime, nullable=True)
+    approved_notes = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def to_dict(self) -> dict:
@@ -149,6 +158,9 @@ class WarrantyClaimMetadata(db.Model):
             'claim_hash': self.claim_hash,
             'issue_description': self.issue_description,
             'photos': self.photos,
+            'status': self.status,
+            'approved_at': self.approved_at.isoformat() if self.approved_at else None,
+            'approved_notes': self.approved_notes,
             'created_at': self.created_at.isoformat()
         }
 

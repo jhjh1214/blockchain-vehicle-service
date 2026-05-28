@@ -25,3 +25,14 @@ def create(vin: str, metadata_hash: str, service_type: str, service_date: dateti
     db.session.add(record)
     db.session.commit()
     return record
+
+
+def update_resolution(metadata_hash: str, decision: str, notes: str) -> ServiceMetadata | None:
+    record = find_by_metadata_hash(metadata_hash)
+    if not record:
+        return None
+    record.resolution_decision = decision
+    record.resolution_notes = notes
+    record.resolved_at = datetime.utcnow()
+    db.session.commit()
+    return record

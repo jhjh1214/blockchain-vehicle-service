@@ -83,11 +83,23 @@ def resolve_dispute(vin: str, record_index: int, decision: int,
                     resolution_notes: str, from_address: str) -> dict:
     resolution_hash = compute_string_hash(resolution_notes or '')
     result = service_log.resolve_dispute(vin, record_index, decision, resolution_hash, from_address)
+    decision_label = {1: 'approved', 2: 'rejected', 3: 'modify'}.get(decision, 'rejected')
+
+    # Persist resolution to DB via metadata_hash from chain record
+    try:
+        pending = service_log.get_pending_services(vin)
+        if record_index < len(pending):
+            meta_hash = pending[record_index].get('metadata_hash', '')
+            if meta_hash:
+                service_repo.update_resolution(meta_hash, decision_label, resolution_notes or '')
+    except Exception as exc:
+        logger.warning('Could not persist resolution for VIN %s index %d: %s', vin, record_index, exc)
+
     return {
         'message': 'Dispute resolved successfully',
         'vin': vin,
         'record_index': record_index,
-        'decision': {1: 'approved', 2: 'rejected', 3: 'modify'}.get(decision, 'rejected'),
+        'decision': decision_label,
         'transaction': result
     }
 
@@ -106,6 +118,9 @@ def _enrich_records(records: list) -> list:
                 'photos': metadata.photos or [],
                 'rebuttal_notes': metadata.rebuttal_notes,
                 'rebuttal_submitted_at': metadata.rebuttal_submitted_at.isoformat() if metadata.rebuttal_submitted_at else None,
+                'resolution_decision': metadata.resolution_decision,
+                'resolution_notes': metadata.resolution_notes,
+                'resolved_at': metadata.resolved_at.isoformat() if metadata.resolved_at else None,
             }
     return records
 

@@ -19,7 +19,7 @@ export class VehicleService {
   }
 
   getMyVehicles(): Observable<{ vehicles: MyVehicle[], count: number }> {
-    return this.http.get<{ vehicles: MyVehicle[], count: number }>(`${environment.apiUrl}/vehicle/my-vehicles`);
+    return this.http.get<{ vehicles: MyVehicle[], count: number }>(`${environment.apiUrl}/vehicle/owner/vehicles`);
   }
 
   transferVehicle(vin: string, newOwnerEmail: string): Observable<any> {

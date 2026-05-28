@@ -72,7 +72,10 @@ def get_claims(vin: str) -> list:
         if metadata:
             claim['metadata'] = {
                 'issue_description': metadata.issue_description,
-                'photos': metadata.photos or []
+                'photos': metadata.photos or [],
+                'status': metadata.status,
+                'approved_at': metadata.approved_at.isoformat() if metadata.approved_at else None,
+                'approved_notes': metadata.approved_notes,
             }
     return claims
 
@@ -88,13 +91,15 @@ def get_owner_claims(owner_address: str) -> list:
         for idx, claim in enumerate(claims):
             metadata = warranty_repo.find_by_claim_hash(claim['claim_details_hash'])
             issue_description = ''
+            db_status = 'pending'
             if metadata:
                 issue_description = metadata.issue_description or ''
+                db_status = metadata.status or 'pending'
             all_claims.append({
                 'vin': mapping.vin,
                 'claim_index': idx,
                 'issue_description': issue_description,
-                'status': claim.get('status', 'pending'),
+                'status': db_status,
                 'denial_reason': None,
                 'submitted_at': claim.get('timestamp', 0),
                 'make': mapping.make,
@@ -104,8 +109,14 @@ def get_owner_claims(owner_address: str) -> list:
     return all_claims
 
 
-def approve_claim(vin: str, claim_index: int, from_address: str) -> dict:
+def approve_claim(vin: str, claim_index: int, from_address: str, notes: str = '') -> dict:
     result = warranty_tracker.approve_claim(vin, claim_index, from_address)
+    # Persist status to DB: look up the claim by index
+    claims = warranty_tracker.get_claims(vin)
+    if claim_index < len(claims):
+        claim_hash = claims[claim_index].get('claim_details_hash', '')
+        if claim_hash:
+            warranty_repo.update_status(claim_hash, 'approved', notes or None)
     return {
         'message': 'Warranty claim approved',
         'vin': vin,
@@ -117,6 +128,12 @@ def approve_claim(vin: str, claim_index: int, from_address: str) -> dict:
 def deny_claim(vin: str, claim_index: int, reason: str, from_address: str) -> dict:
     reason_hash = compute_string_hash(reason or '')
     result = warranty_tracker.deny_claim(vin, claim_index, reason_hash, from_address)
+    # Persist status to DB: look up the claim by index
+    claims = warranty_tracker.get_claims(vin)
+    if claim_index < len(claims):
+        claim_hash = claims[claim_index].get('claim_details_hash', '')
+        if claim_hash:
+            warranty_repo.update_status(claim_hash, 'denied', reason or None)
     return {
         'message': 'Warranty claim denied',
         'vin': vin,
