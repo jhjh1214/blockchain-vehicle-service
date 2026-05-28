@@ -154,17 +154,17 @@
 
               <!-- SC rebuttal -->
               @if (record.metadata?.rebuttal_notes) {
-                <div class="info-box" style="margin-bottom:12px;border-left-color:#2563eb;background:#eff6ff;">
-                  <strong style="color:#1d4ed8;">Service Centre Rebuttal:</strong>
+                <div class="info-box" style="margin-bottom:12px;border-left-color:var(--color-primary);background:var(--color-primary-light);">
+                  <strong style="color:var(--color-primary);">Service Centre Rebuttal:</strong>
                   <span style="margin-left:4px;">{{ record.metadata?.rebuttal_notes }}</span>
                   @if (record.metadata?.rebuttal_submitted_at) {
-                    <div style="font-size:11px;color:#64748b;margin-top:4px;">
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
                       Submitted {{ record.metadata?.rebuttal_submitted_at | date:'d MMM y, HH:mm' }}
                     </div>
                   }
                 </div>
               } @else {
-                <div style="font-size:12px;color:#94a3b8;margin-bottom:12px;font-style:italic;">
+                <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;font-style:italic;">
                   No rebuttal submitted by service centre yet.
                 </div>
               }

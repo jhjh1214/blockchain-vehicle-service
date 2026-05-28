@@ -162,8 +162,8 @@
                         </div>
                         @if (record.disputed && record.dispute_reason) {
                           <div class="detail-panel-item" style="grid-column: span 3;">
-                            <div class="detail-panel-label" style="color:#dc2626;">Dispute Reason</div>
-                            <div class="detail-panel-value" style="color:#dc2626;">{{ record.dispute_reason }}</div>
+                            <div class="detail-panel-label" style="color:var(--color-danger);">Dispute Reason</div>
+                            <div class="detail-panel-value" style="color:var(--color-danger);">{{ record.dispute_reason }}</div>
                           </div>
                         }
                       </div>
@@ -206,7 +206,7 @@
 
             <!-- Existing rebuttal -->
             @if (record.metadata?.rebuttal_notes) {
-              <div style="padding:10px 12px;background:#f0fdf4;border-left:3px solid #16a34a;border-radius:4px;font-size:13px;margin-bottom:8px;">
+              <div style="padding:10px 12px;background:var(--color-success-light);border-left:3px solid var(--color-success);border-radius:4px;font-size:13px;margin-bottom:8px;color:var(--text);">
                 <strong>Your rebuttal:</strong> {{ record.metadata?.rebuttal_notes }}
               </div>
             }

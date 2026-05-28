@@ -565,6 +565,17 @@ a:hover {
   border-color: #991b1b;
 }
 
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border-color: transparent;
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text);
+  border-color: var(--border);
+}
+
 .btn-sm {
   padding: 6px 13px;
   font-size: 12.5px;
@@ -1551,6 +1562,30 @@ tbody tr:hover {
 
 [data-theme="dark"] .btn-logout:hover {
   background: rgba(248, 113, 113, 0.1);
+}
+
+/* ── Button dark-mode corrections ────────────────────────── */
+/* Primary: --color-primary-dark in dark mode is a LIGHTER blue — avoid invisible white text */
+[data-theme="dark"] .btn-primary:hover:not(:disabled) {
+  background: #0284c7;
+  border-color: #0284c7;
+  color: #fff;
+}
+
+/* Danger: --color-danger in dark mode is #f87171 (light red) — poor contrast with white */
+[data-theme="dark"] .btn-danger {
+  background: #dc2626;
+  border-color: #dc2626;
+}
+[data-theme="dark"] .btn-danger:hover:not(:disabled) {
+  background: #b91c1c;
+  border-color: #b91c1c;
+}
+
+/* Success: hover darkens to hardcoded light green in dark mode — keep white text readable */
+[data-theme="dark"] .btn-success:hover:not(:disabled) {
+  background: #15803d;
+  border-color: #15803d;
 }
 
 [data-theme="dark"] .stat-card:hover {
