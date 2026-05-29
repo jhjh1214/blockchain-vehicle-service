@@ -98,6 +98,14 @@ def submit_service():
             photos=data.get('photos', []),
             from_address=request.user['blockchain_address']
         )
+        # Notify owner about the new pending service record
+        from db.repositories import users as user_repo
+        from core.notifications import notify_new_pending_service
+        owner_mapping = vehicle_repo.find_by_vin(vin)
+        if owner_mapping and owner_mapping.owner_address:
+            owner = user_repo.find_by_blockchain_address(owner_mapping.owner_address)
+            if owner:
+                notify_new_pending_service(owner.id, vin, service_type)
         return jsonify(result), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500

@@ -126,6 +126,7 @@ def approve_claim():
 
     try:
         result = warranty_service.approve_claim(vin, claim_index, request.user['blockchain_address'])
+        _notify_warranty(vin, 'approved')
         return jsonify(result), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -162,9 +163,23 @@ def deny_claim():
             reason=reason,
             from_address=request.user['blockchain_address']
         )
+        _notify_warranty(vin, 'denied')
         return jsonify(result), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+def _notify_warranty(vin: str, status: str) -> None:
+    try:
+        from db.repositories import vehicles as vehicle_repo, users as user_repo
+        from core.notifications import notify_warranty_claim_update
+        mapping = vehicle_repo.find_by_vin(vin)
+        if mapping and mapping.owner_address:
+            owner = user_repo.find_by_blockchain_address(mapping.owner_address)
+            if owner:
+                notify_warranty_claim_update(owner.id, vin, status)
+    except Exception:
+        pass
 
 
 @warranty_bp.route('/owner/claims', methods=['GET'])

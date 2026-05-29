@@ -4,6 +4,7 @@ import '../../core/api/api_client.dart';
 import '../../core/api/api_endpoints.dart';
 import '../../core/models/user.dart';
 import '../../core/storage/token_storage.dart';
+import '../../core/services/push_notification_service.dart';
 
 class AuthProvider extends ChangeNotifier {
   User? _user;
@@ -36,6 +37,7 @@ class AuthProvider extends ChangeNotifier {
       }
       _user = user;
       notifyListeners();
+      PushNotificationService.instance.init();
     } catch (_) {
       await TokenStorage.clear();
     }
@@ -50,6 +52,7 @@ class AuthProvider extends ChangeNotifier {
           data: {'email': email, 'password': password});
       await TokenStorage.save(res.data['access_token'], res.data['refresh_token']);
       _user = User.fromJson(res.data['user']);
+      PushNotificationService.instance.init();
       return true;
     } on DioException catch (e) {
       _error = e.response?.data['error'] ?? 'Login failed';
