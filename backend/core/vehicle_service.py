@@ -143,14 +143,15 @@ def _service_stats(vin: str) -> dict:
     from datetime import datetime as _dt
     from db.models import ServiceMetadata
     last = (ServiceMetadata.query
-            .filter_by(vin=vin, verified=True)
+            .filter_by(vin=vin)
             .order_by(ServiceMetadata.service_date.desc())
             .first())
     if last and last.service_date:
         try:
-            last_dt = _dt.fromisoformat(last.service_date)
-            days = (datetime.utcnow() - last_dt).days
-            return {'last_service_date': last.service_date, 'days_since_service': days,
+            last_dt = (last.service_date if isinstance(last.service_date, _dt)
+                       else _dt.fromisoformat(str(last.service_date)))
+            days = max(0, (datetime.utcnow() - last_dt.replace(tzinfo=None)).days)
+            return {'last_service_date': last_dt.isoformat(), 'days_since_service': days,
                     'last_service_mileage': last.mileage}
         except (ValueError, TypeError):
             pass

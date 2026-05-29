@@ -118,7 +118,11 @@ def client(app):
 # ---------------------------------------------------------------------------
 def _wipe_db(app):
     with app.app_context():
-        from db.models import db, User, ServiceMetadata, WarrantyClaimMetadata, VehicleVINMapping, RefreshToken, DeviceToken
+        from db.models import (db, User, ServiceMetadata, WarrantyClaimMetadata,
+                                VehicleVINMapping, RefreshToken, DeviceToken,
+                                DisputeMessage, PasswordResetToken)
+        db.session.query(DisputeMessage).delete()
+        db.session.query(PasswordResetToken).delete()
         db.session.query(ServiceMetadata).delete()
         db.session.query(WarrantyClaimMetadata).delete()
         db.session.query(VehicleVINMapping).delete()

@@ -453,3 +453,105 @@ class TestWarrantyClaimMetadataModel:
             record = WarrantyClaimMetadata.query.filter_by(vin=VIN).first()
             assert record.status == 'pending'
             assert record.approved_at is None
+
+
+# ---------------------------------------------------------------------------
+# Vehicle detail — service stats (last_service_date, days_since_service, etc.)
+# ---------------------------------------------------------------------------
+
+class TestVehicleDetailServiceStats:
+    def test_vehicle_detail_includes_service_stat_keys(self, client):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        owner_token, owner = register_and_login(client, 'OWNER')
+        _register_vehicle(client, mfr_token, owner_email=owner['email'])
+        r = client.get(f'/api/vehicle/{VIN}', headers=auth(owner_token))
+        assert r.status_code == 200
+        data = r.get_json()
+        assert 'last_service_date' in data
+        assert 'days_since_service' in data
+        assert 'last_service_mileage' in data
+
+    def test_service_stats_null_when_no_service_exists(self, client):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        owner_token, owner = register_and_login(client, 'OWNER')
+        _register_vehicle(client, mfr_token, owner_email=owner['email'])
+        r = client.get(f'/api/vehicle/{VIN}', headers=auth(owner_token))
+        data = r.get_json()
+        assert data['last_service_date'] is None
+        assert data['days_since_service'] is None
+        assert data['last_service_mileage'] is None
+
+    def test_service_stats_populated_after_service_submitted(self, client):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        owner_token, owner = register_and_login(client, 'OWNER')
+        _, sc_user = register_and_login(client, 'SERVICE_CENTER')
+        _register_vehicle(client, mfr_token, owner_email=owner['email'])
+        sc_token = _activate_sc(client, mfr_token, sc_user)
+
+        client.post('/api/service/submit', headers=auth(sc_token), json={
+            'vin': VIN, 'service_type': 'Oil Change',
+            'service_date': TODAY, 'mileage': 8000,
+        })
+
+        r = client.get(f'/api/vehicle/{VIN}', headers=auth(owner_token))
+        data = r.get_json()
+        assert data['last_service_date'] is not None
+        assert data['days_since_service'] is not None
+        assert data['last_service_mileage'] == 8000
+
+    def test_days_since_service_is_non_negative(self, client):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        owner_token, owner = register_and_login(client, 'OWNER')
+        _, sc_user = register_and_login(client, 'SERVICE_CENTER')
+        _register_vehicle(client, mfr_token, owner_email=owner['email'])
+        sc_token = _activate_sc(client, mfr_token, sc_user)
+
+        client.post('/api/service/submit', headers=auth(sc_token), json={
+            'vin': VIN, 'service_type': 'Brake Check',
+            'service_date': TODAY, 'mileage': 12000,
+        })
+
+        r = client.get(f'/api/vehicle/{VIN}', headers=auth(owner_token))
+        days = r.get_json()['days_since_service']
+        assert days >= 0
+
+    def test_service_count_in_vehicle_detail(self, client):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        owner_token, owner = register_and_login(client, 'OWNER')
+        _register_vehicle(client, mfr_token, owner_email=owner['email'])
+        r = client.get(f'/api/vehicle/{VIN}', headers=auth(owner_token))
+        assert 'service_count' in r.get_json()
+
+
+# ---------------------------------------------------------------------------
+# Manufacturer dashboard — sc_pending field
+# ---------------------------------------------------------------------------
+
+class TestDashboardSCPending:
+    def test_dashboard_stats_includes_sc_pending(self, client):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        r = client.get('/api/vehicle/dashboard-stats', headers=auth(mfr_token))
+        assert r.status_code == 200
+        assert 'sc_pending' in r.get_json()
+
+    def test_sc_pending_is_zero_with_no_service_centers(self, client):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        r = client.get('/api/vehicle/dashboard-stats', headers=auth(mfr_token))
+        assert r.get_json()['sc_pending'] == 0
+
+    def test_sc_pending_increments_when_sc_registers(self, client):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        register_and_login(client, 'SERVICE_CENTER')  # brand=Honda (same as mfr default)
+        r = client.get('/api/vehicle/dashboard-stats', headers=auth(mfr_token))
+        assert r.get_json()['sc_pending'] >= 1
+
+    def test_sc_pending_decreases_after_activation(self, client):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        _, sc_user = register_and_login(client, 'SERVICE_CENTER')
+        before = client.get('/api/vehicle/dashboard-stats',
+                            headers=auth(mfr_token)).get_json()['sc_pending']
+        client.post(f'/api/sc/service-centers/{sc_user["id"]}/activate',
+                    headers=auth(mfr_token))
+        after = client.get('/api/vehicle/dashboard-stats',
+                           headers=auth(mfr_token)).get_json()['sc_pending']
+        assert after < before
