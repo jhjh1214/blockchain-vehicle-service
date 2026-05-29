@@ -29,7 +29,12 @@ class AuthProvider extends ChangeNotifier {
     if (!hasToken) return;
     try {
       final res = await ApiClient.instance.dio.get(ApiEndpoints.me);
-      _user = User.fromJson(res.data);
+      final user = User.fromJson(res.data);
+      if (user.role != 'OWNER') {
+        await TokenStorage.clear();
+        return;
+      }
+      _user = user;
       notifyListeners();
     } catch (_) {
       await TokenStorage.clear();
@@ -82,12 +87,14 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> logout() async {
-    final refresh = await TokenStorage.getRefreshToken();
     try {
-      await ApiClient.instance.dio
-          .post(ApiEndpoints.logout, data: {'refresh_token': refresh});
+      final refresh = await TokenStorage.getRefreshToken();
+      try {
+        await ApiClient.instance.dio
+            .post(ApiEndpoints.logout, data: {'refresh_token': refresh});
+      } catch (_) {}
+      await TokenStorage.clear();
     } catch (_) {}
-    await TokenStorage.clear();
     _user = null;
     notifyListeners();
   }
