@@ -14,6 +14,7 @@ import '../features/warranties/warranty_claims_screen.dart';
 import '../features/warranties/submit_claim_screen.dart';
 import '../features/profile/profile_screen.dart';
 import '../features/profile/change_password_screen.dart';
+import '../features/services/dispute_chat_screen.dart';
 import 'shell_screen.dart';
 
 GoRouter createRouter(AuthProvider auth) => GoRouter(
@@ -76,6 +77,14 @@ GoRouter createRouter(AuthProvider auth) => GoRouter(
         GoRoute(
           path: '/profile/change-password',
           builder: (_, __) => const ChangePasswordScreen(),
+        ),
+        GoRoute(
+          path: '/services/dispute-chat/:vin/:recordIndex',
+          builder: (_, state) => DisputeChatScreen(
+            vin: state.pathParameters['vin']!,
+            recordIndex: int.parse(state.pathParameters['recordIndex']!),
+            serviceType: state.uri.queryParameters['type'] ?? 'Service',
+          ),
         ),
       ],
       initialLocation: '/login',

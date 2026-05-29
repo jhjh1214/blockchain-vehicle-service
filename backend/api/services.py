@@ -429,3 +429,87 @@ def get_owner_service_history():
         return jsonify({**result, 'service_history': result.pop('items')}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@service_bp.route('/dispute-messages/<vin>/<int:record_index>', methods=['GET'])
+@token_required
+def get_dispute_messages(vin, record_index):
+    try:
+        vin = validate_vin(vin)
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+
+    from db.models import DisputeMessage
+    from db.repositories import vehicles as vehicle_repo
+
+    mapping = vehicle_repo.find_by_vin(vin)
+    role = request.user.get('role')
+    addr = request.user['blockchain_address'].lower()
+    if role == 'OWNER':
+        if not mapping or mapping.owner_address.lower() != addr:
+            return jsonify({'error': 'Access denied'}), 403
+    elif role == 'SERVICE_CENTER':
+        from db.models import ServiceMetadata
+        if not ServiceMetadata.query.filter_by(vin=vin).filter(
+                ServiceMetadata.service_center_address.ilike(addr)).first():
+            return jsonify({'error': 'Access denied'}), 403
+    elif role != 'MANUFACTURER':
+        return jsonify({'error': 'Access denied'}), 403
+
+    messages = (DisputeMessage.query
+                .filter_by(vin=vin, record_index=record_index)
+                .order_by(DisputeMessage.created_at.asc())
+                .all())
+    return jsonify({'messages': [m.to_dict() for m in messages]}), 200
+
+
+@service_bp.route('/dispute-messages', methods=['POST'])
+@token_required
+def post_dispute_message():
+    data = request.get_json() or {}
+    try:
+        vin = validate_vin(data.get('vin', ''))
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    try:
+        record_index = int(data.get('record_index'))
+        if record_index < 0:
+            raise ValueError()
+    except (TypeError, ValueError):
+        return jsonify({'error': 'record_index must be a non-negative integer'}), 400
+
+    message = sanitize(data.get('message', ''), 1000).strip()
+    if not message:
+        return jsonify({'error': 'message required'}), 400
+
+    from db.models import DisputeMessage, ServiceMetadata, db as _db
+    from db.repositories import vehicles as vehicle_repo, users as user_repo
+
+    role = request.user.get('role')
+    addr = request.user['blockchain_address'].lower()
+    mapping = vehicle_repo.find_by_vin(vin)
+
+    if role == 'OWNER':
+        if not mapping or mapping.owner_address.lower() != addr:
+            return jsonify({'error': 'Access denied'}), 403
+    elif role == 'SERVICE_CENTER':
+        if not ServiceMetadata.query.filter_by(vin=vin).filter(
+                ServiceMetadata.service_center_address.ilike(addr)).first():
+            return jsonify({'error': 'Access denied'}), 403
+    elif role != 'MANUFACTURER':
+        return jsonify({'error': 'Access denied'}), 403
+
+    user = user_repo.find_by_blockchain_address(request.user['blockchain_address'])
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+
+    msg = DisputeMessage(
+        vin=vin,
+        record_index=record_index,
+        sender_id=user.id,
+        sender_role=role,
+        message=message,
+    )
+    _db.session.add(msg)
+    _db.session.commit()
+    return jsonify(msg.to_dict()), 201

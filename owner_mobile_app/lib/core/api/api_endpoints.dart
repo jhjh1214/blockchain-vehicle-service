@@ -29,4 +29,9 @@ class ApiEndpoints {
 
   // Export
   static String vehicleExport(String vin) => '/vehicle/export/$vin';
+
+  // Dispute messaging
+  static String disputeMessages(String vin, int recordIndex) =>
+      '/service/dispute-messages/$vin/$recordIndex';
+  static const postDisputeMessage = '/service/dispute-messages';
 }

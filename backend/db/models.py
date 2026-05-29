@@ -202,6 +202,36 @@ class VehicleVINMapping(db.Model):
         }
 
 
+class DisputeMessage(db.Model):
+    __tablename__ = 'dispute_messages'
+
+    id = db.Column(db.Integer, primary_key=True)
+    vin = db.Column(db.String(17), nullable=False, index=True)
+    record_index = db.Column(db.Integer, nullable=False)
+    sender_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    sender_role = db.Column(db.String(20), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    sender = db.relationship('User', backref=db.backref('dispute_messages', lazy=True))
+
+    __table_args__ = (
+        db.Index('ix_dispute_msg_vin_idx', 'vin', 'record_index'),
+    )
+
+    def to_dict(self) -> dict:
+        return {
+            'id': self.id,
+            'vin': self.vin,
+            'record_index': self.record_index,
+            'sender_id': self.sender_id,
+            'sender_name': self.sender.name if self.sender else 'Unknown',
+            'sender_role': self.sender_role,
+            'message': self.message,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+
+
 class PasswordResetToken(db.Model):
     __tablename__ = 'password_reset_tokens'
 

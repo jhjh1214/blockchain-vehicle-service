@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'services_provider.dart';
 import '../../core/models/service_record.dart';
@@ -325,6 +326,20 @@ class _DetailsPanel extends StatelessWidget {
           if (record.disputeReason != null)
             _row('Dispute reason', record.disputeReason!,
                 valueColor: Colors.red.shade700),
+          if (record.isDisputed) ...[
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: () => context.push(
+                '/services/dispute-chat/${record.vin}/${record.recordIndex}'
+                '?type=${Uri.encodeComponent(record.serviceType)}',
+              ),
+              icon: const Icon(Icons.chat_bubble_outline, size: 16),
+              label: const Text('View Dispute Thread'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 36),
+              ),
+            ),
+          ],
           if (record.isVerified && record.metadataHash != null) ...[
             const SizedBox(height: 8),
             const Divider(height: 1),

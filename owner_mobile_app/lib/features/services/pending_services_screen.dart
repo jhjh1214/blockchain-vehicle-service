@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'services_provider.dart';
 import '../../core/models/service_record.dart';
@@ -344,6 +345,18 @@ class _ServiceCard extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: () => context.push(
+                '/services/dispute-chat/${record.vin}/${record.recordIndex}'
+                '?type=${Uri.encodeComponent(record.serviceType)}',
+              ),
+              icon: const Icon(Icons.chat_bubble_outline, size: 16),
+              label: const Text('Dispute Thread'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 36),
+              ),
             ),
           ],
         ),
