@@ -2,7 +2,12 @@ import time
 from flask import Blueprint, request, jsonify
 
 _stats_cache: dict = {}  # {mfr_address: {'data': dict, 'expires': float}}
-_STATS_TTL = 60  # seconds
+_STATS_TTL = 15  # seconds
+
+
+def invalidate_stats_cache() -> None:
+    """Clear all cached dashboard stats (call after SC status changes)."""
+    _stats_cache.clear()
 from api.middleware import token_required, role_required
 from api.utils import sanitize, validate_vin, paginate
 from core import vehicle_service
@@ -91,6 +96,7 @@ def claim_vehicle():
     except ValueError as e:
         return jsonify({'error': str(e)}), 409
     except Exception as e:
+        import logging; logging.getLogger(__name__).exception('claim_vehicle failed')
         return jsonify({'error': str(e)}), 500
 
 

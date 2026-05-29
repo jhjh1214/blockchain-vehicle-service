@@ -2,7 +2,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import '../storage/token_storage.dart';
 
-const String _baseUrl = 'http://10.0.2.2:5000/api';
+const String _baseUrl = 'http://192.168.0.7:5000/api';
 
 class ApiClient {
   static ApiClient? _instance;
@@ -20,9 +20,13 @@ class ApiClient {
 
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
-        final token = await TokenStorage.getAccessToken();
-        if (token != null) {
-          options.headers['Authorization'] = 'Bearer $token';
+        try {
+          final token = await TokenStorage.getAccessToken();
+          if (token != null) {
+            options.headers['Authorization'] = 'Bearer $token';
+          }
+        } catch (_) {
+          // Secure storage unavailable on this device; proceed without token
         }
         handler.next(options);
       },

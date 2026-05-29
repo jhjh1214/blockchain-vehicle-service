@@ -166,6 +166,14 @@ export class ManufacturerDashboardComponent implements OnInit, OnDestroy {
     };
   }
 
+  refresh(): void {
+    this.statsLoading = true;
+    this.activityLoading = true;
+    this.statsError = false;
+    this.loadStats();
+    this.loadActivityFeed();
+  }
+
   private loadStats(): void {
     this.vehicleService.getDashboardStats().subscribe({
       next: s => {

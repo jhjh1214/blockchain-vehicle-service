@@ -1,9 +1,11 @@
+import logging
 from datetime import datetime
 from flask import Blueprint, request, jsonify
 from api.middleware import token_required, role_required
 from api.utils import sanitize, validate_vin, validate_mileage, paginate
 from core import service_log_service
 
+logger = logging.getLogger(__name__)
 service_bp = Blueprint('service', __name__)
 
 
@@ -316,6 +318,7 @@ def get_owner_pending_services():
         result  = paginate(records, request.args)
         return jsonify({**result, 'pending_services': result.pop('items')}), 200
     except Exception as e:
+        logger.exception('Error in get_owner_pending_services')
         return jsonify({'error': str(e)}), 500
 
 
