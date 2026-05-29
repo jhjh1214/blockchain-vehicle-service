@@ -4,6 +4,7 @@ import { authGuard } from './core/guards/auth-guard';
 import { LoginComponent } from './features/auth/login/login';
 import { RegisterComponent } from './features/auth/register/register';
 import { ForgotPasswordComponent } from './features/auth/forgot-password/forgot-password';
+import { ResetPasswordComponent } from './features/auth/reset-password/reset-password';
 
 import { DealerShellComponent } from './shared/shell/dealer-shell';
 import { DashboardComponent } from './features/dealer/dashboard/dashboard';
@@ -27,6 +28,7 @@ export const routes: Routes = [
   { path: 'login', component: LoginComponent },
   { path: 'register', component: RegisterComponent },
   { path: 'forgot-password', component: ForgotPasswordComponent },
+  { path: 'reset-password', component: ResetPasswordComponent },
   { path: 'verify/:vin', component: VerifyComponent },
   { path: 'verify', component: VerifyComponent },
 

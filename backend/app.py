@@ -3,7 +3,7 @@ from flask import Flask, request, jsonify, g
 from flask_cors import CORS
 from config import Config
 from db.models import db
-from extensions import limiter
+from extensions import limiter, mail
 import threading
 
 
@@ -16,6 +16,7 @@ def create_app():
 
     db.init_app(app)
     limiter.init_app(app)
+    mail.init_app(app)
 
     with app.app_context():
         db.create_all()

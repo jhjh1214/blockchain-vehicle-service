@@ -1,3 +1,4 @@
+from datetime import datetime
 from flask import Blueprint, request, jsonify
 from api.middleware import token_required
 from core import auth_service
@@ -145,16 +146,97 @@ def change_password():
 
 
 @auth_bp.route('/forgot-password', methods=['POST'])
+@limiter.limit('5 per minute')
 def forgot_password():
-    """Stub endpoint — always returns 200 to avoid email enumeration."""
     from api.utils import sanitize
+    from config import Config
+    from db.models import db, PasswordResetToken
+    from datetime import timedelta
+    import hashlib
     data = request.get_json() or {}
     email = sanitize(data.get('email', ''), 255).lower().strip()
     if not email or '@' not in email:
         return jsonify({'error': 'A valid email address is required'}), 400
-    # In production: send a password-reset email with a signed token.
-    # Returning 200 unconditionally prevents email enumeration.
+
+    user = user_repo.find_by_email(email)
+    # Always return 200 to prevent email enumeration
+    if user:
+        # Invalidate any existing tokens
+        PasswordResetToken.query.filter_by(user_id=user.id, used=False).update({'used': True})
+        raw_token = PasswordResetToken.generate()
+        token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
+        expiry = datetime.utcnow() + timedelta(minutes=Config.PASSWORD_RESET_EXPIRY_MINUTES)
+        reset_token = PasswordResetToken(user_id=user.id, token_hash=token_hash, expires_at=expiry)
+        db.session.add(reset_token)
+        db.session.commit()
+
+        reset_url = f"{Config.FRONTEND_URL}/reset-password?token={raw_token}"
+        _send_reset_email(user.email, user.name or user.email, reset_url,
+                          Config.PASSWORD_RESET_EXPIRY_MINUTES)
+
     return jsonify({'message': 'If an account with that email exists, reset instructions have been sent.'}), 200
+
+
+def _send_reset_email(to_email: str, name: str, reset_url: str, expiry_minutes: int) -> None:
+    from flask_mail import Message
+    from extensions import mail
+    import logging
+    logger = logging.getLogger(__name__)
+    try:
+        msg = Message(
+            subject='Reset your VehicleChain password',
+            recipients=[to_email],
+        )
+        msg.body = (
+            f"Hi {name},\n\n"
+            f"We received a request to reset your VehicleChain password.\n\n"
+            f"Click the link below to set a new password (valid for {expiry_minutes} minutes):\n\n"
+            f"{reset_url}\n\n"
+            f"If you didn't request this, you can safely ignore this email.\n\n"
+            f"— The VehicleChain Team"
+        )
+        msg.html = (
+            f"<p>Hi {name},</p>"
+            f"<p>We received a request to reset your <strong>VehicleChain</strong> password.</p>"
+            f"<p><a href='{reset_url}' style='background:#1A73E8;color:#fff;padding:10px 20px;"
+            f"border-radius:6px;text-decoration:none;display:inline-block;'>Reset Password</a></p>"
+            f"<p style='color:#666;font-size:13px;'>This link is valid for {expiry_minutes} minutes.</p>"
+            f"<p style='color:#666;font-size:13px;'>If you didn't request this, you can safely ignore this email.</p>"
+        )
+        mail.send(msg)
+    except Exception:
+        logger.exception('Failed to send password reset email to %s', to_email)
+
+
+@auth_bp.route('/reset-password', methods=['POST'])
+@limiter.limit('10 per minute')
+def reset_password():
+    from api.utils import sanitize
+    from db.models import db, PasswordResetToken
+    import hashlib
+    data = request.get_json() or {}
+    raw_token = (data.get('token') or '').strip()
+    new_pw = data.get('new_password', '')
+    if not raw_token:
+        return jsonify({'error': 'Token is required'}), 400
+    if not new_pw:
+        return jsonify({'error': 'new_password is required'}), 400
+    try:
+        auth_service.validate_password(new_pw)
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+
+    token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
+    reset_token = PasswordResetToken.query.filter_by(token_hash=token_hash).first()
+    if not reset_token or not reset_token.is_valid():
+        return jsonify({'error': 'Invalid or expired reset link. Please request a new one.'}), 400
+
+    user = reset_token.user
+    user.set_password(new_pw)
+    reset_token.used = True
+    db.session.commit()
+    user_repo.revoke_all_refresh_tokens(user.id)
+    return jsonify({'message': 'Password reset successfully. Please log in with your new password.'}), 200
 
 
 @auth_bp.route('/device-token', methods=['POST'])

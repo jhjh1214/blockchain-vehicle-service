@@ -43,6 +43,22 @@ class Config:
         'http://localhost:4200,http://localhost:3000'
     )
 
+    # Flask-Mail (SMTP) configuration
+    MAIL_SERVER = os.getenv('MAIL_SERVER', 'smtp.gmail.com')
+    MAIL_PORT = int(os.getenv('MAIL_PORT', '587'))
+    MAIL_USE_TLS = os.getenv('MAIL_USE_TLS', 'true').lower() == 'true'
+    MAIL_USE_SSL = os.getenv('MAIL_USE_SSL', 'false').lower() == 'true'
+    MAIL_USERNAME = os.getenv('MAIL_USERNAME', '')
+    MAIL_PASSWORD = os.getenv('MAIL_PASSWORD', '')
+    MAIL_DEFAULT_SENDER = os.getenv('MAIL_DEFAULT_SENDER', MAIL_USERNAME)
+    MAIL_SUPPRESS_SEND = os.getenv('MAIL_SUPPRESS_SEND', 'false').lower() == 'true'
+
+    # Frontend base URL used in email links
+    FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:4200')
+
+    # How long (minutes) a password-reset token stays valid
+    PASSWORD_RESET_EXPIRY_MINUTES = int(os.getenv('PASSWORD_RESET_EXPIRY_MINUTES', '60'))
+
     @classmethod
     def validate(cls):
         """Check for insecure defaults.

@@ -200,3 +200,23 @@ class VehicleVINMapping(db.Model):
             'warranty_expiry': self.warranty_expiry,
             'created_at': self.created_at.isoformat()
         }
+
+
+class PasswordResetToken(db.Model):
+    __tablename__ = 'password_reset_tokens'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    token_hash = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    used = db.Column(db.Boolean, default=False, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship('User', backref=db.backref('reset_tokens', lazy=True, cascade='all, delete-orphan'))
+
+    @staticmethod
+    def generate() -> str:
+        return secrets.token_urlsafe(48)
+
+    def is_valid(self) -> bool:
+        return not self.used and self.expires_at > datetime.utcnow()
