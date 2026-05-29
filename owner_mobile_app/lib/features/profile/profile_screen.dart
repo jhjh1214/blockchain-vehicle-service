@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../auth/auth_provider.dart';
+import '../../core/models/user.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -11,6 +12,7 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  User? _cachedUser;
   bool _editMode = false;
   final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
@@ -82,14 +84,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
     if (confirm == true && mounted) {
       await context.read<AuthProvider>().logout();
-      if (mounted) context.go('/login');
+      // go_router's refreshListenable handles redirect to /login automatically
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
-    final user = auth.user;
+    // Keep a cached copy so the profile stays visible during the logout
+    // transition (one frame between notifyListeners and router redirect).
+    if (auth.user != null) _cachedUser = auth.user;
+    final user = _cachedUser;
     if (user == null) return const SizedBox.shrink();
 
     return Scaffold(

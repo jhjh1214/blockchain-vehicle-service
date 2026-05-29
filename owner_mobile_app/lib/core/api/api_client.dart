@@ -51,6 +51,8 @@ class ApiClient {
     return _instance!;
   }
 
+  static String get baseUrl => _baseUrl;
+
   Dio get dio => _dio;
 
   // ignore: invalid_use_of_visible_for_testing_member

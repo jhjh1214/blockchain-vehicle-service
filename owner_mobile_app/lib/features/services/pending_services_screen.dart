@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'services_provider.dart';
 import '../../core/models/service_record.dart';
+import '../../core/api/api_client.dart';
 import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/error_view.dart';
-
-const _uploadBase = 'http://10.0.2.2:5000/api/upload/files';
 
 class PendingServicesScreen extends StatefulWidget {
   const PendingServicesScreen({super.key});
@@ -216,7 +215,7 @@ class _ServiceCard extends StatelessWidget {
                   itemCount: record.photos.length,
                   separatorBuilder: (_, __) => const SizedBox(width: 8),
                   itemBuilder: (ctx, i) {
-                    final url = '$_uploadBase/${record.photos[i]}';
+                    final url = '${ApiClient.baseUrl}/upload/files/${record.photos[i]}';
                     return GestureDetector(
                       onTap: () => _showPhotoDialog(ctx, url),
                       child: ClipRRect(

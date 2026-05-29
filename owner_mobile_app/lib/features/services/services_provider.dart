@@ -50,25 +50,51 @@ class ServicesProvider extends ChangeNotifier {
   }
 
   Future<String?> verifyService(String vin, int recordIndex) async {
+    _loading = true;
+    _error = null;
+    notifyListeners();
     try {
       await ApiClient.instance.dio.post(ApiEndpoints.ownerVerifyService,
           data: {'vin': vin, 'record_index': recordIndex});
       await loadPending();
       return null;
     } on DioException catch (e) {
-      return e.response?.data['error'] ?? 'Failed to verify service';
+      _loading = false;
+      notifyListeners();
+      return _dioError(e, 'Failed to verify service');
+    } catch (_) {
+      _loading = false;
+      notifyListeners();
+      return 'Failed to verify service';
     }
   }
 
   Future<String?> disputeService(
       String vin, int recordIndex, String reason) async {
+    _loading = true;
+    _error = null;
+    notifyListeners();
     try {
       await ApiClient.instance.dio.post(ApiEndpoints.ownerDisputeService,
           data: {'vin': vin, 'record_index': recordIndex, 'reason': reason});
       await loadPending();
       return null;
     } on DioException catch (e) {
-      return e.response?.data['error'] ?? 'Failed to dispute service';
+      _loading = false;
+      notifyListeners();
+      return _dioError(e, 'Failed to dispute service');
+    } catch (_) {
+      _loading = false;
+      notifyListeners();
+      return 'Failed to dispute service';
+    }
+  }
+
+  static String _dioError(DioException e, String fallback) {
+    try {
+      return (e.response?.data as Map?)?['error'] as String? ?? fallback;
+    } catch (_) {
+      return fallback;
     }
   }
 }

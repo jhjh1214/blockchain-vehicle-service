@@ -48,9 +48,12 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen>
       final bytes = await ApiClient.instance.downloadBytes(
         ApiEndpoints.vehicleExport(widget.vin),
       );
+      if (!mounted) return;
       final dir = await getTemporaryDirectory();
+      if (!mounted) return;
       final file = File('${dir.path}/VehicleChain_${widget.vin}.pdf');
       await file.writeAsBytes(bytes);
+      if (!mounted) return;
       await OpenFile.open(file.path);
     } catch (_) {
       if (mounted) {
