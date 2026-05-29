@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:provider/provider.dart';
 import 'vehicles_provider.dart';
 
@@ -43,6 +44,16 @@ class _ClaimVehicleScreenState extends State<ClaimVehicleScreen> {
     }
   }
 
+  Future<void> _scanQr() async {
+    final result = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(builder: (_) => const _QrScannerScreen()),
+    );
+    if (result != null && mounted) {
+      _vinCtrl.text = result.toUpperCase();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -65,10 +76,15 @@ class _ClaimVehicleScreenState extends State<ClaimVehicleScreen> {
               TextFormField(
                 controller: _vinCtrl,
                 textCapitalization: TextCapitalization.characters,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Vehicle Identification Number (VIN)',
                   hintText: 'e.g. 1HGBH41JXMN109186',
-                  prefixIcon: Icon(Icons.tag),
+                  prefixIcon: const Icon(Icons.tag),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.qr_code_scanner),
+                    tooltip: 'Scan VIN barcode',
+                    onPressed: _scanQr,
+                  ),
                 ),
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return 'VIN required';
@@ -76,7 +92,13 @@ class _ClaimVehicleScreenState extends State<ClaimVehicleScreen> {
                   return null;
                 },
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: _scanQr,
+                icon: const Icon(Icons.qr_code_scanner),
+                label: const Text('Scan VIN Barcode / QR Code'),
+              ),
+              const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: _loading ? null : _submit,
                 child: _loading
@@ -90,6 +112,58 @@ class _ClaimVehicleScreenState extends State<ClaimVehicleScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _QrScannerScreen extends StatefulWidget {
+  const _QrScannerScreen();
+
+  @override
+  State<_QrScannerScreen> createState() => _QrScannerScreenState();
+}
+
+class _QrScannerScreenState extends State<_QrScannerScreen> {
+  bool _scanned = false;
+
+  void _onDetect(BarcodeCapture capture) {
+    if (_scanned) return;
+    final barcode = capture.barcodes.firstOrNull;
+    final raw = barcode?.rawValue;
+    if (raw == null || raw.isEmpty) return;
+    _scanned = true;
+    Navigator.pop(context, raw);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Scan VIN')),
+      body: Stack(
+        children: [
+          MobileScanner(onDetect: _onDetect),
+          Center(
+            child: Container(
+              width: 260,
+              height: 100,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.white, width: 2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+          const Positioned(
+            bottom: 40,
+            left: 0,
+            right: 0,
+            child: Text(
+              'Align barcode or QR code within the frame',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white, fontSize: 14),
+            ),
+          ),
+        ],
       ),
     );
   }

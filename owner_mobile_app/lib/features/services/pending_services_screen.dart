@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'services_provider.dart';
@@ -14,12 +15,23 @@ class PendingServicesScreen extends StatefulWidget {
 }
 
 class _PendingServicesScreenState extends State<PendingServicesScreen> {
+  Timer? _refreshTimer;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ServicesProvider>().loadPending();
     });
+    _refreshTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+      if (mounted) context.read<ServicesProvider>().loadPending();
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _verify(ServiceRecord record) async {
@@ -30,26 +42,55 @@ class _PendingServicesScreenState extends State<PendingServicesScreen> {
       confirmColor: Colors.green,
     );
     if (!confirm || !mounted) return;
-    final error = await context
+    final result = await context
         .read<ServicesProvider>()
         .verifyService(record.vin, record.recordIndex);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(error ?? 'Service verified'),
-      backgroundColor: error != null ? Colors.red : Colors.green,
-    ));
+    if (result.isSuccess) {
+      _showTxSnackBar('Service verified', result.txHash, Colors.green);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(result.error!),
+        backgroundColor: Colors.red,
+      ));
+    }
   }
 
   Future<void> _dispute(ServiceRecord record) async {
     final reason = await _showDisputeDialog();
     if (reason == null || !mounted) return;
-    final error = await context
+    final result = await context
         .read<ServicesProvider>()
         .disputeService(record.vin, record.recordIndex, reason);
     if (!mounted) return;
+    if (result.isSuccess) {
+      _showTxSnackBar('Service disputed', result.txHash, Colors.orange);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(result.error!),
+        backgroundColor: Colors.red,
+      ));
+    }
+  }
+
+  void _showTxSnackBar(String message, String? txHash, Color color) {
+    final short = txHash != null && txHash.length > 14
+        ? '${txHash.substring(0, 8)}…${txHash.substring(txHash.length - 6)}'
+        : txHash;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(error ?? 'Service disputed'),
-      backgroundColor: error != null ? Colors.red : Colors.orange,
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(message),
+          if (short != null)
+            Text('TX: $short',
+                style: const TextStyle(
+                    fontSize: 11, fontFamily: 'monospace', color: Colors.white70)),
+        ],
+      ),
+      backgroundColor: color,
+      duration: const Duration(seconds: 5),
     ));
   }
 

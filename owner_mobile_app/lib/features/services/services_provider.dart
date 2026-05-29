@@ -49,44 +49,56 @@ class ServicesProvider extends ChangeNotifier {
     }
   }
 
-  Future<String?> verifyService(String vin, int recordIndex) async {
+  Future<ServiceOpResult> verifyService(String vin, int recordIndex) async {
     _loading = true;
     _error = null;
     notifyListeners();
     try {
-      await ApiClient.instance.dio.post(ApiEndpoints.ownerVerifyService,
+      final res = await ApiClient.instance.dio.post(
+          ApiEndpoints.ownerVerifyService,
           data: {'vin': vin, 'record_index': recordIndex});
+      final txHash = _extractTxHash(res.data);
       await loadPending();
-      return null;
+      return ServiceOpResult(txHash: txHash);
     } on DioException catch (e) {
       _loading = false;
       notifyListeners();
-      return _dioError(e, 'Failed to verify service');
+      return ServiceOpResult(error: _dioError(e, 'Failed to verify service'));
     } catch (_) {
       _loading = false;
       notifyListeners();
-      return 'Failed to verify service';
+      return ServiceOpResult(error: 'Failed to verify service');
     }
   }
 
-  Future<String?> disputeService(
+  Future<ServiceOpResult> disputeService(
       String vin, int recordIndex, String reason) async {
     _loading = true;
     _error = null;
     notifyListeners();
     try {
-      await ApiClient.instance.dio.post(ApiEndpoints.ownerDisputeService,
+      final res = await ApiClient.instance.dio.post(
+          ApiEndpoints.ownerDisputeService,
           data: {'vin': vin, 'record_index': recordIndex, 'reason': reason});
+      final txHash = _extractTxHash(res.data);
       await loadPending();
-      return null;
+      return ServiceOpResult(txHash: txHash);
     } on DioException catch (e) {
       _loading = false;
       notifyListeners();
-      return _dioError(e, 'Failed to dispute service');
+      return ServiceOpResult(error: _dioError(e, 'Failed to dispute service'));
     } catch (_) {
       _loading = false;
       notifyListeners();
-      return 'Failed to dispute service';
+      return ServiceOpResult(error: 'Failed to dispute service');
+    }
+  }
+
+  static String? _extractTxHash(dynamic data) {
+    try {
+      return (data as Map?)?['transaction']?['tx_hash'] as String?;
+    } catch (_) {
+      return null;
     }
   }
 
@@ -97,4 +109,11 @@ class ServicesProvider extends ChangeNotifier {
       return fallback;
     }
   }
+}
+
+class ServiceOpResult {
+  final String? error;
+  final String? txHash;
+  const ServiceOpResult({this.error, this.txHash});
+  bool get isSuccess => error == null;
 }

@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../auth/auth_provider.dart';
 import '../../core/models/user.dart';
+import '../../shared/theme/theme_provider.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -188,6 +189,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   title: const Text('Change Password'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => context.push('/profile/change-password'),
+                ),
+                const Divider(height: 1),
+                Consumer<ThemeProvider>(
+                  builder: (ctx, theme, _) => SwitchListTile(
+                    secondary: Icon(
+                      theme.isDark ? Icons.dark_mode : Icons.light_mode,
+                    ),
+                    title: const Text('Dark Mode'),
+                    value: theme.isDark,
+                    onChanged: (_) => theme.toggle(),
+                  ),
                 ),
                 const Divider(height: 1),
                 ListTile(

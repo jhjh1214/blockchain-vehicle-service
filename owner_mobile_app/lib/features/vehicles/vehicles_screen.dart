@@ -6,6 +6,7 @@ import '../services/services_provider.dart';
 import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/error_view.dart';
 import '../../shared/theme/app_theme.dart';
+import '../../core/models/vehicle.dart';
 
 class VehiclesScreen extends StatefulWidget {
   const VehiclesScreen({super.key});
@@ -123,29 +124,61 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
                   style: const TextStyle(fontWeight: FontWeight.w600)),
               subtitle: Text('VIN: ${v.vin}',
                   style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
-              trailing: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Icon(
-                    v.warrantyValid ? Icons.verified : Icons.shield_outlined,
-                    color: v.warrantyValid ? AppColors.success : Colors.grey,
-                    size: 20,
-                  ),
-                  Text(
-                    v.warrantyValid ? 'Warranty' : 'No warranty',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: v.warrantyValid ? AppColors.success : Colors.grey,
-                    ),
-                  ),
-                ],
-              ),
+              trailing: _WarrantyBadge(vehicle: v),
               onTap: () => context.push('/vehicles/${v.vin}'),
             ),
           );
         },
       ),
+    );
+  }
+}
+
+class _WarrantyBadge extends StatelessWidget {
+  final Vehicle vehicle;
+  const _WarrantyBadge({required this.vehicle});
+
+  @override
+  Widget build(BuildContext context) {
+    if (!vehicle.warrantyValid) {
+      return Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: const [
+          Icon(Icons.shield_outlined, color: Colors.grey, size: 20),
+          Text('No warranty',
+              style: TextStyle(fontSize: 11, color: Colors.grey)),
+        ],
+      );
+    }
+    final expiry = vehicle.warrantyExpiry;
+    if (expiry != null) {
+      final daysLeft = DateTime.fromMillisecondsSinceEpoch(expiry * 1000)
+          .difference(DateTime.now())
+          .inDays;
+      if (daysLeft <= 30 && daysLeft >= 0) {
+        return Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            const Icon(Icons.warning_amber_rounded,
+                color: Colors.amber, size: 20),
+            Text(
+              daysLeft == 0 ? 'Expires today' : 'Expires in $daysLeft d',
+              style: const TextStyle(fontSize: 11, color: Colors.amber),
+            ),
+          ],
+        );
+      }
+    }
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: const [
+        Icon(Icons.verified, color: AppColors.success, size: 20),
+        Text('Warranty',
+            style: TextStyle(fontSize: 11, color: AppColors.success)),
+      ],
     );
   }
 }

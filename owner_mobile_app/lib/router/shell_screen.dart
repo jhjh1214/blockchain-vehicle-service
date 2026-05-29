@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import '../features/services/services_provider.dart';
 
 class ShellScreen extends StatelessWidget {
   final Widget child;
@@ -21,18 +23,30 @@ class ShellScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final index = _currentIndex(context);
+    final pendingCount = context.watch<ServicesProvider>().pending.length;
     return Scaffold(
       body: child,
       bottomNavigationBar: NavigationBar(
         selectedIndex: index < 0 ? 0 : index,
         onDestinationSelected: (i) => context.go(_tabs[i].path),
-        destinations: _tabs
-            .map((t) => NavigationDestination(
-                  icon: Icon(t.icon),
-                  selectedIcon: Icon(t.activeIcon),
-                  label: t.label,
-                ))
-            .toList(),
+        destinations: [
+          for (final t in _tabs)
+            NavigationDestination(
+              icon: t.path == '/services/pending' && pendingCount > 0
+                  ? Badge(
+                      label: Text('$pendingCount'),
+                      child: Icon(t.icon),
+                    )
+                  : Icon(t.icon),
+              selectedIcon: t.path == '/services/pending' && pendingCount > 0
+                  ? Badge(
+                      label: Text('$pendingCount'),
+                      child: Icon(t.activeIcon),
+                    )
+                  : Icon(t.activeIcon),
+              label: t.label,
+            ),
+        ],
       ),
     );
   }
