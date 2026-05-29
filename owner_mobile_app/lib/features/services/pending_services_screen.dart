@@ -138,8 +138,8 @@ class _PendingServicesScreenState extends State<PendingServicesScreen> {
     if (provider.pending.isEmpty) {
       return const EmptyState(
         icon: Icons.check_circle_outline,
-        title: 'No pending services',
-        subtitle: 'All services have been reviewed',
+        title: 'Nothing to review',
+        subtitle: 'You\'re all caught up. When a service centre logs a new service record for your vehicle, it will appear here for your approval.',
       );
     }
     return RefreshIndicator(

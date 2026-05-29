@@ -181,9 +181,14 @@ def submit_dispute_response():
     if not sm.disputed:
         return jsonify({'error': 'Record is not disputed'}), 400
 
-    sm.rebuttal_notes = rebuttal
-    sm.rebuttal_submitted_at = datetime.utcnow()
-    _db.session.commit()
+    try:
+        sm.rebuttal_notes = rebuttal
+        sm.rebuttal_submitted_at = datetime.utcnow()
+        _db.session.commit()
+    except Exception:
+        _db.session.rollback()
+        logger.exception('Failed to save rebuttal')
+        return jsonify({'error': 'Failed to save rebuttal. Please try again.'}), 500
 
     return jsonify({'message': 'Rebuttal submitted successfully', 'vin': vin}), 200
 
@@ -215,7 +220,11 @@ def escalate_dispute():
         return jsonify({'message': 'Record already escalated', 'vin': vin}), 200
 
     from db.repositories import services as service_repo
-    service_repo.set_escalated(metadata_hash)
+    try:
+        service_repo.set_escalated(metadata_hash)
+    except Exception:
+        logger.exception('Failed to escalate dispute')
+        return jsonify({'error': 'Failed to escalate dispute. Please try again.'}), 500
 
     return jsonify({
         'message': 'Dispute escalated successfully',

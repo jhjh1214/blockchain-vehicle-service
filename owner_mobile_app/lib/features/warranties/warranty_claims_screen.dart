@@ -51,10 +51,15 @@ class _WarrantyClaimsScreenState extends State<WarrantyClaimsScreen> {
           onRetry: () => context.read<WarrantiesProvider>().loadClaims());
     }
     if (provider.claims.isEmpty) {
-      return const EmptyState(
+      return EmptyState(
         icon: Icons.shield_outlined,
-        title: 'No warranty claims',
-        subtitle: 'Submit a claim from a vehicle\'s detail page',
+        title: 'No warranty claims yet',
+        subtitle: 'Open a vehicle, go to the Warranty tab, and tap Submit Warranty Claim.',
+        action: OutlinedButton.icon(
+          onPressed: () => context.go('/home'),
+          icon: const Icon(Icons.directions_car_outlined),
+          label: const Text('Go to My Vehicles'),
+        ),
       );
     }
     return RefreshIndicator(

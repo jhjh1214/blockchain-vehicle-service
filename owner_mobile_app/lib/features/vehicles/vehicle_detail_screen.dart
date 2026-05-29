@@ -258,7 +258,19 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen>
   }
 
   Widget _buildEligibilityChecklist() {
-    if (_eligibility == null) return const SizedBox.shrink();
+    if (_eligibility == null) {
+      return const Card(
+        child: Padding(
+          padding: EdgeInsets.all(14),
+          child: Row(children: [
+            Icon(Icons.info_outline, size: 16, color: Colors.grey),
+            SizedBox(width: 8),
+            Text('Eligibility check unavailable',
+                style: TextStyle(fontSize: 13, color: Colors.grey)),
+          ]),
+        ),
+      );
+    }
     final warrantyValid = _eligibility!['valid'] as bool? ?? false;
     final hasHistory = _eligibility!['service_history_maintained'] as bool? ?? false;
     final serviceCount = _eligibility!['service_record_count'] as int? ?? 0;

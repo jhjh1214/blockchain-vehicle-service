@@ -51,8 +51,8 @@ class _ServiceHistoryScreenState extends State<ServiceHistoryScreen> {
     if (provider.history.isEmpty) {
       return const EmptyState(
         icon: Icons.history,
-        title: 'No service history',
-        subtitle: 'Completed service records will appear here',
+        title: 'No service history yet',
+        subtitle: 'Once a service centre submits a record and you verify or dispute it, it will appear here.',
       );
     }
     return RefreshIndicator(
