@@ -1,7 +1,19 @@
 """Tests for all 15 security / logic fixes (Group L)."""
+import hashlib
+import hmac
 import time
 import pytest
 from conftest import register_and_login, auth, STRONG_PASSWORD
+
+
+def _admin_headers(secret: str) -> dict:
+    ts = str(int(time.time()))
+    sig = hmac.new(secret.encode(), ts.encode(), hashlib.sha256).hexdigest()
+    return {
+        'X-Admin-Secret': secret,
+        'X-Admin-Timestamp': ts,
+        'X-Admin-Signature': sig,
+    }
 
 VIN  = '1HGCM82633A004352'
 VIN2 = '2HGCM82633A004352'
@@ -47,7 +59,7 @@ class TestAdminResetDbSecret:
         Config.ADMIN_SECRET = 'test-admin-secret'
         try:
             r = client.post('/api/admin/reset-db',
-                            headers={'X-Admin-Secret': 'test-admin-secret'})
+                            headers=_admin_headers('test-admin-secret'))
             assert r.status_code == 200
         finally:
             Config.ADMIN_SECRET = original

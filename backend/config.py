@@ -56,6 +56,9 @@ class Config:
     # Frontend base URL used in email links
     FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:4200')
 
+    # Set USE_HTTPS=true in production to enable HSTS header
+    USE_HTTPS = os.getenv('USE_HTTPS', 'false').lower() == 'true'
+
     # How long (minutes) a password-reset token stays valid
     PASSWORD_RESET_EXPIRY_MINUTES = int(os.getenv('PASSWORD_RESET_EXPIRY_MINUTES', '60'))
 

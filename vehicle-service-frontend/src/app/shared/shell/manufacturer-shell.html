@@ -1,4 +1,10 @@
 <div class="layout-root">
+  @if (showInactivityWarning) {
+    <div class="inactivity-banner" role="alert" aria-live="assertive">
+      <span>You will be logged out in 5 minutes due to inactivity.</span>
+      <button (click)="inactivity.dismissWarning()" aria-label="Dismiss inactivity warning">Stay logged in</button>
+    </div>
+  }
   @if (routeLoading) {
     <div class="route-progress-bar"></div>
   }

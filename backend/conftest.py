@@ -120,7 +120,8 @@ def _wipe_db(app):
     with app.app_context():
         from db.models import (db, User, ServiceMetadata, WarrantyClaimMetadata,
                                 VehicleVINMapping, RefreshToken, DeviceToken,
-                                DisputeMessage, PasswordResetToken)
+                                DisputeMessage, PasswordResetToken, AuditLog)
+        db.session.query(AuditLog).delete()
         db.session.query(DisputeMessage).delete()
         db.session.query(PasswordResetToken).delete()
         db.session.query(ServiceMetadata).delete()

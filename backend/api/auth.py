@@ -2,6 +2,7 @@ from datetime import datetime
 from flask import Blueprint, request, jsonify
 from api.middleware import token_required
 from core import auth_service
+from core.audit import log_event
 from db.repositories import users as user_repo
 from extensions import limiter
 
@@ -47,6 +48,7 @@ def login():
         user, access_token, refresh_token = auth_service.login_user(
             data['email'], data['password']
         )
+        log_event('login_success', user_id=user.id, detail={'email': data['email']})
         return jsonify({
             'message': 'Login successful',
             'access_token': access_token,
@@ -55,6 +57,7 @@ def login():
         }), 200
     except ValueError as e:
         msg = str(e)
+        log_event('login_failure', detail={'email': data.get('email'), 'reason': msg})
         status = 423 if 'locked' in msg.lower() else 401
         return jsonify({'error': msg}), status
 
@@ -142,6 +145,7 @@ def change_password():
     from db.models import db
     db.session.commit()
     user_repo.revoke_all_refresh_tokens(user.id)
+    log_event('password_changed', user_id=user.id)
     return jsonify({'message': 'Password changed. Please log in again.'}), 200
 
 
@@ -236,6 +240,7 @@ def reset_password():
     reset_token.used = True
     db.session.commit()
     user_repo.revoke_all_refresh_tokens(user.id)
+    log_event('password_reset', user_id=user.id)
     return jsonify({'message': 'Password reset successfully. Please log in with your new password.'}), 200
 
 

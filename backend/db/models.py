@@ -250,3 +250,28 @@ class PasswordResetToken(db.Model):
 
     def is_valid(self) -> bool:
         return not self.used and self.expires_at > datetime.utcnow()
+
+
+class AuditLog(db.Model):
+    __tablename__ = 'audit_logs'
+
+    id = db.Column(db.Integer, primary_key=True)
+    # Who performed the action (None = unauthenticated / anonymous)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    event = db.Column(db.String(64), nullable=False, index=True)
+    # free-form JSON blob: VIN, IP, extra context
+    detail = db.Column(db.JSON, nullable=True)
+    ip_address = db.Column(db.String(45), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+    user = db.relationship('User', backref=db.backref('audit_logs', lazy=True))
+
+    def to_dict(self) -> dict:
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'event': self.event,
+            'detail': self.detail,
+            'ip_address': self.ip_address,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }

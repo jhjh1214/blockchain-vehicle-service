@@ -15,6 +15,14 @@ class ServiceHistoryScreen extends StatefulWidget {
 }
 
 class _ServiceHistoryScreenState extends State<ServiceHistoryScreen> {
+  String _statusFilter = 'all';
+
+  static const _filterLabels = {
+    'all': 'All',
+    'verified': 'Verified',
+    'disputed': 'Disputed',
+  };
+
   @override
   void initState() {
     super.initState();
@@ -56,15 +64,81 @@ class _ServiceHistoryScreenState extends State<ServiceHistoryScreen> {
         subtitle: 'Once a service centre submits a record and you verify or dispute it, it will appear here.',
       );
     }
-    return RefreshIndicator(
-      onRefresh: () => context.read<ServicesProvider>().loadHistory(),
-      child: ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-        itemCount: provider.history.length,
-        itemBuilder: (context, i) => _TimelineItem(
-          record: provider.history[i],
-          isLast: i == provider.history.length - 1,
+
+    final filtered = _statusFilter == 'all'
+        ? provider.history
+        : provider.history.where((r) => r.status == _statusFilter).toList();
+
+    return Column(
+      children: [
+        _FilterChips(
+          selected: _statusFilter,
+          labels: _filterLabels,
+          onSelected: (v) => setState(() => _statusFilter = v),
         ),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: () => context.read<ServicesProvider>().loadHistory(),
+            child: filtered.isEmpty
+                ? ListView(
+                    children: const [
+                      Padding(
+                        padding: EdgeInsets.all(40),
+                        child: Center(child: Text('No records match this filter.')),
+                      )
+                    ],
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                    itemCount: filtered.length,
+                    itemBuilder: (context, i) => _TimelineItem(
+                      record: filtered[i],
+                      isLast: i == filtered.length - 1,
+                    ),
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FilterChips extends StatelessWidget {
+  final String selected;
+  final Map<String, String> labels;
+  final ValueChanged<String> onSelected;
+
+  const _FilterChips({
+    required this.selected,
+    required this.labels,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: labels.entries.map((entry) {
+          final isSelected = selected == entry.key;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Semantics(
+              label: '${entry.value} filter',
+              selected: isSelected,
+              child: FilterChip(
+                label: Text(entry.value),
+                selected: isSelected,
+                onSelected: (_) => onSelected(entry.key),
+                selectedColor: colorScheme.primaryContainer,
+                checkmarkColor: colorScheme.onPrimaryContainer,
+              ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }

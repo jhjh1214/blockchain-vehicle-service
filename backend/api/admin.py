@@ -18,10 +18,37 @@ admin_bp = Blueprint('admin', __name__)
 @admin_bp.route('/reset-db', methods=['POST'])
 @limiter.limit('5 per minute')
 def reset_db():
-    """Wipe all DB tables (drop+recreate) and keep only the deployer key in the keystore."""
+    """Wipe all DB tables (drop+recreate) and keep only the deployer key in the keystore.
+
+    Callers must supply both X-Admin-Secret and a time-based HMAC signature to
+    prevent simple secret replay attacks:
+      X-Admin-Timestamp : Unix seconds (string), must be within ±30 s of server time
+      X-Admin-Signature : hex( HMAC-SHA256( ADMIN_SECRET, timestamp ) )
+    """
+    import hashlib, hmac, time as _time
+
     secret = request.headers.get('X-Admin-Secret', '')
     if not Config.ADMIN_SECRET or secret != Config.ADMIN_SECRET:
         return jsonify({'error': 'Unauthorized'}), 401
+
+    timestamp_str = request.headers.get('X-Admin-Timestamp', '')
+    signature     = request.headers.get('X-Admin-Signature', '')
+    try:
+        ts = int(timestamp_str)
+    except (TypeError, ValueError):
+        return jsonify({'error': 'X-Admin-Timestamp header required (Unix seconds)'}), 401
+
+    if abs(_time.time() - ts) > 30:
+        return jsonify({'error': 'Request timestamp expired or too far in the future'}), 401
+
+    expected = hmac.new(
+        Config.ADMIN_SECRET.encode(),
+        timestamp_str.encode(),
+        hashlib.sha256
+    ).hexdigest()
+    if not hmac.compare_digest(expected, signature):
+        return jsonify({'error': 'Invalid request signature'}), 401
+
     try:
         db.drop_all()
         db.create_all()

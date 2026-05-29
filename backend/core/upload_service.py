@@ -6,9 +6,25 @@ UPLOAD_FOLDER = 'uploads/'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf'}
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB per file
 
+# Magic bytes (file signatures) for allowed types — defence against extension spoofing
+_MAGIC_SIGNATURES = [
+    (b'\xff\xd8\xff', 'image/jpeg'),        # JPEG
+    (b'\x89PNG\r\n\x1a\n', 'image/png'),    # PNG
+    (b'GIF87a', 'image/gif'),               # GIF87
+    (b'GIF89a', 'image/gif'),               # GIF89
+    (b'%PDF-', 'application/pdf'),           # PDF
+]
+
 
 def _allowed_file(filename: str) -> bool:
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def _check_magic_bytes(file) -> bool:
+    """Read the first 8 bytes and confirm they match a known safe file type."""
+    header = file.read(8)
+    file.seek(0)
+    return any(header.startswith(sig) for sig, _ in _MAGIC_SIGNATURES)
 
 
 def save_file(file, user_id: int) -> dict:
@@ -16,6 +32,8 @@ def save_file(file, user_id: int) -> dict:
         raise ValueError('No file selected')
     if not _allowed_file(file.filename):
         raise ValueError('Invalid file type. Allowed: png, jpg, jpeg, gif, pdf')
+    if not _check_magic_bytes(file):
+        raise ValueError('File content does not match its extension')
 
     file.seek(0, 2)
     size = file.tell()

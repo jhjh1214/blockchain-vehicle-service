@@ -91,8 +91,8 @@ def create_app():
         response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
         response.headers['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=()'
         response.headers['Content-Security-Policy'] = "default-src 'none'; frame-ancestors 'none'"
-        # Enable once HTTPS is in place:
-        # response.headers['Strict-Transport-Security'] = 'max-age=63072000; includeSubDomains; preload'
+        if Config.USE_HTTPS:
+            response.headers['Strict-Transport-Security'] = 'max-age=63072000; includeSubDomains; preload'
         return response
 
     # ── Rate limit error handler ─────────────────────────────
@@ -153,6 +153,10 @@ def create_app():
     from blockchain.event_monitor import init_event_monitor
     monitor_thread = threading.Thread(target=init_event_monitor, args=(app,), daemon=True)
     monitor_thread.start()
+
+    # ── Background scheduler (warranty reminders etc.) ───────
+    from core.scheduler import init_scheduler
+    init_scheduler(app)
 
     return app
 

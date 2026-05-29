@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 from api.middleware import token_required, role_required
 from api.utils import sanitize, validate_vin, paginate
 from core import warranty_service
+from core.audit import log_event
 
 warranty_bp = Blueprint('warranty', __name__)
 
@@ -126,6 +127,8 @@ def approve_claim():
 
     try:
         result = warranty_service.approve_claim(vin, claim_index, request.user['blockchain_address'])
+        log_event('warranty_claim_approved', user_id=request.user.get('user_id'),
+                  detail={'vin': vin, 'claim_index': claim_index})
         _notify_warranty(vin, 'approved')
         return jsonify(result), 200
     except Exception as e:
@@ -163,6 +166,8 @@ def deny_claim():
             reason=reason,
             from_address=request.user['blockchain_address']
         )
+        log_event('warranty_claim_denied', user_id=request.user.get('user_id'),
+                  detail={'vin': vin, 'claim_index': claim_index})
         _notify_warranty(vin, 'denied')
         return jsonify(result), 200
     except Exception as e:

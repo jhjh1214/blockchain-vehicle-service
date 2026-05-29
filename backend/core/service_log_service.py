@@ -236,7 +236,7 @@ def _flatten_owner_record(record, index: int, mapping, sc_user_cache=None) -> di
     }
 
 
-def get_owner_finalized_services(owner_address: str) -> list:
+def get_owner_finalized_services(owner_address: str, filters: dict = None) -> list:
     vin_hashes = vehicle_registry.get_owned_vehicles(owner_address)
     collected = []
     for vin_hash in vin_hashes:
@@ -265,7 +265,36 @@ def get_owner_finalized_services(owner_address: str) -> list:
     if not collected:
         return []
     sc_user_cache = _load_sc_user_cache([r for r, _, _ in collected])
-    return [_flatten_owner_record(r, idx, m, sc_user_cache) for r, idx, m in collected]
+    results = [_flatten_owner_record(r, idx, m, sc_user_cache) for r, idx, m in collected]
+    if filters:
+        results = _apply_filters(results, filters)
+    return results
+
+
+def _apply_filters(records: list, filters: dict) -> list:
+    status     = (filters.get('status') or '').strip().lower()
+    svc_type   = (filters.get('service_type') or '').strip().lower()
+    date_from  = filters.get('date_from')
+    date_to    = filters.get('date_to')
+
+    def _keep(r):
+        if status and r.get('status', '').lower() != status:
+            return False
+        if svc_type and svc_type not in (r.get('service_type') or '').lower():
+            return False
+        svc_date_str = r.get('service_date') or ''
+        if svc_date_str and (date_from or date_to):
+            try:
+                svc_date = datetime.fromisoformat(svc_date_str[:10])
+                if date_from and svc_date < datetime.fromisoformat(date_from):
+                    return False
+                if date_to and svc_date > datetime.fromisoformat(date_to):
+                    return False
+            except (ValueError, TypeError):
+                pass
+        return True
+
+    return [r for r in records if _keep(r)]
 
 
 def get_owner_pending_services(owner_address: str) -> list:

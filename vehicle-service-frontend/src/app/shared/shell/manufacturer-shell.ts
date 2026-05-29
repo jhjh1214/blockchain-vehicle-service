@@ -5,6 +5,7 @@ import { Subscription } from 'rxjs';
 import { AuthService } from '../../core/services/auth';
 import { BlockchainService } from '../../core/services/blockchain.service';
 import { ThemeService } from '../../core/services/theme.service';
+import { InactivityService } from '../../core/services/inactivity.service';
 import { User } from '../../core/models/user.model';
 
 @Component({
@@ -20,6 +21,7 @@ export class ManufacturerShellComponent implements OnInit, OnDestroy {
   isDark = false;
   sidebarOpen = false;
   routeLoading = false;
+  showInactivityWarning = false;
 
   private subs = new Subscription();
 
@@ -27,7 +29,8 @@ export class ManufacturerShellComponent implements OnInit, OnDestroy {
     private authService: AuthService,
     private router: Router,
     private blockchain: BlockchainService,
-    private theme: ThemeService
+    private theme: ThemeService,
+    readonly inactivity: InactivityService,
   ) {}
 
   ngOnInit(): void {
@@ -40,6 +43,8 @@ export class ManufacturerShellComponent implements OnInit, OnDestroy {
         if (e instanceof NavigationEnd || e instanceof NavigationCancel || e instanceof NavigationError) this.routeLoading = false;
       })
     );
+    this.subs.add(this.inactivity.showWarning$.subscribe(v => this.showInactivityWarning = v));
+    this.inactivity.start();
   }
 
   get initials(): string {
@@ -52,11 +57,13 @@ export class ManufacturerShellComponent implements OnInit, OnDestroy {
   closeSidebar(): void { this.sidebarOpen = false; }
 
   logout(): void {
+    this.inactivity.stop();
     this.authService.logout();
     this.router.navigate(['/login']);
   }
 
   ngOnDestroy(): void {
+    this.inactivity.stop();
     this.subs.unsubscribe();
   }
 }

@@ -58,4 +58,13 @@ export class ServiceService {
       metadata_hash: metadataHash
     });
   }
+
+  getOwnerHistory(filters?: { status?: string; service_type?: string; date_from?: string; date_to?: string }): Observable<{ service_history: ServiceRecord[]; count: number }> {
+    let params: Record<string, string> = {};
+    if (filters?.status)       params['status']       = filters.status;
+    if (filters?.service_type) params['service_type'] = filters.service_type;
+    if (filters?.date_from)    params['date_from']    = filters.date_from;
+    if (filters?.date_to)      params['date_to']      = filters.date_to;
+    return this.http.get<any>(`${environment.apiUrl}/service/owner/history`, { params });
+  }
 }

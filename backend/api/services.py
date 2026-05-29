@@ -4,6 +4,7 @@ from flask import Blueprint, request, jsonify
 from api.middleware import token_required, role_required
 from api.utils import sanitize, validate_vin, validate_mileage, paginate
 from core import service_log_service
+from core.audit import log_event
 
 logger = logging.getLogger(__name__)
 service_bp = Blueprint('service', __name__)
@@ -131,6 +132,8 @@ def verify_service():
         return jsonify({'error': 'You do not own this vehicle'}), 403
     try:
         result = service_log_service.verify_service(vin, record_index, request.user['blockchain_address'])
+        log_event('service_verified', user_id=request.user.get('user_id'),
+                  detail={'vin': vin, 'record_index': record_index})
         return jsonify(result), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -159,6 +162,8 @@ def dispute_service():
         return jsonify({'error': 'You do not own this vehicle'}), 403
     try:
         result = service_log_service.dispute_service(vin, record_index, reason, request.user['blockchain_address'])
+        log_event('service_disputed', user_id=request.user.get('user_id'),
+                  detail={'vin': vin, 'record_index': record_index, 'reason': reason[:100]})
         return jsonify(result), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -278,6 +283,8 @@ def resolve_dispute():
             resolution_notes=sanitize(data.get('resolution_notes', ''), 500),
             from_address=request.user['blockchain_address']
         )
+        log_event('dispute_resolved', user_id=request.user.get('user_id'),
+                  detail={'vin': vin, 'record_index': record_index, 'decision': decision_int})
         return jsonify(result), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -423,8 +430,16 @@ def get_sc_pending_records():
 @service_bp.route('/owner/history', methods=['GET'])
 @role_required('OWNER')
 def get_owner_service_history():
+    filters = {
+        'status':       request.args.get('status'),
+        'service_type': request.args.get('service_type'),
+        'date_from':    request.args.get('date_from'),
+        'date_to':      request.args.get('date_to'),
+    }
     try:
-        records = service_log_service.get_owner_finalized_services(request.user['blockchain_address'])
+        records = service_log_service.get_owner_finalized_services(
+            request.user['blockchain_address'], filters=filters
+        )
         result  = paginate(records, request.args)
         return jsonify({**result, 'service_history': result.pop('items')}), 200
     except Exception as e:

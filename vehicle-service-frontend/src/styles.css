@@ -2331,3 +2331,7 @@ tbody tr:hover {
   background-size: 400% 100%;
   animation: shimmer 1.4s ease-in-out infinite;
 }
+
+/* ─── Inactivity warning banner ──────────────────────── */
+.inactivity-banner { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 20px; background:#b45309; color:#fff; font-size:14px; font-weight:500; z-index:1000; }
+.inactivity-banner button { padding:5px 14px; background:#fff; color:#b45309; border:none; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap; }

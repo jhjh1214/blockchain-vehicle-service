@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, send_from_directory
 from api.middleware import token_required
 from core import upload_service
+from extensions import limiter
 
 upload_bp = Blueprint('upload', __name__)
 
@@ -8,6 +9,7 @@ UPLOAD_FOLDER = 'uploads/'
 
 
 @upload_bp.route('/photo', methods=['POST'])
+@limiter.limit('20 per hour')
 @token_required
 def upload_photo():
     if 'file' not in request.files:
@@ -20,6 +22,7 @@ def upload_photo():
 
 
 @upload_bp.route('/photos', methods=['POST'])
+@limiter.limit('20 per hour')
 @token_required
 def upload_multiple_photos():
     if 'files' not in request.files:
