@@ -137,6 +137,7 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen>
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        _ServiceDueBanner(vehicle: v),
         _InfoCard(title: 'Vehicle Information', items: {
           'VIN': v.vin,
           'Make': v.make,
@@ -321,6 +322,84 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen>
                         ? const Color(0xFF374151)
                         : Colors.redAccent))),
       ]),
+    );
+  }
+}
+
+class _ServiceDueBanner extends StatelessWidget {
+  final Vehicle vehicle;
+  const _ServiceDueBanner({required this.vehicle});
+
+  @override
+  Widget build(BuildContext context) {
+    final days = vehicle.daysSinceService;
+    if (vehicle.serviceCount == 0) {
+      return _banner(
+        context,
+        icon: Icons.build_circle_outlined,
+        color: Colors.blue,
+        title: 'Schedule your first service',
+        subtitle: 'No service records yet. Regular maintenance keeps your vehicle covered.',
+      );
+    }
+    if (days != null && days >= 180) {
+      final months = (days / 30).floor();
+      return _banner(
+        context,
+        icon: Icons.warning_amber_rounded,
+        color: Colors.orange,
+        title: 'Service overdue',
+        subtitle: 'Last service was $months months ago. Consider booking a service soon.',
+      );
+    }
+    if (days != null && days >= 150) {
+      return _banner(
+        context,
+        icon: Icons.info_outline,
+        color: Colors.blue,
+        title: 'Service due soon',
+        subtitle: 'Last service was ${(days / 30).floor()} months ago. Consider scheduling soon.',
+      );
+    }
+    return const SizedBox.shrink();
+  }
+
+  Widget _banner(BuildContext context,
+      {required IconData icon,
+      required Color color,
+      required String title,
+      required String subtitle}) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 22),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                        color: color)),
+                const SizedBox(height: 2),
+                Text(subtitle,
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: color.withOpacity(0.8))),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

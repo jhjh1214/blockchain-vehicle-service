@@ -1,5 +1,6 @@
 import logging
 import time
+from datetime import datetime
 from blockchain.adapters.vehicle_registry import vehicle_registry
 from blockchain.utils import vin_to_hex
 from config import Config
@@ -133,8 +134,27 @@ def get_vehicle(vin: str) -> dict:
         },
         'service_count': len(vehicle['service_hashes']),
         'service_hashes': ['0x' + h.hex() if isinstance(h, bytes) else h
-                           for h in vehicle['service_hashes']]
+                           for h in vehicle['service_hashes']],
+        **_service_stats(vin),
     }
+
+
+def _service_stats(vin: str) -> dict:
+    from datetime import datetime as _dt
+    from db.models import ServiceMetadata
+    last = (ServiceMetadata.query
+            .filter_by(vin=vin, verified=True)
+            .order_by(ServiceMetadata.service_date.desc())
+            .first())
+    if last and last.service_date:
+        try:
+            last_dt = _dt.fromisoformat(last.service_date)
+            days = (datetime.utcnow() - last_dt).days
+            return {'last_service_date': last.service_date, 'days_since_service': days,
+                    'last_service_mileage': last.mileage}
+        except (ValueError, TypeError):
+            pass
+    return {'last_service_date': None, 'days_since_service': None, 'last_service_mileage': None}
 
 
 def get_my_vehicles(owner_address: str) -> list:
