@@ -1,12 +1,13 @@
 """APScheduler jobs — started once in app.py after the app is created."""
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
-_REMINDER_DAYS = 30   # send reminder this many days before expiry
-_SEND_HOUR     = 8    # run daily at 08:00
+_REMINDER_DAYS   = 30    # send reminder this many days before expiry
+_SEND_HOUR       = 8     # run daily at 08:00
+_AUDIT_RETAIN_DAYS = 365  # delete audit logs older than this many days
 
 
 def _send_expiry_reminders(app):
@@ -72,6 +73,20 @@ def _send_reminder_email(to_email, name, vin, make, model, expiry_ts):
         logger.exception('failed to send warranty reminder email to %s', to_email)
 
 
+def _purge_old_audit_logs(app):
+    """Delete audit log entries older than _AUDIT_RETAIN_DAYS (PDPA retention policy)."""
+    with app.app_context():
+        try:
+            from db.models import AuditLog, db
+            cutoff = datetime.utcnow() - timedelta(days=_AUDIT_RETAIN_DAYS)
+            deleted = AuditLog.query.filter(AuditLog.created_at < cutoff).delete(synchronize_session=False)
+            db.session.commit()
+            if deleted:
+                logger.info('Purged %d audit log entries older than %d days', deleted, _AUDIT_RETAIN_DAYS)
+        except Exception:
+            logger.exception('audit log purge job failed')
+
+
 def init_scheduler(app):
     """Start the background scheduler. Called from app.py after app creation."""
     try:
@@ -85,7 +100,14 @@ def init_scheduler(app):
             id='warranty_expiry_reminders',
             replace_existing=True,
         )
+        scheduler.add_job(
+            _purge_old_audit_logs,
+            trigger=CronTrigger(hour=3, minute=0),  # 03:00 UTC daily
+            args=[app],
+            id='audit_log_purge',
+            replace_existing=True,
+        )
         scheduler.start()
-        logger.info('APScheduler started — warranty reminders scheduled at %02d:00 UTC', _SEND_HOUR)
+        logger.info('APScheduler started — warranty reminders at %02d:00 UTC, audit purge at 03:00 UTC', _SEND_HOUR)
     except Exception:
         logger.exception('Failed to start APScheduler')

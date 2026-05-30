@@ -257,6 +257,94 @@ def reset_password():
     return jsonify({'message': 'Password reset successfully. Please log in with your new password.'}), 200
 
 
+@auth_bp.route('/account', methods=['DELETE'])
+@token_required
+def delete_account():
+    """PDPA right to erasure — permanently delete the caller's account and personal data."""
+    data = request.get_json() or {}
+    password = data.get('password', '')
+    if not password:
+        return jsonify({'error': 'Password is required to confirm account deletion'}), 400
+
+    from db.models import db, AuditLog, DisputeMessage, VehicleVINMapping
+
+    user = auth_service.get_user_by_id(request.user['user_id'])
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+
+    if not user.check_password(password):
+        log_event('account_deletion_failed', user_id=user.id, detail={'reason': 'wrong_password'})
+        return jsonify({'error': 'Incorrect password'}), 401
+
+    # Record deletion before wiping the row
+    log_event('account_deleted', user_id=user.id, detail={'email': user.email, 'role': user.role})
+
+    # Erase personal data from audit logs (ip_address, detail) before user row is gone
+    AuditLog.query.filter_by(user_id=user.id).delete(synchronize_session=False)
+
+    # Erase dispute messages authored by this user
+    DisputeMessage.query.filter_by(sender_id=user.id).delete(synchronize_session=False)
+
+    # Clear intended_owner_email on any pending vehicle pre-registrations for this email
+    VehicleVINMapping.query.filter_by(
+        intended_owner_email=user.email
+    ).update({'intended_owner_email': None}, synchronize_session=False)
+
+    # Delete the user — RefreshToken, DeviceToken, PasswordResetToken all CASCADE
+    db.session.delete(user)
+    db.session.commit()
+
+    return jsonify({'message': 'Account and personal data deleted successfully.'}), 200
+
+
+@auth_bp.route('/data-export', methods=['GET'])
+@token_required
+def data_export():
+    """PDPA right of access — return all personal data held about the caller."""
+    from db.models import AuditLog, DisputeMessage, VehicleVINMapping, ServiceMetadata, WarrantyClaimMetadata
+
+    user = auth_service.get_user_by_id(request.user['user_id'])
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+
+    addr = user.blockchain_address.lower() if user.blockchain_address else ''
+
+    export = {
+        'exported_at': datetime.utcnow().isoformat() + 'Z',
+        'profile': user.to_dict(),
+        'audit_logs': [
+            a.to_dict() for a in
+            AuditLog.query.filter_by(user_id=user.id).order_by(AuditLog.created_at.desc()).all()
+        ],
+        'dispute_messages_sent': [
+            m.to_dict() for m in
+            DisputeMessage.query.filter_by(sender_id=user.id).order_by(DisputeMessage.created_at.desc()).all()
+        ],
+    }
+
+    if user.role == 'OWNER':
+        mappings = VehicleVINMapping.query.filter(
+            VehicleVINMapping.owner_address.ilike(addr)
+        ).all()
+        vins = [m.vin for m in mappings]
+        claims = []
+        if vins:
+            claims = WarrantyClaimMetadata.query.filter(
+                WarrantyClaimMetadata.vin.in_(vins)
+            ).order_by(WarrantyClaimMetadata.created_at.desc()).all()
+        export['vehicles'] = [m.to_dict() for m in mappings]
+        export['warranty_claims'] = [c.to_dict() for c in claims]
+
+    elif user.role == 'SERVICE_CENTER':
+        records = ServiceMetadata.query.filter(
+            ServiceMetadata.service_center_address.ilike(addr)
+        ).order_by(ServiceMetadata.created_at.desc()).all()
+        export['service_records_submitted'] = [r.to_dict() for r in records]
+
+    log_event('data_export', user_id=user.id)
+    return jsonify(export), 200
+
+
 @auth_bp.route('/privacy-policy', methods=['GET'])
 def get_privacy_policy():
     """Returns the Privacy Policy text for display in client apps."""
@@ -270,8 +358,8 @@ def get_terms():
 
 
 PRIVACY_POLICY = {
-    'version': '1.0',
-    'effective_date': '2024-01-01',
+    'version': '1.1',
+    'effective_date': '2025-06-01',
     'title': 'Privacy Policy',
     'sections': [
         {
@@ -291,8 +379,11 @@ PRIVACY_POLICY = {
                 '• Account data: password hash (never stored in plain text)\n'
                 '• Vehicle data: VIN numbers, ownership records, service history\n'
                 '• Technical data: blockchain wallet address, device tokens for push notifications\n'
-                '• Usage data: login timestamps, IP addresses (audit logs)\n'
-                '• Consent records: date and time you agreed to this policy'
+                '• Usage data: login timestamps, IP addresses (audit logs, retained for 365 days)\n'
+                '• Consent records: date and time you agreed to this policy\n'
+                '• Media: photos and images you upload with warranty claims or service records. '
+                'These may incidentally contain identifiable information (e.g. licence plates). '
+                'Upload only images directly relevant to your vehicle service or warranty claim.'
             ),
         },
         {
@@ -311,8 +402,8 @@ PRIVACY_POLICY = {
             'heading': 'Legal Basis for Processing',
             'body': (
                 'Under the PDPA 2010, we process your personal data based on:\n'
-                '• Your explicit consent given at registration\n'
-                '• Performance of the contract between you and VehicleChain\n'
+                '• Your explicit consent given at registration (vehicle owners)\n'
+                '• Performance of the contract between you and VehicleChain (all roles)\n'
                 '• Our legitimate interests in operating a secure platform\n'
                 '• Compliance with legal obligations'
             ),
@@ -333,30 +424,44 @@ PRIVACY_POLICY = {
                 'We may share your personal data with:\n'
                 '• Service centres you authorise to submit service records for your vehicle\n'
                 '• Manufacturers who registered your vehicle\n'
-                '• Third-party service providers who assist in operating the platform '
-                '(subject to data processing agreements)\n'
+                '• The following third-party infrastructure providers who process data on our behalf:\n'
+                '  – Railway (cloud hosting, United States) — hosts the application server and database\n'
+                '  – Resend (email delivery, United States) — used to send password reset emails\n'
+                '  – Google Firebase / FCM (push notifications, United States) — used to deliver '
+                'in-app push notifications to mobile devices\n\n'
+                'These providers are bound by their respective data processing agreements and '
+                'privacy policies. By using VehicleChain you consent to the transfer of your '
+                'personal data to these providers, including transfer outside of Malaysia as '
+                'permitted under PDPA 2010 s.129.\n\n'
                 'We do not sell your personal data to third parties.'
             ),
         },
         {
             'heading': 'Data Retention',
             'body': (
-                'We retain your personal data for as long as your account is active. '
-                'If you request account deletion, we will delete your personal data within '
-                '30 days, except where retention is required by law or for legitimate business '
-                'purposes. Blockchain records cannot be deleted due to their immutable nature.'
+                'We retain your personal data for as long as your account is active:\n'
+                '• Account profile and vehicle records: retained until account deletion\n'
+                '• Security audit logs (IP addresses, login events): automatically deleted after 365 days\n'
+                '• Password reset tokens: expire after use or within 60 minutes, then purged automatically\n\n'
+                'If you delete your account via the app, your personal data is erased immediately '
+                'from our database. Blockchain records (VIN hashes, service hashes) cannot be '
+                'deleted due to their immutable nature, but contain no directly identifying information.'
             ),
         },
         {
             'heading': 'Your Rights Under PDPA',
             'body': (
                 'You have the right to:\n'
-                '• Access the personal data we hold about you\n'
-                '• Correct inaccurate or incomplete personal data\n'
-                '• Withdraw consent to processing (note: this may prevent use of the service)\n'
-                '• Request deletion of your personal data (subject to legal restrictions)\n'
-                '• Lodge a complaint with the Personal Data Protection Commissioner of Malaysia\n\n'
-                'To exercise these rights, contact us at privacy@vehiclechain.my'
+                '• Access the personal data we hold about you — use the "Export My Data" feature in the app, '
+                'or call GET /api/auth/data-export\n'
+                '• Correct inaccurate or incomplete personal data — use the Profile screen in the app\n'
+                '• Withdraw consent and delete your account — use the "Delete Account" option in the app '
+                '(DELETE /api/auth/account). Deletion is immediate and irreversible.\n'
+                '• Lodge a complaint with the Personal Data Protection Commissioner of Malaysia '
+                '(www.pdp.gov.my)\n\n'
+                'To exercise your rights or for any privacy-related queries:\n'
+                'Email: privacy@vehiclechain.up.railway.app\n'
+                'Platform: https://vehiclechain.up.railway.app'
             ),
         },
         {
@@ -364,15 +469,16 @@ PRIVACY_POLICY = {
             'body': (
                 'We implement appropriate technical and organisational measures to protect your '
                 'personal data, including encryption at rest, TLS in transit, password hashing '
-                'using bcrypt, rate limiting, and blockchain immutability for audit trails.'
+                'using bcrypt, rate limiting, account lockout after failed attempts, and '
+                'blockchain immutability for service record audit trails.'
             ),
         },
         {
             'heading': 'Contact Us',
             'body': (
                 'For any privacy-related queries or to exercise your rights under PDPA:\n'
-                'Email: privacy@vehiclechain.my\n'
-                'Address: VehicleChain Sdn Bhd, Kuala Lumpur, Malaysia'
+                'Email: privacy@vehiclechain.up.railway.app\n'
+                'Platform: https://vehiclechain.up.railway.app'
             ),
         },
     ],

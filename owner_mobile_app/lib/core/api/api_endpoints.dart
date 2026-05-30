@@ -9,6 +9,8 @@ class ApiEndpoints {
   static const forgotPassword = '/auth/forgot-password';
   static const resetPassword = '/auth/reset-password';
   static const deviceToken = '/auth/device-token';
+  static const deleteAccount = '/auth/account';
+  static const dataExport = '/auth/data-export';
 
   // Vehicles
   static const myVehicles = '/vehicle/owner/vehicles';

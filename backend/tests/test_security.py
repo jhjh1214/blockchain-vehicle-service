@@ -1735,3 +1735,111 @@ class TestVehicleRegistrationDbRollback:
         with app.app_context():
             from db.models import VehicleVINMapping
             assert VehicleVINMapping.query.filter_by(vin=VIN).count() == 1
+
+
+# ---------------------------------------------------------------------------
+# PDPA — account deletion and data export (right of erasure / right of access)
+# ---------------------------------------------------------------------------
+
+class TestAccountDeletion:
+    def test_delete_account_requires_auth(self, client):
+        r = client.delete('/api/auth/account', json={'password': STRONG_PASSWORD})
+        assert r.status_code == 401
+
+    def test_delete_account_requires_password_field(self, client):
+        token, _ = register_and_login(client, 'OWNER')
+        r = client.delete('/api/auth/account', headers=auth(token), json={})
+        assert r.status_code == 400
+        assert 'password' in r.get_json().get('error', '').lower()
+
+    def test_delete_account_wrong_password_rejected(self, client):
+        token, _ = register_and_login(client, 'OWNER')
+        r = client.delete('/api/auth/account', headers=auth(token),
+                          json={'password': 'WrongPass999!'})
+        assert r.status_code == 401
+
+    def test_delete_account_removes_user_row(self, client, app):
+        import uuid
+        email = f'del_{uuid.uuid4().hex[:6]}@test.com'
+        r = client.post('/api/auth/register', json={
+            'email': email, 'password': STRONG_PASSWORD,
+            'role': 'OWNER', 'name': 'Delete Me', 'consent_given': True,
+        })
+        assert r.status_code == 200
+        token = r.get_json()['access_token']
+
+        r2 = client.delete('/api/auth/account', headers=auth(token),
+                           json={'password': STRONG_PASSWORD})
+        assert r2.status_code == 200
+
+        with app.app_context():
+            from db.models import User
+            assert User.query.filter_by(email=email).first() is None
+
+    def test_delete_account_token_invalid_afterwards(self, client):
+        import uuid
+        email = f'del2_{uuid.uuid4().hex[:6]}@test.com'
+        r = client.post('/api/auth/register', json={
+            'email': email, 'password': STRONG_PASSWORD,
+            'role': 'OWNER', 'name': 'Delete Me 2', 'consent_given': True,
+        })
+        token = r.get_json()['access_token']
+        client.delete('/api/auth/account', headers=auth(token),
+                      json={'password': STRONG_PASSWORD})
+        r3 = client.get('/api/auth/me', headers=auth(token))
+        assert r3.status_code in (401, 404)
+
+    def test_delete_account_erases_audit_logs(self, client, app):
+        import uuid
+        email = f'del3_{uuid.uuid4().hex[:6]}@test.com'
+        r = client.post('/api/auth/register', json={
+            'email': email, 'password': STRONG_PASSWORD,
+            'role': 'OWNER', 'name': 'Audit Del', 'consent_given': True,
+        })
+        token = r.get_json()['access_token']
+        user_id = r.get_json()['user']['id']
+
+        client.delete('/api/auth/account', headers=auth(token),
+                      json={'password': STRONG_PASSWORD})
+
+        with app.app_context():
+            from db.models import AuditLog
+            remaining = AuditLog.query.filter_by(user_id=user_id).count()
+            assert remaining == 0
+
+
+class TestDataExport:
+    def test_data_export_requires_auth(self, client):
+        r = client.get('/api/auth/data-export')
+        assert r.status_code == 401
+
+    def test_data_export_returns_profile(self, client):
+        token, _ = register_and_login(client, 'OWNER')
+        r = client.get('/api/auth/data-export', headers=auth(token))
+        assert r.status_code == 200
+        data = r.get_json()
+        assert 'profile' in data
+        assert 'exported_at' in data
+        assert 'audit_logs' in data
+        assert 'dispute_messages_sent' in data
+
+    def test_data_export_owner_includes_vehicles(self, client):
+        token, _ = register_and_login(client, 'OWNER')
+        r = client.get('/api/auth/data-export', headers=auth(token))
+        assert r.status_code == 200
+        assert 'vehicles' in r.get_json()
+        assert 'warranty_claims' in r.get_json()
+
+    def test_data_export_sc_includes_service_records(self, client):
+        token, _ = register_and_login(client, 'SERVICE_CENTER')
+        r = client.get('/api/auth/data-export', headers=auth(token))
+        assert r.status_code == 200
+        assert 'service_records_submitted' in r.get_json()
+
+    def test_data_export_manufacturer_no_vehicle_field(self, client):
+        token, _ = register_and_login(client, 'MANUFACTURER')
+        r = client.get('/api/auth/data-export', headers=auth(token))
+        assert r.status_code == 200
+        data = r.get_json()
+        assert 'vehicles' not in data
+        assert 'service_records_submitted' not in data
