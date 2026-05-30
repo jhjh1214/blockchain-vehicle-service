@@ -40,8 +40,8 @@ def _send_expiry_reminders(app):
 
 
 def _send_reminder_email(to_email, name, vin, make, model, expiry_ts):
-    from flask_mail import Message
-    from extensions import mail
+    import os
+    import resend
     from config import Config
 
     expiry_date = datetime.utcfromtimestamp(expiry_ts).strftime('%d %b %Y')
@@ -49,26 +49,33 @@ def _send_reminder_email(to_email, name, vin, make, model, expiry_ts):
     subject     = f'Warranty expiring soon — {vehicle_str} ({vin})'
 
     try:
-        msg = Message(subject=subject, recipients=[to_email])
-        msg.body = (
-            f"Hi {name},\n\n"
-            f"The warranty for {vehicle_str} (VIN: {vin}) is expiring on {expiry_date}, "
-            f"which is in approximately {_REMINDER_DAYS} days.\n\n"
-            f"Log in to VehicleChain to review your warranty status or file a claim before it expires.\n\n"
-            f"— The VehicleChain Team"
-        )
-        msg.html = (
-            f"<p>Hi {name},</p>"
-            f"<p>The warranty for <strong>{vehicle_str}</strong> (VIN: {vin}) is expiring on "
-            f"<strong>{expiry_date}</strong> (~{_REMINDER_DAYS} days from now).</p>"
-            f"<p><a href='{Config.FRONTEND_URL}' style='background:#1A73E8;color:#fff;"
-            f"padding:10px 20px;border-radius:6px;text-decoration:none;display:inline-block;'>"
-            f"Open VehicleChain</a></p>"
-            f"<p style='color:#666;font-size:13px;'>Log in to review your warranty status or "
-            f"file a claim before it expires.</p>"
-        )
-        mail.send(msg)
-        logger.info('sent warranty expiry reminder to %s for VIN %s', to_email, vin)
+        resend.api_key = os.getenv('RESEND_API_KEY', '')
+        if not resend.api_key:
+            logger.warning('RESEND_API_KEY not set — skipping warranty reminder email')
+            return
+        resend.Emails.send({
+            'from': os.getenv('MAIL_DEFAULT_SENDER', 'VehicleChain <noreply@vehiclechain.my>'),
+            'to': [to_email],
+            'subject': subject,
+            'text': (
+                f"Hi {name},\n\n"
+                f"The warranty for {vehicle_str} (VIN: {vin}) is expiring on {expiry_date}, "
+                f"which is in approximately {_REMINDER_DAYS} days.\n\n"
+                f"Log in to VehicleChain to review your warranty status or file a claim before it expires.\n\n"
+                f"-- The VehicleChain Team"
+            ),
+            'html': (
+                f"<p>Hi {name},</p>"
+                f"<p>The warranty for <strong>{vehicle_str}</strong> (VIN: {vin}) is expiring on "
+                f"<strong>{expiry_date}</strong> (~{_REMINDER_DAYS} days from now).</p>"
+                f"<p><a href='{Config.FRONTEND_URL}' style='background:#1A73E8;color:#fff;"
+                f"padding:10px 20px;border-radius:6px;text-decoration:none;display:inline-block;'>"
+                f"Open VehicleChain</a></p>"
+                f"<p style='color:#666;font-size:13px;'>Log in to review your warranty status or "
+                f"file a claim before it expires.</p>"
+            ),
+        })
+        logger.info('sent warranty expiry reminder to %s for VIN %s via Resend', to_email, vin)
     except Exception:
         logger.exception('failed to send warranty reminder email to %s', to_email)
 

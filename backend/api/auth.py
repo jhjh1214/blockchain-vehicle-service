@@ -258,6 +258,7 @@ def reset_password():
 
 
 @auth_bp.route('/account', methods=['DELETE'])
+@limiter.limit('5 per minute')
 @token_required
 def delete_account():
     """PDPA right to erasure — permanently delete the caller's account and personal data."""
@@ -298,6 +299,7 @@ def delete_account():
 
 
 @auth_bp.route('/data-export', methods=['GET'])
+@limiter.limit('10 per minute')
 @token_required
 def data_export():
     """PDPA right of access — return all personal data held about the caller."""
