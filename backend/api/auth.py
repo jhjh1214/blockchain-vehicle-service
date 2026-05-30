@@ -176,8 +176,13 @@ def forgot_password():
         db.session.commit()
 
         reset_url = f"{Config.FRONTEND_URL}/reset-password?token={raw_token}"
-        _send_reset_email(user.email, user.name or user.email, reset_url,
-                          Config.PASSWORD_RESET_EXPIRY_MINUTES)
+        import threading
+        t = threading.Thread(
+            target=_send_reset_email,
+            args=(user.email, user.name or user.email, reset_url, Config.PASSWORD_RESET_EXPIRY_MINUTES),
+            daemon=True,
+        )
+        t.start()
 
     return jsonify({'message': 'If an account with that email exists, reset instructions have been sent.'}), 200
 

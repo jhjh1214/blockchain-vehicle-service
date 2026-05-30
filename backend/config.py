@@ -52,6 +52,7 @@ class Config:
     MAIL_PASSWORD = os.getenv('MAIL_PASSWORD', '')
     MAIL_DEFAULT_SENDER = os.getenv('MAIL_DEFAULT_SENDER', MAIL_USERNAME)
     MAIL_SUPPRESS_SEND = os.getenv('MAIL_SUPPRESS_SEND', 'false').lower() == 'true'
+    MAIL_TIMEOUT = int(os.getenv('MAIL_TIMEOUT', '10'))
 
     # Frontend base URL used in email links
     FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:4200')
