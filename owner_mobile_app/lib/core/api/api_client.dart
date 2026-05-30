@@ -2,7 +2,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import '../storage/token_storage.dart';
 
-const String _baseUrl = 'http://192.168.0.7:5000/api';
+const String _baseUrl = 'https://blockchain-vehicle-service-production.up.railway.app/api';
 
 class ApiClient {
   static ApiClient? _instance;
