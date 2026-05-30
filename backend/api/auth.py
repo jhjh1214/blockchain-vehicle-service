@@ -190,33 +190,37 @@ def forgot_password():
 
 
 def _send_reset_email(app, to_email: str, name: str, reset_url: str, expiry_minutes: int) -> None:
-    from flask_mail import Message
-    from extensions import mail
     import logging
+    import os
+    import resend
     logger = logging.getLogger(__name__)
     try:
-        with app.app_context():
-            msg = Message(
-                subject='Reset your VehicleChain password',
-                recipients=[to_email],
-            )
-            msg.body = (
+        resend.api_key = os.getenv('RESEND_API_KEY', '')
+        if not resend.api_key:
+            logger.warning('RESEND_API_KEY not set — skipping password reset email')
+            return
+        resend.Emails.send({
+            'from': os.getenv('MAIL_DEFAULT_SENDER', 'VehicleChain <noreply@vehiclechain.my>'),
+            'to': [to_email],
+            'subject': 'Reset your VehicleChain password',
+            'text': (
                 f"Hi {name},\n\n"
                 f"We received a request to reset your VehicleChain password.\n\n"
                 f"Click the link below to set a new password (valid for {expiry_minutes} minutes):\n\n"
                 f"{reset_url}\n\n"
                 f"If you didn't request this, you can safely ignore this email.\n\n"
                 f"— The VehicleChain Team"
-            )
-            msg.html = (
+            ),
+            'html': (
                 f"<p>Hi {name},</p>"
                 f"<p>We received a request to reset your <strong>VehicleChain</strong> password.</p>"
                 f"<p><a href='{reset_url}' style='background:#1A73E8;color:#fff;padding:10px 20px;"
                 f"border-radius:6px;text-decoration:none;display:inline-block;'>Reset Password</a></p>"
                 f"<p style='color:#666;font-size:13px;'>This link is valid for {expiry_minutes} minutes.</p>"
                 f"<p style='color:#666;font-size:13px;'>If you didn't request this, you can safely ignore this email.</p>"
-            )
-            mail.send(msg)
+            ),
+        })
+        logger.info('Password reset email sent to %s via Resend', to_email)
     except Exception:
         logger.exception('Failed to send password reset email to %s', to_email)
 
