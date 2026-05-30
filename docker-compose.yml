@@ -71,7 +71,6 @@ services:
     image: trufflesuite/ganache:latest
     restart: unless-stopped
     command: >
-      --deterministic
       --mnemonic "myth like bonus scare over problem client lizard pioneer submit female collect"
       --accounts 10
       --chain.chainId 1337

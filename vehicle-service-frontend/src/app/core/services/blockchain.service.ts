@@ -14,7 +14,7 @@ export class BlockchainService implements OnDestroy {
 
   constructor(private http: HttpClient) {
     this.check();
-    this.pollSub = interval(30_000).pipe(
+    this.pollSub = interval(5_000).pipe(
       switchMap(() => this.fetchStatus())
     ).subscribe(v => this._connected.next(v));
   }
