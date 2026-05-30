@@ -177,9 +177,11 @@ def forgot_password():
 
         reset_url = f"{Config.FRONTEND_URL}/reset-password?token={raw_token}"
         import threading
+        from flask import current_app
+        app = current_app._get_current_object()
         t = threading.Thread(
             target=_send_reset_email,
-            args=(user.email, user.name or user.email, reset_url, Config.PASSWORD_RESET_EXPIRY_MINUTES),
+            args=(app, user.email, user.name or user.email, reset_url, Config.PASSWORD_RESET_EXPIRY_MINUTES),
             daemon=True,
         )
         t.start()
@@ -187,33 +189,34 @@ def forgot_password():
     return jsonify({'message': 'If an account with that email exists, reset instructions have been sent.'}), 200
 
 
-def _send_reset_email(to_email: str, name: str, reset_url: str, expiry_minutes: int) -> None:
+def _send_reset_email(app, to_email: str, name: str, reset_url: str, expiry_minutes: int) -> None:
     from flask_mail import Message
     from extensions import mail
     import logging
     logger = logging.getLogger(__name__)
     try:
-        msg = Message(
-            subject='Reset your VehicleChain password',
-            recipients=[to_email],
-        )
-        msg.body = (
-            f"Hi {name},\n\n"
-            f"We received a request to reset your VehicleChain password.\n\n"
-            f"Click the link below to set a new password (valid for {expiry_minutes} minutes):\n\n"
-            f"{reset_url}\n\n"
-            f"If you didn't request this, you can safely ignore this email.\n\n"
-            f"— The VehicleChain Team"
-        )
-        msg.html = (
-            f"<p>Hi {name},</p>"
-            f"<p>We received a request to reset your <strong>VehicleChain</strong> password.</p>"
-            f"<p><a href='{reset_url}' style='background:#1A73E8;color:#fff;padding:10px 20px;"
-            f"border-radius:6px;text-decoration:none;display:inline-block;'>Reset Password</a></p>"
-            f"<p style='color:#666;font-size:13px;'>This link is valid for {expiry_minutes} minutes.</p>"
-            f"<p style='color:#666;font-size:13px;'>If you didn't request this, you can safely ignore this email.</p>"
-        )
-        mail.send(msg)
+        with app.app_context():
+            msg = Message(
+                subject='Reset your VehicleChain password',
+                recipients=[to_email],
+            )
+            msg.body = (
+                f"Hi {name},\n\n"
+                f"We received a request to reset your VehicleChain password.\n\n"
+                f"Click the link below to set a new password (valid for {expiry_minutes} minutes):\n\n"
+                f"{reset_url}\n\n"
+                f"If you didn't request this, you can safely ignore this email.\n\n"
+                f"— The VehicleChain Team"
+            )
+            msg.html = (
+                f"<p>Hi {name},</p>"
+                f"<p>We received a request to reset your <strong>VehicleChain</strong> password.</p>"
+                f"<p><a href='{reset_url}' style='background:#1A73E8;color:#fff;padding:10px 20px;"
+                f"border-radius:6px;text-decoration:none;display:inline-block;'>Reset Password</a></p>"
+                f"<p style='color:#666;font-size:13px;'>This link is valid for {expiry_minutes} minutes.</p>"
+                f"<p style='color:#666;font-size:13px;'>If you didn't request this, you can safely ignore this email.</p>"
+            )
+            mail.send(msg)
     except Exception:
         logger.exception('Failed to send password reset email to %s', to_email)
 
