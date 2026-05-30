@@ -1,6 +1,6 @@
 # Owner Mobile App — Blockchain Vehicle Service
 
-Flutter mobile application for **vehicle owners**. Provides access to owned vehicles, service history, warranty status, and claim submission. Connects to the Flask backend via REST API.
+Flutter mobile application for **vehicle owners**. Provides access to owned vehicles, service history, warranty status, and claim submission. Connects to the Flask backend via REST API. Distributed as an Android APK.
 
 ---
 
@@ -8,14 +8,18 @@ Flutter mobile application for **vehicle owners**. Provides access to owned vehi
 
 | Feature | Description |
 |---|---|
-| Authentication | Login, register, auto-login on app restart, logout |
+| Authentication | Login (with Remember Me), register (PDPA consent), auto-login on app restart, logout |
+| Forgot Password | Request a password reset email; reset password with token link |
 | My Vehicles | List owned vehicles with warranty status badge |
 | Claim Vehicle | Claim ownership of a pre-registered vehicle using its VIN |
 | Vehicle Detail | Warranty expiry, service count, transfer ownership |
 | Pending Services | Review unverified service records, verify or dispute each one |
+| Dispute Chat | Message thread between owner and manufacturer for disputed records |
 | Service History | Browse finalized service records with full metadata |
 | Warranty Claims | View all claims, submit new claims with issue description |
 | Profile | Update name, phone, city, state; change password |
+| Privacy Policy | PDPA privacy policy screen (linked from registration) |
+| Push Notifications | FCM-based push notifications for key events |
 
 ---
 
@@ -29,6 +33,7 @@ Flutter mobile application for **vehicle owners**. Provides access to owned vehi
 | Navigation | GoRouter 14.x |
 | HTTP client | Dio 5.x |
 | Secure storage | flutter_secure_storage 9.x |
+| Push notifications | firebase_messaging |
 | Localisation | intl 0.19 |
 
 ---
@@ -38,40 +43,45 @@ Flutter mobile application for **vehicle owners**. Provides access to owned vehi
 ```
 owner_mobile_app/
 └── lib/
-    ├── main.dart                        # App entry — MultiProvider setup
+    ├── main.dart                              # App entry — MultiProvider setup
     │
     ├── core/
     │   ├── api/
-    │   │   ├── api_client.dart          # Dio singleton (base URL, auth header)
-    │   │   └── api_endpoints.dart       # All API path constants
+    │   │   ├── api_client.dart               # Dio singleton (base URL, auth header)
+    │   │   └── api_endpoints.dart            # All API path constants
     │   ├── models/
-    │   │   ├── user.dart                # User.fromJson
-    │   │   ├── vehicle.dart             # Vehicle.fromJson, displayName, warrantyValid
-    │   │   ├── service_record.dart      # ServiceRecord.fromJson, status helpers
-    │   │   └── warranty_claim.dart      # WarrantyClaim.fromJson, status helpers
+    │   │   ├── user.dart                     # User.fromJson
+    │   │   ├── vehicle.dart                  # Vehicle.fromJson, displayName, warrantyValid
+    │   │   ├── service_record.dart           # ServiceRecord.fromJson, status helpers
+    │   │   └── warranty_claim.dart           # WarrantyClaim.fromJson, status helpers
+    │   ├── services/
+    │   │   └── push_notification_service.dart # FCM token registration
     │   └── storage/
-    │       └── token_storage.dart       # flutter_secure_storage wrapper (save/get/clear)
+    │       └── token_storage.dart            # flutter_secure_storage wrapper (save/get/clear)
     │
     ├── features/
     │   ├── auth/
-    │   │   ├── auth_provider.dart       # login(), register(), logout(), tryAutoLogin()
-    │   │   ├── login_screen.dart
-    │   │   └── register_screen.dart
+    │   │   ├── auth_provider.dart            # login(), register(), logout(), tryAutoLogin()
+    │   │   ├── login_screen.dart             # Login form with Remember Me toggle
+    │   │   ├── register_screen.dart          # Registration with PDPA consent checkbox
+    │   │   ├── forgot_password_screen.dart   # Request password reset email
+    │   │   └── privacy_policy_screen.dart    # PDPA privacy policy viewer
     │   │
     │   ├── vehicles/
-    │   │   ├── vehicles_provider.dart   # loadVehicles(), claimVehicle(), transferVehicle(), checkWarranty()
-    │   │   ├── vehicles_screen.dart     # Vehicle list with warranty badges
+    │   │   ├── vehicles_provider.dart        # loadVehicles(), claimVehicle(), transferVehicle(), checkWarranty()
+    │   │   ├── vehicles_screen.dart          # Vehicle list with warranty badges
     │   │   ├── vehicle_detail_screen.dart
     │   │   ├── claim_vehicle_screen.dart
     │   │   └── transfer_vehicle_screen.dart
     │   │
     │   ├── services/
-    │   │   ├── services_provider.dart   # loadPendingServices(), loadServiceHistory(), verifyService(), disputeService()
+    │   │   ├── services_provider.dart        # loadPendingServices(), loadServiceHistory(), verifyService(), disputeService()
     │   │   ├── pending_services_screen.dart
-    │   │   └── service_history_screen.dart
+    │   │   ├── service_history_screen.dart
+    │   │   └── dispute_chat_screen.dart      # Real-time dispute message thread
     │   │
     │   ├── warranties/
-    │   │   ├── warranties_provider.dart # loadClaims(), submitClaim()
+    │   │   ├── warranties_provider.dart      # loadClaims(), submitClaim()
     │   │   ├── warranty_claims_screen.dart
     │   │   └── submit_claim_screen.dart
     │   │
@@ -81,15 +91,15 @@ owner_mobile_app/
     │
     ├── shared/
     │   ├── widgets/
-    │   │   ├── status_badge.dart        # Coloured status chip (pending/verified/disputed)
-    │   │   ├── empty_state.dart         # Full-page empty state with icon and CTA
-    │   │   └── error_view.dart          # Error display with retry button
+    │   │   ├── status_badge.dart             # Coloured status chip (pending/verified/disputed)
+    │   │   ├── empty_state.dart              # Full-page empty state with icon and CTA
+    │   │   └── error_view.dart              # Error display with retry button
     │   └── theme/
-    │       └── app_theme.dart           # Material 3 light theme
+    │       └── app_theme.dart               # Material 3 light theme
     │
     └── router/
-        ├── app_router.dart              # GoRouter — all named routes
-        └── shell_screen.dart            # Bottom navigation bar shell
+        ├── app_router.dart                  # GoRouter — all named routes
+        └── shell_screen.dart               # Bottom navigation bar shell
 ```
 
 ---
@@ -142,14 +152,6 @@ const String _baseUrl = 'http://<host-LAN-ip>:5000/api';
 flutter run
 ```
 
-### iOS Simulator
-
-Update `_baseUrl` to `http://localhost:5000/api` (iOS simulator uses the host loopback directly), then:
-
-```bash
-flutter run -d "iPhone 15"
-```
-
 ---
 
 ## API Configuration
@@ -170,15 +172,26 @@ class ApiEndpoints {
   static const me               = '/auth/me';
   static const profile          = '/auth/profile';
   static const changePassword   = '/auth/change-password';
+  static const forgotPassword   = '/auth/forgot-password';
+  static const resetPassword    = '/auth/reset-password';
+  static const deviceToken      = '/auth/device-token';
+
   static const myVehicles       = '/vehicle/owner/vehicles';
   static const claimVehicle     = '/vehicle/claim';
   static const transferVehicle  = '/vehicle/transfer';
   static String vehicleDetail(String vin) => '/vehicle/$vin';
+  static String vehicleExport(String vin) => '/vehicle/export/$vin';
+
   static String warrantyCheck(String vin) => '/warranty/check/$vin';
+  static String warrantyEligibilityCheck(String vin) => '/warranty/check-eligibility/$vin';
+
   static const ownerPendingServices = '/service/owner/pending';
   static const ownerVerifyService   = '/service/owner/verify';
   static const ownerDisputeService  = '/service/owner/dispute';
   static const ownerServiceHistory  = '/service/owner/history';
+  static String disputeMessages(String vin, int idx) => '/service/dispute-messages/$vin/$idx';
+  static const postDisputeMessage   = '/service/dispute-messages';
+
   static const submitClaim  = '/warranty/submit-claim';
   static const ownerClaims  = '/warranty/owner/claims';
   static String vehicleClaims(String vin) => '/warranty/claims/$vin';
@@ -189,11 +202,15 @@ class ApiEndpoints {
 
 ## Authentication Flow
 
-1. User enters credentials on `LoginScreen`
+1. User enters credentials on `LoginScreen` with optional **Remember Me** toggle
 2. `AuthProvider.login()` calls `POST /api/auth/login`
-3. Access and refresh tokens are saved via `TokenStorage` (flutter_secure_storage)
+3. Tokens are saved via `TokenStorage`:
+   - Remember Me = true → `flutter_secure_storage` (persists across app restarts)
+   - Remember Me = false → in-memory only (cleared when process is killed)
 4. On subsequent app launches, `AuthProvider.tryAutoLogin()` calls `GET /api/auth/me` with the stored token to restore the session
 5. Logout calls `POST /api/auth/logout` to revoke the refresh token, then clears local storage
+
+For forgotten passwords: `ForgotPasswordScreen` calls `POST /api/auth/forgot-password`, the backend sends a reset link via the Resend API, and the user follows the link to the web reset page.
 
 The access token is attached to every Dio request via the `Authorization: Bearer <token>` header, configured in `api_client.dart`.
 
@@ -218,7 +235,7 @@ Provider pattern with `ChangeNotifier`. All providers registered at root via `Mu
 flutter test
 ```
 
-**Expected: 88 passing**
+**Expected: 94 passing**
 
 | Directory | What is tested |
 |---|---|
@@ -235,17 +252,18 @@ The unit provider tests inject a `MockDio` into the `ApiClient` singleton using 
 ```yaml
 dependencies:
   flutter: { sdk: flutter }
-  provider: ^6.1.2          # State management
-  go_router: ^14.2.0        # Navigation
-  dio: ^5.4.3               # HTTP client
-  flutter_secure_storage: ^9.2.2   # JWT token storage
-  intl: ^0.19.0             # Date formatting
+  provider: ^6.1.2                 # State management
+  go_router: ^14.2.0               # Navigation
+  dio: ^5.4.3                      # HTTP client
+  flutter_secure_storage: ^9.2.2   # JWT token storage (Remember Me)
+  firebase_messaging: ...          # FCM push notifications
+  intl: ^0.19.0                    # Date formatting
 
 dev_dependencies:
   flutter_test: { sdk: flutter }
   flutter_lints: ^4.0.0
-  mockito: ^5.4.4           # Mocking for tests
-  build_runner: ^2.4.9      # Mock generation
+  mockito: ^5.4.4                  # Mocking for tests
+  build_runner: ^2.4.9             # Mock generation
 ```
 
 ---

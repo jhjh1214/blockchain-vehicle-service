@@ -157,7 +157,7 @@ npx hardhat test
 | WarrantyTracker — claims | Submit, approve, deny lifecycle |
 | Multi-vehicle | Owner retains OWNER_ROLE across multiple registered VINs |
 
-**Expected: 20+ passing**
+**Expected: 49 passing**
 
 ---
 
@@ -220,7 +220,7 @@ The backend pre-hashes all data before sending to contracts:
 | Warranty claim details | SHA-256 | Same utility |
 | Dispute reason / resolution notes | SHA-256 | Stored on-chain as `bytes32` |
 
-Raw strings never appear in contract storage. SQLite holds the originals, which can be independently verified by recomputing the hash and comparing.
+Raw strings never appear in contract storage. The database (PostgreSQL in production, SQLite in development) holds the originals, which can be independently verified by recomputing the hash and comparing.
 
 ---
 
