@@ -20,7 +20,7 @@ def create_app():
 
     with app.app_context():
         db.create_all()
-        # Inline schema migrations for columns added after initial deploy
+        # Inline schema migrations — idempotent, compatible with SQLite and PostgreSQL
         from sqlalchemy import inspect, text
         try:
             inspector = inspect(db.engine)
@@ -62,7 +62,7 @@ def create_app():
             if 'consent_given_at' not in user_cols:
                 with db.engine.connect() as conn:
                     conn.execute(text(
-                        "ALTER TABLE users ADD COLUMN consent_given_at DATETIME"
+                        "ALTER TABLE users ADD COLUMN consent_given_at TIMESTAMP"
                     ))
                     conn.commit()
         except Exception:

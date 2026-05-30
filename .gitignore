@@ -11,6 +11,7 @@ backend/instance/
 
 # Environment
 backend/.env
+.env
 
 # Uploads / keystore (runtime data)
 backend/uploads/

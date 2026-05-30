@@ -1,0 +1,85 @@
+services:
+
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-vehiclechain}
+      POSTGRES_USER: ${POSTGRES_USER:-vehiclechain}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vehiclechain}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Flask backend ───────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      FLASK_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-vehiclechain}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-vehiclechain}
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY is required}
+      KEYSTORE_PASSWORD: ${KEYSTORE_PASSWORD:?KEYSTORE_PASSWORD is required}
+      ADMIN_SECRET: ${ADMIN_SECRET:-}
+      GANACHE_URL: ${GANACHE_URL:-http://ganache:8545}
+      CHAIN_ID: ${CHAIN_ID:-1337}
+      VEHICLE_REGISTRY_ADDRESS: ${VEHICLE_REGISTRY_ADDRESS:-}
+      SERVICE_LOG_ADDRESS: ${SERVICE_LOG_ADDRESS:-}
+      WARRANTY_TRACKER_ADDRESS: ${WARRANTY_TRACKER_ADDRESS:-}
+      DEPLOYER_ADDRESS: ${DEPLOYER_ADDRESS:-}
+      DEPLOYER_PRIVATE_KEY: ${DEPLOYER_PRIVATE_KEY:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      USE_HTTPS: ${USE_HTTPS:-false}
+      MAIL_SERVER: ${MAIL_SERVER:-smtp.gmail.com}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USE_TLS: ${MAIL_USE_TLS:-true}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_DEFAULT_SENDER: ${MAIL_DEFAULT_SENDER:-}
+      MAIL_SUPPRESS_SEND: ${MAIL_SUPPRESS_SEND:-true}
+    volumes:
+      - uploads_data:/app/uploads
+      - keystore_data:/app/keystore
+    ports:
+      - "5000:5000"
+
+  # ── Angular frontend (Nginx) ────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./vehicle-service-frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+
+  # ── Local Ganache (dev / demo only — remove in prod if using a public network) ──
+  ganache:
+    image: trufflesuite/ganache:latest
+    restart: unless-stopped
+    command: >
+      --deterministic
+      --mnemonic "myth like bonus scare over problem client lizard pioneer submit female collect"
+      --accounts 10
+      --chain.chainId 1337
+      --host 0.0.0.0
+    ports:
+      - "8545:8545"
+
+volumes:
+  postgres_data:
+  uploads_data:
+  keystore_data:
