@@ -57,6 +57,14 @@ def create_app():
                         "ADD COLUMN registration_status VARCHAR(20) NOT NULL DEFAULT 'active'"
                     ))
                     conn.commit()
+
+            user_cols = [c['name'] for c in inspector.get_columns('users')]
+            if 'consent_given_at' not in user_cols:
+                with db.engine.connect() as conn:
+                    conn.execute(text(
+                        "ALTER TABLE users ADD COLUMN consent_given_at DATETIME"
+                    ))
+                    conn.commit()
         except Exception:
             pass
 

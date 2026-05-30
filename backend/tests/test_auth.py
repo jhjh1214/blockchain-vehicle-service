@@ -57,6 +57,7 @@ class TestRegister:
             'password': STRONG_PASSWORD,
             'role': 'OWNER',
             'name': 'Plain Owner',
+            'consent_given': True,
         })
         assert r.status_code == 200
 
@@ -66,12 +67,13 @@ class TestRegister:
             'password': STRONG_PASSWORD,
             'role': 'OWNER',
             'name': 'John Doe',
+            'consent_given': True,
         })
         assert r.status_code == 200
         assert r.get_json()['user']['role'] == 'OWNER'
 
     def test_register_duplicate_email(self, client):
-        payload = {'email': 'dup@test.com', 'password': STRONG_PASSWORD, 'role': 'OWNER', 'name': 'A'}
+        payload = {'email': 'dup@test.com', 'password': STRONG_PASSWORD, 'role': 'OWNER', 'name': 'A', 'consent_given': True}
         r1 = client.post('/api/auth/register', json=payload)
         assert r1.status_code == 200
         r2 = client.post('/api/auth/register', json=payload)
@@ -109,6 +111,7 @@ class TestRegister:
             'password': STRONG_PASSWORD,
             'role': 'OWNER',
             'name': 'Chain User',
+            'consent_given': True,
         })
         assert r.status_code == 200
         user = r.get_json()['user']
@@ -121,6 +124,7 @@ class TestRegister:
             'password': STRONG_PASSWORD,
             'role': 'OWNER',
             'name': 'Refresh User',
+            'consent_given': True,
         })
         assert r.status_code == 200
         data = r.get_json()
@@ -131,7 +135,7 @@ class TestLogin:
     def test_login_valid(self, client):
         client.post('/api/auth/register', json={
             'email': 'login@test.com', 'password': STRONG_PASSWORD,
-            'role': 'OWNER', 'name': 'Login User',
+            'role': 'OWNER', 'name': 'Login User', 'consent_given': True,
         })
         r = client.post('/api/auth/login', json={
             'email': 'login@test.com', 'password': STRONG_PASSWORD,
@@ -160,7 +164,7 @@ class TestLogin:
     def test_login_increments_failed_attempts(self, client):
         client.post('/api/auth/register', json={
             'email': 'lockme@test.com', 'password': STRONG_PASSWORD,
-            'role': 'OWNER', 'name': 'Lock User',
+            'role': 'OWNER', 'name': 'Lock User', 'consent_given': True,
         })
         for _ in range(3):
             client.post('/api/auth/login', json={
@@ -200,7 +204,7 @@ class TestForgotPassword:
         """Registered users also receive 200 — no difference observable to caller."""
         client.post('/api/auth/register', json={
             'email': 'reg@test.com', 'password': STRONG_PASSWORD,
-            'role': 'OWNER', 'name': 'Reg User',
+            'role': 'OWNER', 'name': 'Reg User', 'consent_given': True,
         })
         r = client.post('/api/auth/forgot-password', json={'email': 'reg@test.com'})
         assert r.status_code == 200
@@ -222,7 +226,7 @@ class TestForgotPassword:
         """A PasswordResetToken row must be created for a registered user."""
         client.post('/api/auth/register', json={
             'email': 'tokencreate@test.com', 'password': STRONG_PASSWORD,
-            'role': 'OWNER', 'name': 'Token User',
+            'role': 'OWNER', 'name': 'Token User', 'consent_given': True,
         })
         client.post('/api/auth/forgot-password', json={'email': 'tokencreate@test.com'})
         with app.app_context():
@@ -242,7 +246,7 @@ class TestForgotPassword:
         """Second request marks the first token as used and issues a new one."""
         client.post('/api/auth/register', json={
             'email': 'double@test.com', 'password': STRONG_PASSWORD,
-            'role': 'OWNER', 'name': 'Double User',
+            'role': 'OWNER', 'name': 'Double User', 'consent_given': True,
         })
         client.post('/api/auth/forgot-password', json={'email': 'double@test.com'})
         client.post('/api/auth/forgot-password', json={'email': 'double@test.com'})
@@ -260,7 +264,7 @@ class TestResetPassword:
         import hashlib
         client.post('/api/auth/register', json={
             'email': email, 'password': STRONG_PASSWORD,
-            'role': 'OWNER', 'name': 'Reset User',
+            'role': 'OWNER', 'name': 'Reset User', 'consent_given': True,
         })
         client.post('/api/auth/forgot-password', json={'email': email})
         with app.app_context():

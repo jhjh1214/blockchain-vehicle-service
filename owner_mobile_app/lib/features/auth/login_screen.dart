@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -15,6 +16,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   bool _obscurePassword = true;
+  bool _rememberMe = true;
 
   @override
   void dispose() {
@@ -26,7 +28,11 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     final auth = context.read<AuthProvider>();
-    final ok = await auth.login(_emailCtrl.text.trim(), _passwordCtrl.text);
+    final ok = await auth.login(
+      _emailCtrl.text.trim(),
+      _passwordCtrl.text,
+      rememberMe: _rememberMe,
+    );
     if (!mounted) return;
     if (ok) {
       context.go('/home');
@@ -40,6 +46,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
@@ -50,8 +57,7 @@ class _LoginScreenState extends State<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: 48),
-                Icon(Icons.directions_car, size: 72,
-                    color: Theme.of(context).colorScheme.primary),
+                Icon(Icons.directions_car, size: 72, color: colorScheme.primary),
                 const SizedBox(height: 16),
                 Text('Vehicle Service',
                     textAlign: TextAlign.center,
@@ -83,6 +89,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       icon: Icon(_obscurePassword
                           ? Icons.visibility_off
                           : Icons.visibility),
+                      tooltip: _obscurePassword ? 'Show password' : 'Hide password',
                       onPressed: () =>
                           setState(() => _obscurePassword = !_obscurePassword),
                     ),
@@ -90,13 +97,34 @@ class _LoginScreenState extends State<LoginScreen> {
                   validator: (v) =>
                       v == null || v.isEmpty ? 'Password required' : null,
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 8),
+                // ── Remember Me ──────────────────────────────────────────
+                Row(
+                  children: [
+                    Semantics(
+                      label: 'Remember me',
+                      child: Checkbox(
+                        value: _rememberMe,
+                        onChanged: (v) => setState(() => _rememberMe = v ?? true),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => setState(() => _rememberMe = !_rememberMe),
+                      child: const Text('Remember me'),
+                    ),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: () => context.push('/forgot-password'),
+                      child: const Text('Forgot password?'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: auth.loading ? null : _submit,
                   child: auth.loading
                       ? const SizedBox(
-                          height: 20,
-                          width: 20,
+                          height: 20, width: 20,
                           child: CircularProgressIndicator(
                               color: Colors.white, strokeWidth: 2))
                       : const Text('Sign In'),
@@ -111,6 +139,38 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: const Text('Register'),
                     ),
                   ],
+                ),
+                const SizedBox(height: 24),
+                // ── Legal footer ─────────────────────────────────────────
+                Center(
+                  child: Text.rich(
+                    TextSpan(
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.grey[500]),
+                      children: [
+                        const TextSpan(text: 'By signing in you agree to our '),
+                        TextSpan(
+                          text: 'Privacy Policy',
+                          style: TextStyle(
+                              color: colorScheme.primary,
+                              decoration: TextDecoration.underline),
+                          recognizer: TapGestureRecognizer()
+                            ..onTap = () => context.push('/privacy-policy'),
+                        ),
+                        const TextSpan(text: ' and '),
+                        TextSpan(
+                          text: 'Terms of Service',
+                          style: TextStyle(
+                              color: colorScheme.primary,
+                              decoration: TextDecoration.underline),
+                          recognizer: TapGestureRecognizer()
+                            ..onTap = () => context.push('/privacy-policy'),
+                        ),
+                        const TextSpan(text: '.'),
+                      ],
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
               ],
             ),

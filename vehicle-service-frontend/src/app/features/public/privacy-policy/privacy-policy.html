@@ -1,0 +1,36 @@
+<div class="policy-page">
+  <div class="policy-container">
+
+    <div class="policy-header">
+      <a routerLink="/login" class="back-link">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+        </svg>
+        Back
+      </a>
+      <h1 class="policy-title">Legal</h1>
+      <p class="policy-subtitle">VehicleChain — Malaysia PDPA 2010 Compliance</p>
+    </div>
+
+    <div class="policy-tabs">
+      <button class="policy-tab" [class.active]="activeTab === 'privacy'"
+              (click)="activeTab = 'privacy'" type="button">
+        Privacy Policy
+      </button>
+      <button class="policy-tab" [class.active]="activeTab === 'terms'"
+              (click)="activeTab = 'terms'" type="button">
+        Terms of Service
+      </button>
+    </div>
+
+    <div class="policy-body">
+      @for (section of sections; track section.heading) {
+        <div class="policy-section">
+          <h2 class="section-heading">{{ section.heading }}</h2>
+          <p class="section-body">{{ section.body }}</p>
+        </div>
+      }
+    </div>
+
+  </div>
+</div>

@@ -166,6 +166,8 @@ def register_and_login(client, role, email=None, password=STRONG_PASSWORD,
     }
     if brand is not None:
         payload['brand'] = brand
+    if role == 'OWNER':
+        payload['consent_given'] = True
     r = client.post('/api/auth/register', json=payload)
     assert r.status_code == 200, f'Register failed: {r.get_json()}'
     data = r.get_json()

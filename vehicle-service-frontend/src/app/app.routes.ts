@@ -22,6 +22,7 @@ import { ScDetailComponent } from './features/manufacturer/service-centers/detai
 import { FleetComponent } from './features/manufacturer/fleet/fleet';
 import { ProfileComponent } from './features/shared/profile/profile';
 import { VerifyComponent } from './features/public/verify/verify';
+import { PrivacyPolicyComponent } from './features/public/privacy-policy/privacy-policy';
 
 export const routes: Routes = [
   { path: '', redirectTo: '/login', pathMatch: 'full' },
@@ -29,6 +30,7 @@ export const routes: Routes = [
   { path: 'register', component: RegisterComponent },
   { path: 'forgot-password', component: ForgotPasswordComponent },
   { path: 'reset-password', component: ResetPasswordComponent },
+  { path: 'privacy-policy', component: PrivacyPolicyComponent },
   { path: 'verify/:vin', component: VerifyComponent },
   { path: 'verify', component: VerifyComponent },
 

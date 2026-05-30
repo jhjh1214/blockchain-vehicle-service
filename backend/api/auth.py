@@ -27,6 +27,7 @@ def register():
             city=data.get('city', ''),
             state=data.get('state', ''),
             brand=data.get('brand', ''),
+            consent_given=bool(data.get('consent_given', False)),
         )
         return jsonify({
             'message': 'User registered successfully',
@@ -242,6 +243,179 @@ def reset_password():
     user_repo.revoke_all_refresh_tokens(user.id)
     log_event('password_reset', user_id=user.id)
     return jsonify({'message': 'Password reset successfully. Please log in with your new password.'}), 200
+
+
+@auth_bp.route('/privacy-policy', methods=['GET'])
+def get_privacy_policy():
+    """Returns the Privacy Policy text for display in client apps."""
+    return jsonify(PRIVACY_POLICY), 200
+
+
+@auth_bp.route('/terms', methods=['GET'])
+def get_terms():
+    """Returns the Terms of Service text for display in client apps."""
+    return jsonify(TERMS_OF_SERVICE), 200
+
+
+PRIVACY_POLICY = {
+    'version': '1.0',
+    'effective_date': '2024-01-01',
+    'title': 'Privacy Policy',
+    'sections': [
+        {
+            'heading': 'Data Controller',
+            'body': (
+                'VehicleChain ("we", "us", or "our") is the data controller responsible for '
+                'personal data collected through this platform. We are committed to protecting '
+                'your personal data in compliance with the Personal Data Protection Act 2010 '
+                '(PDPA) of Malaysia.'
+            ),
+        },
+        {
+            'heading': 'Personal Data We Collect',
+            'body': (
+                'We collect and process the following personal data:\n'
+                '• Identity data: full name, email address, phone number\n'
+                '• Account data: password hash (never stored in plain text)\n'
+                '• Vehicle data: VIN numbers, ownership records, service history\n'
+                '• Technical data: blockchain wallet address, device tokens for push notifications\n'
+                '• Usage data: login timestamps, IP addresses (audit logs)\n'
+                '• Consent records: date and time you agreed to this policy'
+            ),
+        },
+        {
+            'heading': 'Purpose of Processing',
+            'body': (
+                'We process your personal data for the following purposes:\n'
+                '• To provide and manage your vehicle service management account\n'
+                '• To record and verify vehicle service history on the blockchain\n'
+                '• To process warranty claims and dispute resolutions\n'
+                '• To send important notifications about your vehicles and warranties\n'
+                '• To comply with legal obligations\n'
+                '• To detect and prevent fraud or security incidents'
+            ),
+        },
+        {
+            'heading': 'Legal Basis for Processing',
+            'body': (
+                'Under the PDPA 2010, we process your personal data based on:\n'
+                '• Your explicit consent given at registration\n'
+                '• Performance of the contract between you and VehicleChain\n'
+                '• Our legitimate interests in operating a secure platform\n'
+                '• Compliance with legal obligations'
+            ),
+        },
+        {
+            'heading': 'Blockchain and Data Immutability',
+            'body': (
+                'Please note that vehicle service records submitted to the blockchain are '
+                'stored permanently and cannot be deleted. These records contain your vehicle '
+                'VIN hash and service metadata hash only — no directly identifying personal '
+                'information is stored on-chain. Your personal details (name, email) are '
+                'stored only in our secure off-chain database.'
+            ),
+        },
+        {
+            'heading': 'Data Sharing and Disclosure',
+            'body': (
+                'We may share your personal data with:\n'
+                '• Service centres you authorise to submit service records for your vehicle\n'
+                '• Manufacturers who registered your vehicle\n'
+                '• Third-party service providers who assist in operating the platform '
+                '(subject to data processing agreements)\n'
+                'We do not sell your personal data to third parties.'
+            ),
+        },
+        {
+            'heading': 'Data Retention',
+            'body': (
+                'We retain your personal data for as long as your account is active. '
+                'If you request account deletion, we will delete your personal data within '
+                '30 days, except where retention is required by law or for legitimate business '
+                'purposes. Blockchain records cannot be deleted due to their immutable nature.'
+            ),
+        },
+        {
+            'heading': 'Your Rights Under PDPA',
+            'body': (
+                'You have the right to:\n'
+                '• Access the personal data we hold about you\n'
+                '• Correct inaccurate or incomplete personal data\n'
+                '• Withdraw consent to processing (note: this may prevent use of the service)\n'
+                '• Request deletion of your personal data (subject to legal restrictions)\n'
+                '• Lodge a complaint with the Personal Data Protection Commissioner of Malaysia\n\n'
+                'To exercise these rights, contact us at privacy@vehiclechain.my'
+            ),
+        },
+        {
+            'heading': 'Security',
+            'body': (
+                'We implement appropriate technical and organisational measures to protect your '
+                'personal data, including encryption at rest, TLS in transit, password hashing '
+                'using bcrypt, rate limiting, and blockchain immutability for audit trails.'
+            ),
+        },
+        {
+            'heading': 'Contact Us',
+            'body': (
+                'For any privacy-related queries or to exercise your rights under PDPA:\n'
+                'Email: privacy@vehiclechain.my\n'
+                'Address: VehicleChain Sdn Bhd, Kuala Lumpur, Malaysia'
+            ),
+        },
+    ],
+}
+
+TERMS_OF_SERVICE = {
+    'version': '1.0',
+    'effective_date': '2024-01-01',
+    'title': 'Terms of Service',
+    'sections': [
+        {
+            'heading': 'Acceptance of Terms',
+            'body': (
+                'By creating an account, you agree to these Terms of Service and our '
+                'Privacy Policy. If you do not agree, you must not use this platform.'
+            ),
+        },
+        {
+            'heading': 'Use of the Service',
+            'body': (
+                'VehicleChain is a vehicle service management platform that uses blockchain '
+                'technology to create tamper-proof service records. You agree to:\n'
+                '• Provide accurate and complete registration information\n'
+                '• Maintain the security of your account credentials\n'
+                '• Use the platform only for lawful purposes\n'
+                '• Not attempt to manipulate, falsify, or tamper with service records'
+            ),
+        },
+        {
+            'heading': 'Blockchain Records',
+            'body': (
+                'Service records submitted to the blockchain are permanent and immutable. '
+                'Once a record is verified or disputed on-chain, it cannot be erased. '
+                'You are responsible for ensuring the accuracy of information before submitting '
+                'or approving any service record.'
+            ),
+        },
+        {
+            'heading': 'Limitation of Liability',
+            'body': (
+                'VehicleChain is provided "as is". We are not liable for any loss or damage '
+                'arising from your use of the platform, including but not limited to errors '
+                'in blockchain transactions, network outages, or unauthorised access resulting '
+                'from your failure to protect your credentials.'
+            ),
+        },
+        {
+            'heading': 'Governing Law',
+            'body': (
+                'These Terms are governed by the laws of Malaysia. Any disputes shall be '
+                'subject to the exclusive jurisdiction of the courts of Malaysia.'
+            ),
+        },
+    ],
+}
 
 
 @auth_bp.route('/device-token', methods=['POST'])

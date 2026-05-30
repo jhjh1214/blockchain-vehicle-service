@@ -15,21 +15,26 @@ import '../features/warranties/submit_claim_screen.dart';
 import '../features/profile/profile_screen.dart';
 import '../features/profile/change_password_screen.dart';
 import '../features/services/dispute_chat_screen.dart';
+import '../features/auth/forgot_password_screen.dart';
+import '../features/auth/privacy_policy_screen.dart';
 import 'shell_screen.dart';
 
 GoRouter createRouter(AuthProvider auth) => GoRouter(
       refreshListenable: auth,
       redirect: (context, state) {
         final loggedIn = auth.isAuthenticated;
+        final publicRoutes = {'/login', '/register', '/forgot-password', '/privacy-policy'};
         final onAuth = state.matchedLocation == '/login' ||
             state.matchedLocation == '/register';
-        if (!loggedIn && !onAuth) return '/login';
+        if (!loggedIn && !publicRoutes.contains(state.matchedLocation)) return '/login';
         if (loggedIn && onAuth) return '/home';
         return null;
       },
       routes: [
         GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
         GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
+        GoRoute(path: '/forgot-password', builder: (_, __) => const ForgotPasswordScreen()),
+        GoRoute(path: '/privacy-policy', builder: (_, __) => const PrivacyPolicyScreen()),
         ShellRoute(
           builder: (context, state, child) => ShellScreen(child: child),
           routes: [

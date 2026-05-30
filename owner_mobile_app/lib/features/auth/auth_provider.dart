@@ -43,14 +43,16 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> login(String email, String password) async {
+  Future<bool> login(String email, String password,
+      {bool rememberMe = true}) async {
     _loading = true;
     _error = null;
     notifyListeners();
     try {
       final res = await ApiClient.instance.dio.post(ApiEndpoints.login,
           data: {'email': email, 'password': password});
-      await TokenStorage.save(res.data['access_token'], res.data['refresh_token']);
+      await TokenStorage.save(res.data['access_token'], res.data['refresh_token'],
+          rememberMe: rememberMe);
       _user = User.fromJson(res.data['user']);
       PushNotificationService.instance.init();
       return true;
@@ -64,7 +66,7 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<bool> register(String email, String password, String name,
-      {String? phone}) async {
+      {String? phone, bool consentGiven = false}) async {
     _loading = true;
     _error = null;
     notifyListeners();
@@ -75,6 +77,7 @@ class AuthProvider extends ChangeNotifier {
             'password': password,
             'name': name,
             'role': 'OWNER',
+            'consent_given': consentGiven,
             if (phone != null) 'phone': phone,
           });
       await TokenStorage.save(res.data['access_token'], res.data['refresh_token']);

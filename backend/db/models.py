@@ -31,6 +31,9 @@ class User(db.Model):
     failed_login_attempts = db.Column(db.Integer, default=0, nullable=False)
     locked_until = db.Column(db.DateTime, nullable=True)
 
+    # PDPA consent — timestamp user accepted Privacy Policy & Terms at registration
+    consent_given_at = db.Column(db.DateTime, nullable=True)
+
     def set_password(self, password: str):
         self.password_hash = bcrypt.hashpw(
             password.encode('utf-8'), bcrypt.gensalt()
@@ -57,6 +60,7 @@ class User(db.Model):
             'status': self.status,
             'blockchain_address': self.blockchain_address,
             'created_at': self.created_at.isoformat() if self.created_at else None,
+            'consent_given_at': self.consent_given_at.isoformat() if self.consent_given_at else None,
         }
 
 

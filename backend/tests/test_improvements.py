@@ -269,3 +269,75 @@ class TestServiceHistoryFiltering:
         r = client.get('/api/service/owner/history?status=verified', headers=auth(owner_token))
         assert r.status_code == 200
         assert 'service_history' in r.get_json()
+
+
+# ---------------------------------------------------------------------------
+# PDPA compliance — consent, privacy policy and terms endpoints
+# ---------------------------------------------------------------------------
+
+class TestPdpaCompliance:
+    def test_privacy_policy_endpoint_returns_200(self, client):
+        r = client.get('/api/auth/privacy-policy')
+        assert r.status_code == 200
+        data = r.get_json()
+        assert 'sections' in data
+        assert len(data['sections']) > 0
+        assert 'heading' in data['sections'][0]
+
+    def test_terms_endpoint_returns_200(self, client):
+        r = client.get('/api/auth/terms')
+        assert r.status_code == 200
+        data = r.get_json()
+        assert 'sections' in data
+        assert len(data['sections']) > 0
+
+    def test_owner_register_without_consent_rejected(self, client):
+        import uuid
+        r = client.post('/api/auth/register', json={
+            'email': f'noconsent_{uuid.uuid4().hex[:6]}@test.com',
+            'password': STRONG_PASSWORD,
+            'name': 'No Consent User',
+            'role': 'OWNER',
+            'consent_given': False,
+        })
+        assert r.status_code == 400
+        assert 'consent' in r.get_json().get('error', '').lower() or \
+               'privacy' in r.get_json().get('error', '').lower()
+
+    def test_owner_register_without_consent_field_rejected(self, client):
+        import uuid
+        r = client.post('/api/auth/register', json={
+            'email': f'noconsent2_{uuid.uuid4().hex[:6]}@test.com',
+            'password': STRONG_PASSWORD,
+            'name': 'No Consent User 2',
+            'role': 'OWNER',
+        })
+        assert r.status_code == 400
+
+    def test_owner_register_with_consent_succeeds(self, client, app):
+        import uuid
+        email = f'consent_{uuid.uuid4().hex[:6]}@test.com'
+        r = client.post('/api/auth/register', json={
+            'email': email,
+            'password': STRONG_PASSWORD,
+            'name': 'Consenting User',
+            'role': 'OWNER',
+            'consent_given': True,
+        })
+        assert r.status_code in (200, 201)
+        with app.app_context():
+            from db.models import User
+            user = User.query.filter_by(email=email).first()
+            assert user is not None
+            assert user.consent_given_at is not None
+
+    def test_non_owner_register_without_consent_succeeds(self, client):
+        import uuid
+        r = client.post('/api/auth/register', json={
+            'email': f'mfr_{uuid.uuid4().hex[:6]}@test.com',
+            'password': STRONG_PASSWORD,
+            'name': 'Manufacturer Corp',
+            'role': 'MANUFACTURER',
+            'brand': 'TestBrand',
+        })
+        assert r.status_code in (200, 201)

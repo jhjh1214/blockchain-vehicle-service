@@ -70,7 +70,8 @@ def generate_access_token(user) -> str:
 
 
 def register_user(email: str, password: str, role: str, name: str, phone: str,
-                  city: str = '', state: str = '', brand: str = ''):
+                  city: str = '', state: str = '', brand: str = '',
+                  consent_given: bool = False):
     email = _sanitize(email, 255).lower()
     name  = _sanitize(name,  255)
     phone = _sanitize(phone, 20)
@@ -112,10 +113,14 @@ def register_user(email: str, password: str, role: str, name: str, phone: str,
             from blockchain.adapters.service_log import service_log
             web3_client.grant_role(service_log.contract, _SERVICE_CENTER_ROLE, account['address'], deployer)
 
+    if role == 'OWNER' and not consent_given:
+        raise ValueError('You must accept the Privacy Policy and Terms of Service to register')
+
     user = user_repo.create(
         email=email, password=password, role=role,
         name=name, phone=phone, blockchain_address=account['address'],
         city=city, state=state, brand=brand,
+        consent_given_at=datetime.utcnow() if consent_given else None,
     )
     access_token  = generate_access_token(user)
     refresh_token = user_repo.create_refresh_token(user.id)

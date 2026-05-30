@@ -94,6 +94,12 @@
         Don't have an account? <a routerLink="/register">Register here</a>
       </div>
 
+      <div class="auth-legal-footer">
+        By signing in you agree to our
+        <a routerLink="/privacy-policy">Privacy Policy</a> and
+        <a routerLink="/privacy-policy">Terms of Service</a>.
+      </div>
+
       <div class="chain-badge"
            [class.connected]="isConnected === true"
            [class.offline]="isConnected === false"

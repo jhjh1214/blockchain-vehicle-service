@@ -6,6 +6,8 @@ class ApiEndpoints {
   static const me = '/auth/me';
   static const profile = '/auth/profile';
   static const changePassword = '/auth/change-password';
+  static const forgotPassword = '/auth/forgot-password';
+  static const resetPassword = '/auth/reset-password';
   static const deviceToken = '/auth/device-token';
 
   // Vehicles

@@ -31,7 +31,7 @@ class TestJWTTypeCheck:
     def test_refresh_token_rejected_as_bearer(self, client):
         r = client.post('/api/auth/register', json={
             'email': 'jwt-type@test.com', 'password': STRONG_PASSWORD,
-            'role': 'OWNER', 'name': 'Test',
+            'role': 'OWNER', 'name': 'Test', 'consent_given': True,
         })
         refresh_token = r.get_json()['refresh_token']
 
