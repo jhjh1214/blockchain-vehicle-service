@@ -3,6 +3,8 @@ import time
 import pytest
 from conftest import register_and_login, auth, STRONG_PASSWORD
 
+
+
 VIN = '1HGCM82633A004352'
 SERVICE_DATE = time.strftime('%Y-%m-%dT%H:%M:%S')
 
@@ -518,3 +520,330 @@ class TestWarrantyClaimsAccess:
 
         r = client.get(f'/api/warranty/claims/{VIN}', headers=auth(toyota_mfr))
         assert r.status_code == 403
+
+
+# ===========================================================================
+# Dispute messaging (from test_dispute_messages.py)
+# ===========================================================================
+
+def _setup_full_dispute(client):
+    """Return (mfr_token, owner_token, sc_token, mfr_user, owner_user, sc_user)."""
+    mfr_token,   mfr_user   = register_and_login(client, 'MANUFACTURER')
+    owner_token, owner_user = register_and_login(client, 'OWNER')
+    _,           sc_user    = register_and_login(client, 'SERVICE_CENTER')
+    client.post('/api/vehicle/register', headers=auth(mfr_token), json={
+        'vin': VIN, 'warranty_years': 3,
+        'make': 'Honda', 'model': 'Civic', 'year': 2024,
+        'owner_email': owner_user['email'],
+    })
+    client.post(f'/api/sc/service-centers/{sc_user["id"]}/activate', headers=auth(mfr_token))
+    fresh = client.post('/api/auth/login',
+                        json={'email': sc_user['email'], 'password': STRONG_PASSWORD})
+    sc_token = fresh.get_json()['access_token']
+    # Submit a service record so the SC has a row in ServiceMetadata for VIN
+    client.post('/api/service/submit', headers=auth(sc_token), json={
+        'vin': VIN, 'service_type': 'Oil Change',
+        'service_date': SERVICE_DATE, 'mileage': 5000,
+    })
+    return mfr_token, owner_token, sc_token, mfr_user, owner_user, sc_user
+
+
+# ---------------------------------------------------------------------------
+# GET dispute-messages
+# ---------------------------------------------------------------------------
+
+class TestGetDisputeMessages:
+    def test_owner_can_get_empty_thread(self, client):
+        _, owner_token, _, _, _, _ = _setup_full_dispute(client)
+        r = client.get(f'/api/service/dispute-messages/{VIN}/0',
+                       headers=auth(owner_token))
+        assert r.status_code == 200
+        data = r.get_json()
+        assert 'messages' in data
+        assert data['messages'] == []
+
+    def test_manufacturer_can_get_thread(self, client):
+        mfr_token, _, _, _, _, _ = _setup_full_dispute(client)
+        r = client.get(f'/api/service/dispute-messages/{VIN}/0',
+                       headers=auth(mfr_token))
+        assert r.status_code == 200
+        assert 'messages' in r.get_json()
+
+    def test_sc_can_get_thread(self, client):
+        _, _, sc_token, _, _, _ = _setup_full_dispute(client)
+        r = client.get(f'/api/service/dispute-messages/{VIN}/0',
+                       headers=auth(sc_token))
+        assert r.status_code == 200
+
+    def test_unauthenticated_returns_401(self, client):
+        _setup_full_dispute(client)
+        r = client.get(f'/api/service/dispute-messages/{VIN}/0')
+        assert r.status_code == 401
+
+    def test_unrelated_owner_cannot_access(self, client):
+        _setup_full_dispute(client)
+        other_token, _ = register_and_login(client, 'OWNER')
+        r = client.get(f'/api/service/dispute-messages/{VIN}/0',
+                       headers=auth(other_token))
+        assert r.status_code == 403
+
+    def test_invalid_vin_returns_400(self, client):
+        _, owner_token, _, _, _, _ = _setup_full_dispute(client)
+        r = client.get('/api/service/dispute-messages/BADVIN/0',
+                       headers=auth(owner_token))
+        assert r.status_code == 400
+
+    def test_messages_ordered_by_created_at(self, client):
+        _, owner_token, _, _, _, _ = _setup_full_dispute(client)
+        for msg in ('First message', 'Second message', 'Third message'):
+            client.post('/api/service/dispute-messages',
+                        headers=auth(owner_token),
+                        json={'vin': VIN, 'record_index': 0, 'message': msg})
+        r = client.get(f'/api/service/dispute-messages/{VIN}/0',
+                       headers=auth(owner_token))
+        messages = r.get_json()['messages']
+        assert len(messages) == 3
+        assert messages[0]['message'] == 'First message'
+        assert messages[2]['message'] == 'Third message'
+
+
+# ---------------------------------------------------------------------------
+# POST dispute-messages
+# ---------------------------------------------------------------------------
+
+class TestPostDisputeMessage:
+    def test_owner_can_post_message(self, client):
+        _, owner_token, _, _, _, _ = _setup_full_dispute(client)
+        r = client.post('/api/service/dispute-messages',
+                        headers=auth(owner_token),
+                        json={'vin': VIN, 'record_index': 0, 'message': 'I dispute this.'})
+        assert r.status_code == 201
+        data = r.get_json()
+        assert data['message'] == 'I dispute this.'
+        assert data['sender_role'] == 'OWNER'
+
+    def test_sc_can_post_message(self, client):
+        _, _, sc_token, _, _, _ = _setup_full_dispute(client)
+        r = client.post('/api/service/dispute-messages',
+                        headers=auth(sc_token),
+                        json={'vin': VIN, 'record_index': 0, 'message': 'Rebuttal from SC.'})
+        assert r.status_code == 201
+        assert r.get_json()['sender_role'] == 'SERVICE_CENTER'
+
+    def test_manufacturer_can_post_message(self, client):
+        mfr_token, _, _, _, _, _ = _setup_full_dispute(client)
+        r = client.post('/api/service/dispute-messages',
+                        headers=auth(mfr_token),
+                        json={'vin': VIN, 'record_index': 0, 'message': 'Resolution: claim valid.'})
+        assert r.status_code == 201
+        assert r.get_json()['sender_role'] == 'MANUFACTURER'
+
+    def test_unauthenticated_returns_401(self, client):
+        _setup_full_dispute(client)
+        r = client.post('/api/service/dispute-messages',
+                        json={'vin': VIN, 'record_index': 0, 'message': 'No auth.'})
+        assert r.status_code == 401
+
+    def test_unrelated_owner_cannot_post(self, client):
+        _setup_full_dispute(client)
+        other_token, _ = register_and_login(client, 'OWNER')
+        r = client.post('/api/service/dispute-messages',
+                        headers=auth(other_token),
+                        json={'vin': VIN, 'record_index': 0, 'message': 'Intruder.'})
+        assert r.status_code == 403
+
+    def test_empty_message_returns_400(self, client):
+        _, owner_token, _, _, _, _ = _setup_full_dispute(client)
+        r = client.post('/api/service/dispute-messages',
+                        headers=auth(owner_token),
+                        json={'vin': VIN, 'record_index': 0, 'message': ''})
+        assert r.status_code == 400
+
+    def test_missing_message_returns_400(self, client):
+        _, owner_token, _, _, _, _ = _setup_full_dispute(client)
+        r = client.post('/api/service/dispute-messages',
+                        headers=auth(owner_token),
+                        json={'vin': VIN, 'record_index': 0})
+        assert r.status_code == 400
+
+    def test_missing_vin_returns_400(self, client):
+        _, owner_token, _, _, _, _ = _setup_full_dispute(client)
+        r = client.post('/api/service/dispute-messages',
+                        headers=auth(owner_token),
+                        json={'record_index': 0, 'message': 'No VIN.'})
+        assert r.status_code == 400
+
+    def test_invalid_vin_returns_400(self, client):
+        _, owner_token, _, _, _, _ = _setup_full_dispute(client)
+        r = client.post('/api/service/dispute-messages',
+                        headers=auth(owner_token),
+                        json={'vin': 'BAD', 'record_index': 0, 'message': 'Bad VIN.'})
+        assert r.status_code == 400
+
+    def test_negative_record_index_returns_400(self, client):
+        _, owner_token, _, _, _, _ = _setup_full_dispute(client)
+        r = client.post('/api/service/dispute-messages',
+                        headers=auth(owner_token),
+                        json={'vin': VIN, 'record_index': -1, 'message': 'Neg index.'})
+        assert r.status_code == 400
+
+    def test_posted_message_appears_in_get(self, client):
+        _, owner_token, _, _, _, _ = _setup_full_dispute(client)
+        client.post('/api/service/dispute-messages',
+                    headers=auth(owner_token),
+                    json={'vin': VIN, 'record_index': 0, 'message': 'Hello thread!'})
+        r = client.get(f'/api/service/dispute-messages/{VIN}/0',
+                       headers=auth(owner_token))
+        messages = r.get_json()['messages']
+        assert len(messages) == 1
+        assert messages[0]['message'] == 'Hello thread!'
+
+    def test_response_includes_all_expected_fields(self, client):
+        _, owner_token, _, _, _, _ = _setup_full_dispute(client)
+        r = client.post('/api/service/dispute-messages',
+                        headers=auth(owner_token),
+                        json={'vin': VIN, 'record_index': 0, 'message': 'Check fields.'})
+        data = r.get_json()
+        for field in ('id', 'vin', 'record_index', 'sender_id', 'sender_name',
+                      'sender_role', 'message', 'created_at'):
+            assert field in data, f'Missing field: {field}'
+
+    def test_message_persisted_to_db(self, client, app):
+        _, owner_token, _, _, _, _ = _setup_full_dispute(client)
+        client.post('/api/service/dispute-messages',
+                    headers=auth(owner_token),
+                    json={'vin': VIN, 'record_index': 0, 'message': 'DB persist test.'})
+        with app.app_context():
+            from db.models import DisputeMessage
+            msg = DisputeMessage.query.filter_by(vin=VIN, record_index=0).first()
+            assert msg is not None
+            assert msg.message == 'DB persist test.'
+            assert msg.sender_role == 'OWNER'
+
+    def test_multiple_messages_from_different_roles(self, client):
+        mfr_token, owner_token, sc_token, _, _, _ = _setup_full_dispute(client)
+        client.post('/api/service/dispute-messages', headers=auth(owner_token),
+                    json={'vin': VIN, 'record_index': 0, 'message': 'Owner says X.'})
+        client.post('/api/service/dispute-messages', headers=auth(sc_token),
+                    json={'vin': VIN, 'record_index': 0, 'message': 'SC replies Y.'})
+        client.post('/api/service/dispute-messages', headers=auth(mfr_token),
+                    json={'vin': VIN, 'record_index': 0, 'message': 'MFR resolves Z.'})
+        r = client.get(f'/api/service/dispute-messages/{VIN}/0',
+                       headers=auth(owner_token))
+        messages = r.get_json()['messages']
+        assert len(messages) == 3
+        roles = [m['sender_role'] for m in messages]
+        assert 'OWNER' in roles
+        assert 'SERVICE_CENTER' in roles
+        assert 'MANUFACTURER' in roles
+
+
+# ===========================================================================
+# Service dispute resolution persistence (from test_new_features.py)
+# ===========================================================================
+
+def _activate_sc_services(client, mfr_token, sc_user):
+    client.post(f'/api/sc/service-centers/{sc_user["id"]}/activate', headers=auth(mfr_token))
+    fresh = client.post('/api/auth/login',
+                        json={'email': sc_user['email'], 'password': STRONG_PASSWORD})
+    return fresh.get_json()['access_token']
+
+
+def _register_vehicle_services(client, mfr_token, owner_email=None, vin=VIN):
+    payload = {'vin': vin, 'warranty_years': 3, 'make': 'Honda', 'model': 'Civic', 'year': 2024}
+    if owner_email:
+        payload['owner_email'] = owner_email
+    return client.post('/api/vehicle/register', headers=auth(mfr_token), json=payload)
+
+
+class TestServiceResolutionPersistence:
+    def _setup_dispute(self, client, app):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        _, owner = register_and_login(client, 'OWNER')
+        _, sc_user = register_and_login(client, 'SERVICE_CENTER')
+        _register_vehicle_services(client, mfr_token, owner_email=owner['email'])
+        sc_token = _activate_sc_services(client, mfr_token, sc_user)
+
+        client.post('/api/service/submit', headers=auth(sc_token), json={
+            'vin': VIN, 'service_type': 'Engine Service',
+            'service_date': SERVICE_DATE, 'mileage': 30000,
+        })
+
+        with app.app_context():
+            from db.models import ServiceMetadata
+            record = ServiceMetadata.query.filter_by(vin=VIN).first()
+            assert record is not None
+            meta_hash = record.metadata_hash
+
+        from blockchain.adapters.service_log import service_log as sl
+        sl.get_pending_services.return_value = [{
+            'metadata_hash': meta_hash,
+            'verified': False,
+            'disputed': True,
+            'service_center': '0x' + '02' * 20,
+        }]
+
+        return mfr_token, meta_hash
+
+    def test_resolve_dispute_persists_decision(self, client, app):
+        mfr_token, meta_hash = self._setup_dispute(client, app)
+
+        client.post('/api/service/resolve-dispute', headers=auth(mfr_token), json={
+            'vin': VIN, 'record_index': 0, 'decision': 1,
+            'resolution_notes': 'Claim verified and approved',
+        })
+
+        with app.app_context():
+            from db.models import ServiceMetadata
+            record = ServiceMetadata.query.filter_by(vin=VIN).first()
+            assert record.resolution_decision == 'approved'
+
+    def test_resolve_dispute_persists_notes(self, client, app):
+        mfr_token, meta_hash = self._setup_dispute(client, app)
+
+        client.post('/api/service/resolve-dispute', headers=auth(mfr_token), json={
+            'vin': VIN, 'record_index': 0, 'decision': 2,
+            'resolution_notes': 'No evidence of defect found',
+        })
+
+        with app.app_context():
+            from db.models import ServiceMetadata
+            record = ServiceMetadata.query.filter_by(vin=VIN).first()
+            assert record.resolution_notes == 'No evidence of defect found'
+
+    def test_resolve_dispute_sets_resolved_at(self, client, app):
+        mfr_token, meta_hash = self._setup_dispute(client, app)
+
+        client.post('/api/service/resolve-dispute', headers=auth(mfr_token), json={
+            'vin': VIN, 'record_index': 0, 'decision': 1,
+            'resolution_notes': 'Resolved',
+        })
+
+        with app.app_context():
+            from db.models import ServiceMetadata
+            record = ServiceMetadata.query.filter_by(vin=VIN).first()
+            assert record.resolved_at is not None
+
+    def test_service_metadata_resolution_fields_in_to_dict(self, client, app):
+        """ServiceMetadata.to_dict() must include resolution fields."""
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        _, owner = register_and_login(client, 'OWNER')
+        _, sc_user = register_and_login(client, 'SERVICE_CENTER')
+        _register_vehicle_services(client, mfr_token, owner_email=owner['email'])
+        sc_token = _activate_sc_services(client, mfr_token, sc_user)
+        client.post('/api/service/submit', headers=auth(sc_token), json={
+            'vin': VIN, 'service_type': 'Tyre Rotation',
+            'service_date': SERVICE_DATE, 'mileage': 8000,
+        })
+
+        with app.app_context():
+            from db.models import ServiceMetadata
+            record = ServiceMetadata.query.filter_by(vin=VIN).first()
+            d = record.to_dict()
+            assert 'resolution_decision' in d
+            assert 'resolution_notes' in d
+            assert 'resolved_at' in d
+
+    def teardown_method(self, method):
+        from blockchain.adapters.service_log import service_log as sl
+        sl.get_pending_services.return_value = []

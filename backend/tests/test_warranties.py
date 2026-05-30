@@ -1,6 +1,7 @@
 """Tests for /api/warranty endpoints."""
+import time
 import pytest
-from conftest import register_and_login, auth
+from conftest import register_and_login, auth, STRONG_PASSWORD
 
 VIN = '1HGCM82633A004352'
 
@@ -246,3 +247,145 @@ class TestOwnerClaims:
     def test_owner_claims_requires_auth(self, client):
         r = client.get('/api/warranty/owner/claims')
         assert r.status_code == 401
+
+
+# ===========================================================================
+# Warranty claim status persistence (from test_new_features.py)
+# ===========================================================================
+
+def _activate_sc_warranty(client, mfr_token, sc_user):
+    client.post(f'/api/sc/service-centers/{sc_user["id"]}/activate', headers=auth(mfr_token))
+    fresh = client.post('/api/auth/login',
+                        json={'email': sc_user['email'], 'password': STRONG_PASSWORD})
+    return fresh.get_json()['access_token']
+
+
+def _register_vehicle_warranty(client, mfr_token, owner_email=None, vin=VIN):
+    payload = {'vin': vin, 'warranty_years': 3, 'make': 'Honda', 'model': 'Civic', 'year': 2024}
+    if owner_email:
+        payload['owner_email'] = owner_email
+    return client.post('/api/vehicle/register', headers=auth(mfr_token), json=payload)
+
+
+class TestWarrantyClaimStatusPersistence:
+    def _setup_claim(self, client):
+        """Submit a claim and configure wt.get_claims to return the actual claim hash."""
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        owner_token, owner = register_and_login(client, 'OWNER')
+        _register_vehicle_warranty(client, mfr_token, owner_email=owner['email'])
+
+        r = client.post('/api/warranty/submit-claim', headers=auth(owner_token), json={
+            'vin': VIN, 'issue_description': 'Gearbox grinding noise',
+        })
+        actual_hash = r.get_json()['claim_hash']
+
+        # Point get_claims mock at the real hash so update_status can find the DB record
+        from blockchain.adapters.warranty_tracker import warranty_tracker as wt
+        wt.get_claims.return_value = [{'claim_details_hash': actual_hash, 'timestamp': 0}]
+
+        return mfr_token, actual_hash
+
+    def test_approve_claim_persists_approved_status(self, client, app):
+        mfr_token, _ = self._setup_claim(client)
+
+        client.post('/api/warranty/approve-claim', headers=auth(mfr_token), json={
+            'vin': VIN, 'claim_index': 0,
+        })
+
+        with app.app_context():
+            from db.models import WarrantyClaimMetadata
+            record = WarrantyClaimMetadata.query.filter_by(vin=VIN).first()
+            assert record is not None
+            assert record.status == 'approved'
+
+    def test_deny_claim_persists_denied_status(self, client, app):
+        mfr_token, _ = self._setup_claim(client)
+
+        client.post('/api/warranty/deny-claim', headers=auth(mfr_token), json={
+            'vin': VIN, 'claim_index': 0, 'reason': 'Outside warranty scope',
+        })
+
+        with app.app_context():
+            from db.models import WarrantyClaimMetadata
+            record = WarrantyClaimMetadata.query.filter_by(vin=VIN).first()
+            assert record is not None
+            assert record.status == 'denied'
+
+    def test_deny_claim_persists_reason_as_notes(self, client, app):
+        mfr_token, _ = self._setup_claim(client)
+
+        client.post('/api/warranty/deny-claim', headers=auth(mfr_token), json={
+            'vin': VIN, 'claim_index': 0, 'reason': 'Vehicle was modified by owner',
+        })
+
+        with app.app_context():
+            from db.models import WarrantyClaimMetadata
+            record = WarrantyClaimMetadata.query.filter_by(vin=VIN).first()
+            assert record.approved_notes == 'Vehicle was modified by owner'
+
+    def test_new_claim_has_pending_status_by_default(self, client, app):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        owner_token, owner = register_and_login(client, 'OWNER')
+        _register_vehicle_warranty(client, mfr_token, owner_email=owner['email'])
+
+        client.post('/api/warranty/submit-claim', headers=auth(owner_token), json={
+            'vin': VIN, 'issue_description': 'Strange rattle from dashboard',
+        })
+
+        with app.app_context():
+            from db.models import WarrantyClaimMetadata
+            record = WarrantyClaimMetadata.query.filter_by(vin=VIN).first()
+            assert record is not None
+            assert record.status == 'pending'
+
+    def test_approve_sets_approved_at_timestamp(self, client, app):
+        mfr_token, _ = self._setup_claim(client)
+
+        client.post('/api/warranty/approve-claim', headers=auth(mfr_token), json={
+            'vin': VIN, 'claim_index': 0,
+        })
+
+        with app.app_context():
+            from db.models import WarrantyClaimMetadata
+            record = WarrantyClaimMetadata.query.filter_by(vin=VIN).first()
+            assert record.approved_at is not None
+
+    def teardown_method(self, method):
+        from blockchain.adapters.warranty_tracker import warranty_tracker as wt
+        wt.get_claims.return_value = []
+
+
+# ---------------------------------------------------------------------------
+# WarrantyClaimMetadata model — new fields
+# ---------------------------------------------------------------------------
+
+class TestWarrantyClaimMetadataModel:
+    def test_warranty_claim_to_dict_includes_status(self, client, app):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        owner_token, owner = register_and_login(client, 'OWNER')
+        _register_vehicle_warranty(client, mfr_token, owner_email=owner['email'])
+        client.post('/api/warranty/submit-claim', headers=auth(owner_token), json={
+            'vin': VIN, 'issue_description': 'Oil leak',
+        })
+
+        with app.app_context():
+            from db.models import WarrantyClaimMetadata
+            record = WarrantyClaimMetadata.query.filter_by(vin=VIN).first()
+            d = record.to_dict()
+            assert 'status' in d
+            assert 'approved_at' in d
+            assert 'approved_notes' in d
+
+    def test_warranty_claim_default_status_is_pending(self, client, app):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        owner_token, owner = register_and_login(client, 'OWNER')
+        _register_vehicle_warranty(client, mfr_token, owner_email=owner['email'])
+        client.post('/api/warranty/submit-claim', headers=auth(owner_token), json={
+            'vin': VIN, 'issue_description': 'Coolant leak',
+        })
+
+        with app.app_context():
+            from db.models import WarrantyClaimMetadata
+            record = WarrantyClaimMetadata.query.filter_by(vin=VIN).first()
+            assert record.status == 'pending'
+            assert record.approved_at is None

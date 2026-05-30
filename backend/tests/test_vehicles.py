@@ -1,6 +1,7 @@
 """Tests for /api/vehicle endpoints."""
+import time
 import pytest
-from conftest import register_and_login, auth
+from conftest import register_and_login, auth, STRONG_PASSWORD
 
 VIN = '1HGCM82633A004352'
 VIN2 = '2HGCM82633A004352'
@@ -542,3 +543,81 @@ class TestMyVehiclesRoleEnforcement:
         sc_token, _ = register_and_login(client, 'SERVICE_CENTER')
         r = client.get('/api/vehicle/my-vehicles', headers=auth(sc_token))
         assert r.status_code == 403
+
+
+# ===========================================================================
+# Vehicle detail service stats (from test_new_features.py)
+# ===========================================================================
+
+TODAY_VEHICLE = time.strftime('%Y-%m-%dT%H:%M:%S')
+
+
+def _activate_sc_vehicle(client, mfr_token, sc_user):
+    client.post(f'/api/sc/service-centers/{sc_user["id"]}/activate', headers=auth(mfr_token))
+    fresh = client.post('/api/auth/login',
+                        json={'email': sc_user['email'], 'password': STRONG_PASSWORD})
+    return fresh.get_json()['access_token']
+
+
+class TestVehicleDetailServiceStats:
+    def test_vehicle_detail_includes_service_stat_keys(self, client):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        owner_token, owner = register_and_login(client, 'OWNER')
+        _register_with_owner(client, mfr_token, owner['email'])
+        r = client.get(f'/api/vehicle/{VIN}', headers=auth(owner_token))
+        assert r.status_code == 200
+        data = r.get_json()
+        assert 'last_service_date' in data
+        assert 'days_since_service' in data
+        assert 'last_service_mileage' in data
+
+    def test_service_stats_null_when_no_service_exists(self, client):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        owner_token, owner = register_and_login(client, 'OWNER')
+        _register_with_owner(client, mfr_token, owner['email'])
+        r = client.get(f'/api/vehicle/{VIN}', headers=auth(owner_token))
+        data = r.get_json()
+        assert data['last_service_date'] is None
+        assert data['days_since_service'] is None
+        assert data['last_service_mileage'] is None
+
+    def test_service_stats_populated_after_service_submitted(self, client):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        owner_token, owner = register_and_login(client, 'OWNER')
+        _, sc_user = register_and_login(client, 'SERVICE_CENTER')
+        _register_with_owner(client, mfr_token, owner['email'])
+        sc_token = _activate_sc_vehicle(client, mfr_token, sc_user)
+
+        client.post('/api/service/submit', headers=auth(sc_token), json={
+            'vin': VIN, 'service_type': 'Oil Change',
+            'service_date': TODAY_VEHICLE, 'mileage': 8000,
+        })
+
+        r = client.get(f'/api/vehicle/{VIN}', headers=auth(owner_token))
+        data = r.get_json()
+        assert data['last_service_date'] is not None
+        assert data['days_since_service'] is not None
+        assert data['last_service_mileage'] == 8000
+
+    def test_days_since_service_is_non_negative(self, client):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        owner_token, owner = register_and_login(client, 'OWNER')
+        _, sc_user = register_and_login(client, 'SERVICE_CENTER')
+        _register_with_owner(client, mfr_token, owner['email'])
+        sc_token = _activate_sc_vehicle(client, mfr_token, sc_user)
+
+        client.post('/api/service/submit', headers=auth(sc_token), json={
+            'vin': VIN, 'service_type': 'Brake Check',
+            'service_date': TODAY_VEHICLE, 'mileage': 12000,
+        })
+
+        r = client.get(f'/api/vehicle/{VIN}', headers=auth(owner_token))
+        days = r.get_json()['days_since_service']
+        assert days >= 0
+
+    def test_service_count_in_vehicle_detail(self, client):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        owner_token, owner = register_and_login(client, 'OWNER')
+        _register_with_owner(client, mfr_token, owner['email'])
+        r = client.get(f'/api/vehicle/{VIN}', headers=auth(owner_token))
+        assert 'service_count' in r.get_json()
