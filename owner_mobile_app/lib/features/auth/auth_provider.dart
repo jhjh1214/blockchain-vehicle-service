@@ -146,6 +146,15 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> resendVerification() async {
+    try {
+      await ApiClient.instance.dio.post(ApiEndpoints.resendVerification);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   void clearError() {
     _error = null;
     notifyListeners();

@@ -7,6 +7,7 @@ class User {
   final String? city;
   final String? state;
   final String blockchainAddress;
+  final bool emailVerified;
 
   const User({
     required this.id,
@@ -17,6 +18,7 @@ class User {
     this.city,
     this.state,
     required this.blockchainAddress,
+    this.emailVerified = false,
   });
 
   factory User.fromJson(Map<String, dynamic> j) => User(
@@ -28,5 +30,6 @@ class User {
         city: j['city'],
         state: j['state'],
         blockchainAddress: j['blockchain_address'] ?? '',
+        emailVerified: j['email_verified'] as bool? ?? false,
       );
 }

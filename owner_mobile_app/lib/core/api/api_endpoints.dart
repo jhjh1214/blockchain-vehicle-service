@@ -11,6 +11,7 @@ class ApiEndpoints {
   static const deviceToken = '/auth/device-token';
   static const deleteAccount = '/auth/account';
   static const dataExport = '/auth/data-export';
+  static const resendVerification = '/auth/resend-verification';
 
   // Vehicles
   static const myVehicles = '/vehicle/owner/vehicles';

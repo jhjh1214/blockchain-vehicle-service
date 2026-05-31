@@ -9,6 +9,7 @@ export interface User {
   status?: 'active' | 'pending' | 'suspended';
   blockchain_address: string;
   created_at?: string;
+  email_verified?: boolean;
 }
 
 export interface LoginRequest {

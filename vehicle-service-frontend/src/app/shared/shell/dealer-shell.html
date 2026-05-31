@@ -5,6 +5,20 @@
       <button (click)="inactivity.dismissWarning()" aria-label="Dismiss inactivity warning">Stay logged in</button>
     </div>
   }
+  @if (currentUser && currentUser.email_verified === false) {
+    <div class="verification-banner" role="alert">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
+      </svg>
+      <span>Please verify your email address — check your inbox for a verification link.</span>
+      <button (click)="resendVerification()" [disabled]="resendState === 'loading' || resendState === 'sent'" class="resend-btn">
+        @if (resendState === 'loading') { Sending... }
+        @else if (resendState === 'sent') { Sent! Check your inbox }
+        @else if (resendState === 'error') { Failed — try again }
+        @else { Resend email }
+      </button>
+    </div>
+  }
   @if (routeLoading) {
     <div class="route-progress-bar"></div>
   }

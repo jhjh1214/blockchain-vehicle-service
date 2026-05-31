@@ -22,6 +22,7 @@ export class ManufacturerShellComponent implements OnInit, OnDestroy {
   sidebarOpen = false;
   routeLoading = false;
   showInactivityWarning = false;
+  resendState: 'idle' | 'loading' | 'sent' | 'error' = 'idle';
 
   private subs = new Subscription();
 
@@ -55,6 +56,15 @@ export class ManufacturerShellComponent implements OnInit, OnDestroy {
   toggleTheme(): void { this.theme.toggle(); }
   toggleSidebar(): void { this.sidebarOpen = !this.sidebarOpen; }
   closeSidebar(): void { this.sidebarOpen = false; }
+
+  resendVerification(): void {
+    if (this.resendState === 'loading' || this.resendState === 'sent') return;
+    this.resendState = 'loading';
+    this.authService.resendVerification().subscribe({
+      next: () => { this.resendState = 'sent'; },
+      error: () => { this.resendState = 'error'; setTimeout(() => this.resendState = 'idle', 3000); },
+    });
+  }
 
   logout(): void {
     this.inactivity.stop();
