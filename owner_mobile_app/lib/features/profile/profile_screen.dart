@@ -217,6 +217,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Column(
               children: [
                 ListTile(
+                  leading: const Icon(Icons.shield_outlined),
+                  title: const Text('Warranty Void Requests'),
+                  subtitle: const Text('View & dispute void requests on your vehicles'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push('/services/void-requests'),
+                ),
+                const Divider(height: 1),
+                ListTile(
                   leading: const Icon(Icons.lock_outlined),
                   title: const Text('Change Password'),
                   trailing: const Icon(Icons.chevron_right),

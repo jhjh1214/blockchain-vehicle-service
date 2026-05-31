@@ -9,6 +9,7 @@ import '../features/vehicles/vehicle_detail_screen.dart';
 import '../features/vehicles/claim_vehicle_screen.dart';
 import '../features/vehicles/transfer_vehicle_screen.dart';
 import '../features/vehicles/recalls_screen.dart';
+import '../features/services/void_requests_screen.dart';
 import '../features/services/pending_services_screen.dart';
 import '../features/services/service_history_screen.dart';
 import '../features/warranties/warranty_claims_screen.dart';
@@ -69,6 +70,10 @@ GoRouter createRouter(AuthProvider auth) => GoRouter(
         GoRoute(
           path: '/vehicles/recalls',
           builder: (_, __) => const RecallsScreen(),
+        ),
+        GoRoute(
+          path: '/services/void-requests',
+          builder: (_, __) => const VoidRequestsScreen(),
         ),
         GoRoute(
           path: '/vehicles/claim',

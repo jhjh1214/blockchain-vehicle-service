@@ -91,7 +91,10 @@ class PushNotificationService {
       case 'warranty_update':
         router.go('/warranties');
       case 'recall':
-        router.go('/notifications');
+        router.go('/vehicles/recalls');
+      case 'warranty_void':
+      case 'warranty_void_resolved':
+        router.go('/services/void-requests');
       default:
         if (vin.isNotEmpty) {
           router.go('/vehicles/$vin');
