@@ -18,8 +18,11 @@ class User(db.Model):
     phone = db.Column(db.String(20))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    # Brand the account is authorised for (required for MANUFACTURER / SERVICE_CENTER)
+    # Brand the account is authorised for (required for MANUFACTURER / authorized SERVICE_CENTER)
     brand  = db.Column(db.String(100), nullable=True)
+
+    # Malaysian SSM company registration number (required for manufacturers; also stored for SCs)
+    ssm_number = db.Column(db.String(50), nullable=True, index=True)
 
     # Service center profile
     city   = db.Column(db.String(100))
@@ -66,6 +69,7 @@ class User(db.Model):
             'consent_given_at': self.consent_given_at.isoformat() if self.consent_given_at else None,
             'email_verified': self.email_verified,
             'theme_preference': self.theme_preference or 'light',
+            'ssm_number': self.ssm_number,
         }
 
 
@@ -120,6 +124,7 @@ class ServiceMetadata(db.Model):
     technician_name = db.Column(db.String(255))
     service_notes = db.Column(db.Text)
     photos = db.Column(db.JSON)
+    sc_brand = db.Column(db.String(100), nullable=True)  # null = independent/external workshop
     disputed = db.Column(db.Boolean, default=False, nullable=False)
     rebuttal_notes = db.Column(db.Text, nullable=True)
     rebuttal_submitted_at = db.Column(db.DateTime, nullable=True)
@@ -142,6 +147,7 @@ class ServiceMetadata(db.Model):
             'technician_name': self.technician_name,
             'service_notes': self.service_notes,
             'photos': self.photos,
+            'sc_brand': self.sc_brand,
             'disputed': self.disputed,
             'escalated': self.escalated,
             'escalated_at': self.escalated_at.isoformat() if self.escalated_at else None,
@@ -277,6 +283,34 @@ class EmailVerificationToken(db.Model):
 
     def is_valid(self) -> bool:
         return self.expires_at > datetime.utcnow()
+
+
+class AuthorizedSCLicense(db.Model):
+    __tablename__ = 'authorized_sc_licenses'
+
+    id = db.Column(db.Integer, primary_key=True)
+    manufacturer_user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    ssm_number = db.Column(db.String(50), nullable=False, index=True)
+    sc_name = db.Column(db.String(255), nullable=True)
+    brand = db.Column(db.String(100), nullable=False)
+    used = db.Column(db.Boolean, default=False, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    manufacturer = db.relationship('User', backref=db.backref('authorized_sc_licenses', lazy=True, cascade='all, delete-orphan'))
+
+    __table_args__ = (
+        db.UniqueConstraint('ssm_number', name='uq_authorized_ssm'),
+    )
+
+    def to_dict(self) -> dict:
+        return {
+            'id': self.id,
+            'ssm_number': self.ssm_number,
+            'sc_name': self.sc_name,
+            'brand': self.brand,
+            'used': self.used,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
 
 
 class EthFundRequest(db.Model):

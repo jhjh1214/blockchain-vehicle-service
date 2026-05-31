@@ -12,7 +12,8 @@ logger = logging.getLogger(__name__)
 
 def submit_service(vin: str, service_type: str, service_date: str, mileage: int,
                    parts_replaced: str, technician_name: str, service_notes: str,
-                   ecu_modules: list, photos: list, from_address: str) -> dict:
+                   ecu_modules: list, photos: list, from_address: str,
+                   sc_brand: str = '') -> dict:
     metadata = {
         'service_type': service_type,
         'service_date': service_date,
@@ -39,7 +40,8 @@ def submit_service(vin: str, service_type: str, service_date: str, mileage: int,
             technician_name=technician_name,
             service_notes=service_notes,
             photos=photos or [],
-            service_center_address=from_address
+            service_center_address=from_address,
+            sc_brand=sc_brand or None,
         )
     except Exception as exc:
         db.session.rollback()

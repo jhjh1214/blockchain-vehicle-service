@@ -27,6 +27,8 @@ def register():
             city=data.get('city', ''),
             state=data.get('state', ''),
             brand=data.get('brand', ''),
+            ssm_number=data.get('ssm_number', ''),
+            is_independent=bool(data.get('is_independent', False)),
             consent_given=bool(data.get('consent_given', False)),
         )
         from flask import current_app

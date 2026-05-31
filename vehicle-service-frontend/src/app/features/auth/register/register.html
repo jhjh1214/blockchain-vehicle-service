@@ -24,7 +24,7 @@
           }
         </div>
 
-        <!-- Role -->
+        <!-- Account Type -->
         <div class="form-group mb-16">
           <label class="form-label" for="role">Account Type <span class="required">*</span></label>
           <select id="role" formControlName="role" class="form-control">
@@ -35,26 +35,76 @@
           <div class="form-hint">Vehicle owners register through the mobile app</div>
         </div>
 
-        <!-- Brand (required for all roles) -->
+        <!-- Role-specific info banner -->
+        @if (isAuthSC) {
+          <div class="alert" style="background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;font-size:12px;margin-bottom:16px;padding:10px 14px;">
+            <strong>Authorised Service Centre</strong> — Your SSM number must be pre-registered by your brand principal (manufacturer) before you can register.
+            Once registered your account will go <strong>pending</strong> until the manufacturer activates it.
+          </div>
+        }
+        @if (isIndepSC) {
+          <div class="alert" style="background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;font-size:12px;margin-bottom:16px;padding:10px 14px;">
+            <strong>Independent Workshop</strong> — You can service any vehicle. Services you submit will be flagged as external/independent in the vehicle history.
+            Your account will go <strong>pending</strong> until reviewed.
+          </div>
+        }
+
+        <!-- Company Name -->
         <div class="form-group mb-16">
-          <label class="form-label" for="brand">Brand / Make <span class="required">*</span></label>
-          <input type="text" id="brand" formControlName="brand" class="form-control"
-                 [class.is-invalid]="f['brand'].invalid && f['brand'].touched"
-                 placeholder="e.g. Honda, Toyota, Perodua" autocomplete="off" />
-          @if (f['brand'].invalid && f['brand'].touched) {
-            <div class="invalid-feedback">Brand is required</div>
+          <label class="form-label" for="name">Company Name <span class="required">*</span></label>
+          <input type="text" id="name" formControlName="name" class="form-control"
+                 [class.is-invalid]="f['name'].invalid && f['name'].touched"
+                 placeholder="e.g. AutoFix Sdn Bhd" autocomplete="organization" />
+          @if (f['name'].invalid && f['name'].touched) {
+            <div class="invalid-feedback">Company name is required</div>
           }
-          <div class="form-hint">The vehicle brand your organisation is authorised for</div>
         </div>
 
-        <!-- SC-specific fields -->
-        @if (f['role'].value === 'SERVICE_CENTER') {
+        <!-- SSM Number (manufacturer + auth SC; optional for independent) -->
+        @if (isManufacturer || isAuthSC) {
           <div class="form-group mb-16">
-            <label class="form-label" for="name">Company Name <span class="required">*</span></label>
-            <input type="text" id="name" formControlName="name" class="form-control"
-                   placeholder="AutoFix Sdn Bhd" autocomplete="organization" />
+            <label class="form-label" for="ssm_number">
+              SSM Registration Number <span class="required">*</span>
+            </label>
+            <input type="text" id="ssm_number" formControlName="ssm_number" class="form-control"
+                   [class.is-invalid]="f['ssm_number'].invalid && f['ssm_number'].touched"
+                   placeholder="e.g. 1234567-H or 202301012345"
+                   style="text-transform:uppercase;" autocomplete="off" />
+            @if (f['ssm_number'].invalid && f['ssm_number'].touched) {
+              <div class="invalid-feedback">SSM number is required (5–20 alphanumeric characters)</div>
+            }
+            <div class="form-hint">
+              @if (isManufacturer) { Your Malaysian Companies Commission (SSM) registration number. }
+              @if (isAuthSC) { Must match the SSM number your manufacturer pre-registered for your workshop. }
+            </div>
           </div>
+        }
 
+        <!-- Brand — dropdown for manufacturer only -->
+        @if (isManufacturer) {
+          <div class="form-group mb-16">
+            <label class="form-label" for="brand">Vehicle Brand <span class="required">*</span></label>
+            <select id="brand" formControlName="brand" class="form-control"
+                    [class.is-invalid]="f['brand'].invalid && f['brand'].touched">
+              <option value="">Select brand…</option>
+              @for (b of brands; track b) {
+                <option [value]="b">{{ b }}</option>
+              }
+            </select>
+            @if (f['brand'].invalid && f['brand'].touched) {
+              <div class="invalid-feedback">Please select a brand</div>
+            }
+            <div class="form-hint">The vehicle brand your organisation manufactures or represents in Malaysia</div>
+          </div>
+        }
+        @if (isAuthSC) {
+          <div class="form-hint" style="margin-bottom:16px;padding:8px 10px;background:var(--color-surface);border:1px solid var(--border);border-radius:6px;font-size:12px;">
+            Brand will be assigned automatically based on your SSM number.
+          </div>
+        }
+
+        <!-- SC-specific fields -->
+        @if (isSC) {
           <div class="form-grid mb-16">
             <div class="form-group">
               <label class="form-label" for="phone">Phone Number</label>
@@ -71,7 +121,6 @@
               </select>
             </div>
           </div>
-
           @if (f['city'].value) {
             <div class="form-group mb-16">
               <label class="form-label">State</label>
@@ -88,12 +137,10 @@
                    formControlName="password" class="form-control"
                    [class.is-invalid]="f['password'].invalid && f['password'].touched"
                    placeholder="Create a strong password" autocomplete="new-password" />
-            <button type="button" class="btn-eye" (click)="showPassword = !showPassword"
-                    [attr.aria-label]="showPassword ? 'Hide password' : 'Show password'">
+            <button type="button" class="btn-eye" (click)="showPassword = !showPassword">
               @if (!showPassword) {
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
                 </svg>
               } @else {
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -104,17 +151,12 @@
           </div>
         </div>
 
-        <!-- Strength bar -->
         @if (f['password'].value) {
           <div class="password-strength mb-12">
-            <div class="strength-bar">
-              <div class="strength-fill" [class]="strengthClass"></div>
-            </div>
+            <div class="strength-bar"><div class="strength-fill" [class]="strengthClass"></div></div>
             <span class="strength-text" [class]="strengthClass">{{ strengthLabel }}</span>
           </div>
         }
-
-        <!-- Requirements checklist -->
         @if (f['password'].touched || f['password'].value) {
           <div class="password-requirements mb-16">
             @for (req of requirements; track req.key) {
@@ -142,12 +184,10 @@
                    formControlName="confirmPassword" class="form-control"
                    [class.is-invalid]="f['confirmPassword'].touched && registerForm.errors?.['mismatch']"
                    placeholder="Re-enter your password" autocomplete="new-password" />
-            <button type="button" class="btn-eye" (click)="showConfirm = !showConfirm"
-                    [attr.aria-label]="showConfirm ? 'Hide password' : 'Show password'">
+            <button type="button" class="btn-eye" (click)="showConfirm = !showConfirm">
               @if (!showConfirm) {
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
                 </svg>
               } @else {
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -170,13 +210,8 @@
           </div>
         }
 
-        <button type="submit" class="btn btn-primary btn-block"
-                [disabled]="loading || registerForm.invalid">
-          @if (loading) {
-            <span class="spinner"></span>
-          } @else {
-            Create Account
-          }
+        <button type="submit" class="btn btn-primary btn-block" [disabled]="loading || registerForm.invalid">
+          @if (loading) { <span class="spinner"></span> } @else { Create Account }
         </button>
       </form>
 
@@ -184,13 +219,11 @@
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
         </svg>
-        For Manufacturers and Service Centers only
+        For Manufacturers and Service Centres only
       </div>
-
       <div class="auth-footer-link">
         Already have an account? <a routerLink="/login">Sign in here</a>
       </div>
-
       <div class="auth-legal-footer">
         By registering you agree to our
         <a routerLink="/privacy-policy">Privacy Policy</a> and

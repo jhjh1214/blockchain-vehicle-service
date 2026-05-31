@@ -25,15 +25,17 @@ def find_all_by_role(role: str) -> list:
 
 def create(email: str, password: str, role: str, name: str, phone: str,
            blockchain_address: str, city: str = '', state: str = '',
-           brand: str = '', consent_given_at=None) -> User:
-    # SCs start as pending until a manufacturer activates them
-    status = 'pending' if role == 'SERVICE_CENTER' else 'active'
+           brand: str = '', consent_given_at=None,
+           ssm_number: str = None, status: str = None) -> User:
+    if status is None:
+        status = 'pending' if role == 'SERVICE_CENTER' else 'active'
     user = User(
         email=email, role=role, blockchain_address=blockchain_address,
         name=name, phone=phone or '', city=city or '', state=state or '',
         brand=brand or None,
         status=status,
         consent_given_at=consent_given_at,
+        ssm_number=ssm_number or None,
     )
     user.set_password(password)
     db.session.add(user)

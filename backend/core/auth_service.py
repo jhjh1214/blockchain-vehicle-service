@@ -69,15 +69,20 @@ def generate_access_token(user) -> str:
     return jwt.encode(payload, Config.JWT_SECRET_KEY, algorithm='HS256')
 
 
+_SSM_RE = re.compile(r'^[A-Z0-9\-]{5,20}$', re.IGNORECASE)
+
+
 def register_user(email: str, password: str, role: str, name: str, phone: str,
                   city: str = '', state: str = '', brand: str = '',
+                  ssm_number: str = '', is_independent: bool = False,
                   consent_given: bool = False):
-    email = _sanitize(email, 255).lower()
-    name  = _sanitize(name,  255)
-    phone = _sanitize(phone, 20)
-    city  = _sanitize(city,  100)
-    state = _sanitize(state, 100)
-    brand = _sanitize(brand, 100)
+    email      = _sanitize(email,      255).lower()
+    name       = _sanitize(name,       255)
+    phone      = _sanitize(phone,      20)
+    city       = _sanitize(city,       100)
+    state      = _sanitize(state,      100)
+    brand      = _sanitize(brand,      100)
+    ssm_number = _sanitize(ssm_number, 50).upper().strip()
 
     if not email or not re.match(r'^[^\s@]+@[^\s@]+\.[^\s@]+$', email):
         raise ValueError('Invalid email address')
@@ -89,8 +94,41 @@ def register_user(email: str, password: str, role: str, name: str, phone: str,
     if role not in valid_roles:
         raise ValueError(f'Invalid role. Must be one of: {", ".join(valid_roles)}')
 
-    if role == 'MANUFACTURER' and not brand:
-        raise ValueError('brand is required for MANUFACTURER accounts')
+    # SSM and brand validation
+    if role == 'MANUFACTURER':
+        if not brand:
+            raise ValueError('Brand is required for manufacturer accounts')
+        if not ssm_number:
+            raise ValueError('SSM registration number is required for manufacturer accounts')
+        if not _SSM_RE.match(ssm_number):
+            raise ValueError('SSM number must be 5–20 alphanumeric characters (e.g. 1234567-H)')
+        # SSM uniqueness across manufacturers
+        from db.models import User as _UserModel
+        if _UserModel.query.filter_by(ssm_number=ssm_number).first():
+            raise ValueError('An account with this SSM number already exists')
+
+    elif role == 'SERVICE_CENTER' and not is_independent:
+        # Authorized brand SC — must have a manufacturer-pre-registered SSM
+        if not ssm_number:
+            raise ValueError('SSM registration number is required. If you are an independent workshop, select that option instead.')
+        if not _SSM_RE.match(ssm_number):
+            raise ValueError('SSM number must be 5–20 alphanumeric characters (e.g. 1234567-H)')
+
+        from db.models import AuthorizedSCLicense, db as _db
+        license_entry = AuthorizedSCLicense.query.filter_by(ssm_number=ssm_number, used=False).first()
+        if not license_entry:
+            raise ValueError(
+                'Your SSM number is not registered by any manufacturer. '
+                'Please contact your brand principal to have your workshop pre-registered, '
+                'or register as an Independent Workshop instead.'
+            )
+        # Auto-assign brand and mark license as used after account creation
+        brand = license_entry.brand
+
+    elif role == 'SERVICE_CENTER' and is_independent:
+        if ssm_number and not _SSM_RE.match(ssm_number):
+            raise ValueError('SSM number must be 5–20 alphanumeric characters (e.g. 1234567-H)')
+        brand = ''  # independent = no brand
 
     validate_password(password)
 
@@ -117,12 +155,26 @@ def register_user(email: str, password: str, role: str, name: str, phone: str,
     if role == 'OWNER' and not consent_given:
         raise ValueError('You must accept the Privacy Policy and Terms of Service to register')
 
+    # SC pending by default (existing behaviour); manufacturer active
+    initial_status = 'pending' if role == 'SERVICE_CENTER' else 'active'
+
     user = user_repo.create(
         email=email, password=password, role=role,
         name=name, phone=phone, blockchain_address=account['address'],
-        city=city, state=state, brand=brand,
+        city=city, state=state, brand=brand or None,
         consent_given_at=datetime.utcnow() if consent_given else None,
+        ssm_number=ssm_number or None,
+        status=initial_status,
     )
+
+    # Mark authorized license as used now that SC account exists
+    if role == 'SERVICE_CENTER' and not is_independent and ssm_number:
+        from db.models import AuthorizedSCLicense, db as _db
+        lic = AuthorizedSCLicense.query.filter_by(ssm_number=ssm_number).first()
+        if lic:
+            lic.used = True
+            _db.session.commit()
+
     access_token  = generate_access_token(user)
     refresh_token = user_repo.create_refresh_token(user.id)
     return user, access_token, refresh_token

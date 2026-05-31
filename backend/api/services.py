@@ -74,7 +74,7 @@ def submit_service():
     if mapping and mapping.registration_status == 'pending':
         return jsonify({'error': 'Cannot submit a service record for a vehicle with no registered owner'}), 400
 
-    sc_brand = request.user.get('brand', '')
+    sc_brand = request.user.get('brand', '') or ''
     if sc_brand:
         if mapping and mapping.make and mapping.make.lower() != sc_brand.lower():
             return jsonify({'error': f"Brand mismatch: your service centre is authorised for '{sc_brand}' vehicles only"}), 403
@@ -106,7 +106,8 @@ def submit_service():
             service_notes=sanitize(data.get('service_notes', ''), 1000),
             ecu_modules=ecu_modules,
             photos=data.get('photos', []),
-            from_address=request.user['blockchain_address']
+            from_address=request.user['blockchain_address'],
+            sc_brand=sc_brand,
         )
         # Notify owner about the new pending service record
         from db.repositories import users as user_repo

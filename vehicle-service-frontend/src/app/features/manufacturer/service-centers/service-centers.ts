@@ -3,8 +3,10 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import * as L from 'leaflet';
+import { HttpClient } from '@angular/common/http';
 import { ScManagementService, ServiceCenter } from '../../../core/services/sc-management.service';
 import { MY_CITIES, getCityCoords } from '../../../shared/constants/my-cities';
+import { environment } from '../../../../environments/environment';
 
 // Fix leaflet default marker icons (broken in webpack builds)
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -36,6 +38,15 @@ export class ServiceCentersComponent implements OnInit, AfterViewInit, OnDestroy
   filterStatus = '';
   filterState = '';
 
+  // Authorized SC License management
+  showLicenses = false;
+  licenses: any[] = [];
+  newSsmNumber = '';
+  newSsmName = '';
+  licenseLoading = false;
+  licenseError = '';
+  licenseSuccess = '';
+
   states = [...new Set(MY_CITIES.map(c => c.state))].sort();
 
   private map!: L.Map;
@@ -44,11 +55,13 @@ export class ServiceCentersComponent implements OnInit, AfterViewInit, OnDestroy
   constructor(
     private scService: ScManagementService,
     private router: Router,
+    private http: HttpClient,
     private cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
     this.load();
+    this.loadLicenses();
   }
 
   ngAfterViewInit(): void {
@@ -168,4 +181,43 @@ export class ServiceCentersComponent implements OnInit, AfterViewInit, OnDestroy
   get activeSCs(): number { return this.serviceCenters.filter(s => s.status === 'active').length; }
   get pendingSCs(): number { return this.serviceCenters.filter(s => s.status === 'pending').length; }
   get suspendedSCs(): number { return this.serviceCenters.filter(s => s.status === 'suspended').length; }
+
+  loadLicenses(): void {
+    this.http.get<{ licenses: any[] }>(`${environment.apiUrl}/sc/authorized-licenses`).subscribe({
+      next: r => { this.licenses = r.licenses; this.cdr.detectChanges(); },
+      error: () => {}
+    });
+  }
+
+  addLicense(): void {
+    const ssm = this.newSsmNumber.trim().toUpperCase();
+    if (!ssm || this.licenseLoading) return;
+    this.licenseLoading = true;
+    this.licenseError = '';
+    this.licenseSuccess = '';
+    this.http.post<{ license: any }>(`${environment.apiUrl}/sc/authorized-licenses`, {
+      ssm_number: ssm, sc_name: this.newSsmName.trim() || undefined
+    }).subscribe({
+      next: r => {
+        this.licenses = [r.license, ...this.licenses];
+        this.newSsmNumber = '';
+        this.newSsmName = '';
+        this.licenseSuccess = `SSM ${r.license.ssm_number} registered — service centre can now register using this number.`;
+        this.licenseLoading = false;
+        this.cdr.detectChanges();
+      },
+      error: e => {
+        this.licenseError = e.error?.error || 'Failed to add license';
+        this.licenseLoading = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  deleteLicense(id: number): void {
+    this.http.delete<{ message: string }>(`${environment.apiUrl}/sc/authorized-licenses/${id}`).subscribe({
+      next: () => { this.licenses = this.licenses.filter(l => l.id !== id); this.cdr.detectChanges(); },
+      error: e => { this.licenseError = e.error?.error || 'Failed to remove'; this.cdr.detectChanges(); }
+    });
+  }
 }

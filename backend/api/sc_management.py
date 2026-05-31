@@ -4,7 +4,7 @@ from web3 import Web3
 from api.middleware import role_required, token_required
 from api.utils import sanitize, paginate
 from db.repositories import users as user_repo
-from db.models import ServiceMetadata, EthFundRequest
+from db.models import ServiceMetadata, EthFundRequest, AuthorizedSCLicense
 from db.models import db as _db
 from datetime import datetime
 from blockchain.client import web3_client
@@ -255,3 +255,57 @@ def dismiss_eth_request(req_id):
     req.status = 'dismissed'
     _db.session.commit()
     return jsonify({'message': 'Request dismissed'}), 200
+
+
+# ─── Authorized SC License management ────────────────────────────────────────
+
+@sc_bp.route('/authorized-licenses', methods=['GET'])
+@role_required('MANUFACTURER')
+def list_authorized_licenses():
+    mfr_id = request.user['id']
+    entries = AuthorizedSCLicense.query.filter_by(manufacturer_user_id=mfr_id).order_by(
+        AuthorizedSCLicense.created_at.desc()
+    ).all()
+    return jsonify({'licenses': [e.to_dict() for e in entries]}), 200
+
+
+@sc_bp.route('/authorized-licenses', methods=['POST'])
+@role_required('MANUFACTURER')
+def add_authorized_license():
+    data = request.get_json() or {}
+    ssm_number = sanitize(data.get('ssm_number', ''), 50).upper().strip()
+    sc_name = sanitize(data.get('sc_name', ''), 255).strip() or None
+    brand = request.user.get('brand', '')
+
+    if not ssm_number:
+        return jsonify({'error': 'ssm_number is required'}), 400
+    if not brand:
+        return jsonify({'error': 'Your manufacturer account has no brand configured'}), 400
+
+    existing = AuthorizedSCLicense.query.filter_by(ssm_number=ssm_number).first()
+    if existing:
+        return jsonify({'error': 'This SSM number is already registered'}), 409
+
+    entry = AuthorizedSCLicense(
+        manufacturer_user_id=request.user['id'],
+        ssm_number=ssm_number,
+        sc_name=sc_name,
+        brand=brand,
+    )
+    _db.session.add(entry)
+    _db.session.commit()
+    return jsonify({'message': 'SSM license registered', 'license': entry.to_dict()}), 201
+
+
+@sc_bp.route('/authorized-licenses/<int:license_id>', methods=['DELETE'])
+@role_required('MANUFACTURER')
+def delete_authorized_license(license_id):
+    mfr_id = request.user['id']
+    entry = AuthorizedSCLicense.query.filter_by(id=license_id, manufacturer_user_id=mfr_id).first()
+    if not entry:
+        return jsonify({'error': 'License not found'}), 404
+    if entry.used:
+        return jsonify({'error': 'Cannot delete a license that has already been used to register an account'}), 400
+    _db.session.delete(entry)
+    _db.session.commit()
+    return jsonify({'message': 'License removed'}), 200
