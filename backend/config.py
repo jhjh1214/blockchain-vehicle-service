@@ -31,7 +31,7 @@ class Config:
     DEPLOYER_PRIVATE_KEY = os.getenv('DEPLOYER_PRIVATE_KEY', '')
 
     ABI_DIR = os.path.join(os.path.dirname(__file__), 'abis')
-    KEYSTORE_DIR = os.path.join(os.path.dirname(__file__), 'keystore')
+    KEYSTORE_DIR = os.getenv('KEYSTORE_DIR', os.path.join(os.path.dirname(__file__), 'keystore'))
     KEYSTORE_PASSWORD = os.getenv('KEYSTORE_PASSWORD', 'change-me-in-production')
 
     JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', 'jwt-secret-change-in-production')
