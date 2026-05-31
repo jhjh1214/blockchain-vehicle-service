@@ -53,8 +53,24 @@ export class VehicleService {
     return this.http.get(`${environment.apiUrl}/vehicle/fleet-export`, { responseType: 'blob' });
   }
 
-  sendRecall(title: string, message: string): Observable<{ sent: number }> {
-    return this.http.post<{ sent: number }>(`${environment.apiUrl}/vehicle/recall`, { title, message });
+  sendRecall(title: string, message: string): Observable<{ sent: number; recall_id: number }> {
+    return this.http.post<{ sent: number; recall_id: number }>(`${environment.apiUrl}/vehicle/recall`, { title, message });
+  }
+
+  getRecalls(status = 'active'): Observable<{ recalls: any[] }> {
+    return this.http.get<{ recalls: any[] }>(`${environment.apiUrl}/vehicle/recalls`, { params: { status } });
+  }
+
+  closeRecall(recallId: number): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${environment.apiUrl}/vehicle/recalls/${recallId}/close`, {});
+  }
+
+  markRecallServiced(recallId: number, vin: string, notes = ''): Observable<any> {
+    return this.http.post(`${environment.apiUrl}/vehicle/recalls/${recallId}/service`, { vin, notes });
+  }
+
+  checkVinRecalls(vin: string): Observable<{ recalls: any[] }> {
+    return this.http.get<{ recalls: any[] }>(`${environment.apiUrl}/vehicle/recalls/check/${vin}`);
   }
 }
 

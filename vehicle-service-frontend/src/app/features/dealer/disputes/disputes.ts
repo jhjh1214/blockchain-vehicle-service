@@ -3,6 +3,7 @@ import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ServiceService } from '../../../core/services/service';
 import { ServiceRecord } from '../../../core/models/service.model';
+import { VehicleService } from '../../../core/services/vehicle';
 
 @Component({
   selector: 'app-dealer-disputes',
@@ -31,10 +32,34 @@ export class DealerDisputesComponent implements OnInit {
   threadInput: { [key: string]: string } = {};
   threadSending: { [key: string]: boolean } = {};
 
-  constructor(private serviceService: ServiceService) {}
+  recalls: any[] = [];
+  recallsLoading = false;
+  recallMarkLoading: { [key: number]: boolean } = {};
+
+  constructor(private serviceService: ServiceService, private vehicleService: VehicleService) {}
 
   ngOnInit(): void {
     this.load();
+    this.loadRecalls();
+  }
+
+  loadRecalls(): void {
+    this.recallsLoading = true;
+    this.vehicleService.getRecalls('active').subscribe({
+      next: r => { this.recalls = r.recalls; this.recallsLoading = false; },
+      error: () => { this.recallsLoading = false; }
+    });
+  }
+
+  markRecallServicedForVin(recallId: number, vin: string): void {
+    this.recallMarkLoading[recallId] = true;
+    this.vehicleService.markRecallServiced(recallId, vin).subscribe({
+      next: () => {
+        this.recallMarkLoading[recallId] = false;
+        this.loadRecalls();
+      },
+      error: () => { this.recallMarkLoading[recallId] = false; }
+    });
   }
 
   load(): void {

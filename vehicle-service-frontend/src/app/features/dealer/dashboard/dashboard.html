@@ -39,6 +39,22 @@
         <div class="kpi-value kpi-muted">—</div>
       }
     </div>
+    @if (!statsLoading && stats?.eth_balance !== null && stats?.eth_balance !== undefined && (stats?.eth_balance ?? 1) < 0.1) {
+      <div class="kpi-card" style="border:1px solid var(--color-warning,#f59e0b);background:var(--color-warning-light,#fff7ed);">
+        <div class="kpi-label" style="color:var(--color-warning,#d97706);">Low ETH Balance</div>
+        <div style="font-size:12px;color:var(--color-warning,#d97706);margin-bottom:8px;">
+          Insufficient ETH to submit service records.
+        </div>
+        @if (ethRequestMsg) {
+          <div style="font-size:12px;color:var(--color-success,#16a34a);">{{ ethRequestMsg }}</div>
+        } @else {
+          <button class="btn btn-sm" style="background:var(--color-warning,#d97706);color:#fff;border:none;"
+                  (click)="requestEth()" [disabled]="ethRequestLoading">
+            @if (ethRequestLoading) { <span class="spinner"></span> } @else { Request ETH from Manufacturer }
+          </button>
+        }
+      </div>
+    }
     <div class="kpi-card">
       <div class="kpi-label">Account Status</div>
       <div class="kpi-value" [class.kpi-warn]="currentUser?.status === 'pending'"

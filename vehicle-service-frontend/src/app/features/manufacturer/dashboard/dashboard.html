@@ -59,6 +59,27 @@
   }
 
 
+  <!-- ETH fund requests alert -->
+  @if (ethRequestsCount > 0) {
+    <div class="alert alert-warning" style="margin-bottom:16px;display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:20px;height:20px;flex-shrink:0;margin-top:2px;">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+      </svg>
+      <div style="flex:1;">
+        <strong>{{ ethRequestsCount }} service center{{ ethRequestsCount !== 1 ? 's' : '' }} requesting ETH top-up</strong>
+        <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px;">
+          @for (req of ethRequests; track req.id) {
+            <div style="display:flex;align-items:center;gap:8px;font-size:13px;">
+              <span><strong>{{ req.sc_name || req.sc_email }}</strong>@if (req.notes) { — {{ req.notes }} }</span>
+              <a [routerLink]="['/manufacturer/service-centers', req.sc_id]" class="btn btn-sm btn-primary" style="padding:2px 10px;font-size:12px;">Fund</a>
+              <button class="btn btn-sm btn-ghost" style="padding:2px 8px;font-size:12px;" (click)="dismissEthRequest(req.id)">Dismiss</button>
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+  }
+
   <!-- KPI row -->
   <div class="kpi-row kpi-row-6">
     <div class="kpi-card">
@@ -287,6 +308,29 @@
     </div>
   </div>
 </div>
+
+<!-- Active Recalls section -->
+@if (recalls.length > 0) {
+  <div class="card" style="margin-top:24px;">
+    <div class="card-header">
+      <h3 class="card-title">Active Recalls ({{ recalls.length }})</h3>
+    </div>
+    <div class="card-body" style="padding:0;">
+      @for (r of recalls; track r.id) {
+        <div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:12px;" [style.border-bottom]="$last?'none':''">
+          <div style="flex:1;">
+            <div style="font-weight:600;font-size:14px;">{{ r.title }}</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">
+              Issued {{ r.created_at | date:'mediumDate' }} &nbsp;·&nbsp; {{ r.serviced_count ?? 0 }} VINs serviced
+            </div>
+            <div style="font-size:13px;color:var(--text-secondary);margin-top:4px;">{{ r.description | slice:0:160 }}@if (r.description?.length > 160) {…}</div>
+          </div>
+          <button class="btn btn-sm btn-ghost" style="flex-shrink:0;" (click)="closeRecall(r.id)">Close Recall</button>
+        </div>
+      }
+    </div>
+  </div>
+}
 
 <!-- Recall Broadcast Modal -->
 @if (showRecallModal) {

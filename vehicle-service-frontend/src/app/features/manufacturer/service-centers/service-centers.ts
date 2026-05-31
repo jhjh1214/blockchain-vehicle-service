@@ -52,7 +52,7 @@ export class ServiceCentersComponent implements OnInit, AfterViewInit, OnDestroy
   }
 
   ngAfterViewInit(): void {
-    this.initMap();
+    setTimeout(() => this.initMap(), 0);
   }
 
   ngOnDestroy(): void {
@@ -95,6 +95,7 @@ export class ServiceCentersComponent implements OnInit, AfterViewInit, OnDestroy
 
   private updateMapMarkers(): void {
     if (!this.map) return;
+    this.map.invalidateSize();
     this.markers.forEach(m => m.remove());
     this.markers = [];
 

@@ -13,7 +13,8 @@ from api.utils import sanitize, validate_vin, paginate
 from core import vehicle_service
 from core import service_log_service
 from db.repositories import vehicles as vehicle_repo, users as user_repo
-from db.models import VehicleVINMapping, WarrantyClaimMetadata
+from db.models import VehicleVINMapping, WarrantyClaimMetadata, VehicleRecall, RecallVINService
+from db.models import db as _db
 from config import Config
 from extensions import limiter
 
@@ -396,6 +397,25 @@ def get_vehicle_public(vin):
     except Exception:
         finalized = []
 
+    # Recall history for this VIN
+    recall_history = []
+    if mapping.registered_by:
+        mfr = user_repo.find_by_blockchain_address(mapping.registered_by)
+        if mfr and mfr.brand:
+            all_recalls = VehicleRecall.query.filter_by(brand=mfr.brand).all()
+            serviced_recall_ids = {
+                s.recall_id for s in RecallVINService.query.filter_by(vin=vin).all()
+            }
+            for r in all_recalls:
+                recall_history.append({
+                    'recall_id': r.id,
+                    'title': r.title,
+                    'description': r.description,
+                    'issued_at': r.created_at.isoformat() if r.created_at else None,
+                    'status': r.status,
+                    'serviced': r.id in serviced_recall_ids,
+                })
+
     warranty_expiry = vehicle_data.get('warranty_expiry', 0)
     return jsonify({
         'vin':    vin,
@@ -407,6 +427,7 @@ def get_vehicle_public(vin):
             'is_valid': warranty_expiry > int(time.time()) if warranty_expiry else False,
         },
         'service_records': finalized,
+        'recall_history': recall_history,
         'registered_at': mapping.created_at.isoformat() if mapping.created_at else None,
     }), 200
 
@@ -715,11 +736,165 @@ def export_fleet_pdf():
 @role_required('MANUFACTURER')
 def send_recall():
     data = request.get_json() or {}
-    title = sanitize(data.get('title', ''), 100)
-    message = sanitize(data.get('message', ''), 500)
-    if not title or not message:
+    title = sanitize(data.get('title', ''), 200)
+    description = sanitize(data.get('message', '') or data.get('description', ''), 2000)
+    affected_models = data.get('affected_models') or None  # list of model names or None
+    if not title or not description:
         return jsonify({'error': 'title and message are required'}), 400
+
+    brand = request.user.get('brand', '')
+    issued_by_name = request.user.get('name', 'Manufacturer')
+
+    # Persist recall to DB
+    recall = VehicleRecall(
+        brand=brand,
+        issued_by_user_id=request.user['id'],
+        title=title,
+        description=description,
+        affected_models=affected_models,
+    )
+    _db.session.add(recall)
+    _db.session.commit()
+
+    # Push notification to all owner mobile devices
     from core.notifications import broadcast_recall
-    issued_by = request.user.get('name', 'Manufacturer')
-    sent = broadcast_recall(title=title, body=message, issued_by=issued_by)
-    return jsonify({'sent': sent}), 200
+    sent = broadcast_recall(title=title, body=description[:200], issued_by=issued_by_name)
+
+    # Email all SC of the same brand
+    try:
+        sc_users = user_repo.find_service_centers(status='active', brand=brand)
+        if sc_users:
+            from core.email import send_email
+            sc_emails = [sc.email for sc in sc_users if sc.email]
+            for email in sc_emails:
+                send_email(
+                    to=email,
+                    subject=f'[Recall Alert] {title}',
+                    text=f'A recall has been issued by {issued_by_name}.\n\n'
+                         f'Title: {title}\n\nDetails:\n{description}\n\n'
+                         f'Please check your dashboard for details and mark recall services as completed for affected vehicles.',
+                )
+    except Exception:
+        pass  # Email failure must not block the response
+
+    return jsonify({'sent': sent, 'recall_id': recall.id}), 200
+
+
+@vehicle_bp.route('/recalls', methods=['GET'])
+@role_required('MANUFACTURER', 'SERVICE_CENTER')
+def list_recalls():
+    brand = request.user.get('brand', '')
+    status_filter = request.args.get('status', 'active')
+    query = VehicleRecall.query.filter_by(brand=brand)
+    if status_filter in ('active', 'closed'):
+        query = query.filter_by(status=status_filter)
+    recalls = query.order_by(VehicleRecall.created_at.desc()).all()
+    result = []
+    for r in recalls:
+        d = r.to_dict()
+        d['serviced_count'] = len(r.vin_services)
+        result.append(d)
+    return jsonify({'recalls': result}), 200
+
+
+@vehicle_bp.route('/recalls/owner', methods=['GET'])
+@role_required('OWNER')
+def list_recalls_owner():
+    """Return active recalls for the owner's registered vehicles."""
+    owner_addr = request.user.get('blockchain_address', '')
+    vehicles = VehicleVINMapping.query.filter_by(owner_address=owner_addr).all()
+    if not vehicles:
+        return jsonify({'recalls': []}), 200
+
+    # Collect brands from all vehicles the owner has
+    brands = set()
+    for v in vehicles:
+        if v.registered_by:
+            mfr = user_repo.find_by_blockchain_address(v.registered_by)
+            if mfr and mfr.brand:
+                brands.add(mfr.brand)
+
+    if not brands:
+        return jsonify({'recalls': []}), 200
+
+    recalls = VehicleRecall.query.filter(
+        VehicleRecall.brand.in_(brands),
+        VehicleRecall.status == 'active'
+    ).order_by(VehicleRecall.created_at.desc()).all()
+
+    owner_vins = {v.vin for v in vehicles}
+    result = []
+    for r in recalls:
+        d = r.to_dict()
+        serviced_vins = {s.vin for s in r.vin_services}
+        d['my_serviced_vins'] = list(owner_vins & serviced_vins)
+        d['my_affected_vins'] = list(owner_vins)
+        result.append(d)
+    return jsonify({'recalls': result}), 200
+
+
+@vehicle_bp.route('/recalls/<int:recall_id>/service', methods=['POST'])
+@role_required('SERVICE_CENTER')
+def mark_recall_serviced(recall_id):
+    data = request.get_json() or {}
+    vin = validate_vin(data.get('vin', ''))
+    notes = sanitize(data.get('notes', ''), 500)
+
+    recall = VehicleRecall.query.filter_by(id=recall_id, status='active').first()
+    if not recall:
+        return jsonify({'error': 'Recall not found or already closed'}), 404
+
+    existing = RecallVINService.query.filter_by(recall_id=recall_id, vin=vin).first()
+    if existing:
+        return jsonify({'message': 'Already marked as serviced', 'service': existing.to_dict()}), 200
+
+    svc = RecallVINService(
+        recall_id=recall_id,
+        vin=vin,
+        sc_user_id=request.user['id'],
+        notes=notes or None,
+    )
+    _db.session.add(svc)
+    _db.session.commit()
+    return jsonify({'message': f'VIN {vin} marked as recall serviced', 'service': svc.to_dict()}), 201
+
+
+@vehicle_bp.route('/recalls/<int:recall_id>/close', methods=['POST'])
+@role_required('MANUFACTURER')
+def close_recall(recall_id):
+    brand = request.user.get('brand', '')
+    recall = VehicleRecall.query.filter_by(id=recall_id, brand=brand).first()
+    if not recall:
+        return jsonify({'error': 'Recall not found'}), 404
+    recall.status = 'closed'
+    _db.session.commit()
+    return jsonify({'message': 'Recall closed'}), 200
+
+
+@vehicle_bp.route('/recalls/check/<vin>', methods=['GET'])
+@role_required('SERVICE_CENTER', 'MANUFACTURER', 'OWNER')
+def check_vin_recalls(vin):
+    """Check if a VIN's vehicle has any active recalls."""
+    try:
+        vin = validate_vin(vin)
+    except Exception:
+        return jsonify({'error': 'Invalid VIN'}), 400
+
+    vm = VehicleVINMapping.query.filter_by(vin=vin).first()
+    if not vm or not vm.registered_by:
+        return jsonify({'recalls': []}), 200
+
+    mfr = user_repo.find_by_blockchain_address(vm.registered_by)
+    if not mfr or not mfr.brand:
+        return jsonify({'recalls': []}), 200
+
+    recalls = VehicleRecall.query.filter_by(brand=mfr.brand, status='active').all()
+    serviced_recall_ids = {
+        s.recall_id for s in RecallVINService.query.filter_by(vin=vin).all()
+    }
+    result = []
+    for r in recalls:
+        d = r.to_dict()
+        d['serviced_for_vin'] = r.id in serviced_recall_ids
+        result.append(d)
+    return jsonify({'recalls': result}), 200

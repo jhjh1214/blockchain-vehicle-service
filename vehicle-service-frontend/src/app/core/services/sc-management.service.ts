@@ -76,6 +76,22 @@ export class ScManagementService {
   getMyStats(): Observable<SCStats> {
     return this.http.get<SCStats>(`${this.base}/my-stats`);
   }
+
+  createEthRequest(notes = ''): Observable<{ message: string; request: any }> {
+    return this.http.post<{ message: string; request: any }>(`${this.base}/eth-request`, { notes });
+  }
+
+  getEthRequests(): Observable<{ requests: any[]; count: number }> {
+    return this.http.get<{ requests: any[]; count: number }>(`${this.base}/manufacturer/eth-requests`);
+  }
+
+  getEthRequestsCount(): Observable<{ count: number }> {
+    return this.http.get<{ count: number }>(`${this.base}/manufacturer/eth-requests/count`);
+  }
+
+  dismissEthRequest(id: number): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.base}/manufacturer/eth-requests/${id}/dismiss`, {});
+  }
 }
 
 export interface SCStats {

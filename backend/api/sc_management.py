@@ -4,7 +4,9 @@ from web3 import Web3
 from api.middleware import role_required, token_required
 from api.utils import sanitize, paginate
 from db.repositories import users as user_repo
-from db.models import ServiceMetadata
+from db.models import ServiceMetadata, EthFundRequest
+from db.models import db as _db
+from datetime import datetime
 from blockchain.client import web3_client
 from config import Config
 
@@ -126,6 +128,12 @@ def fund_service_center(sc_id):
             web3_client.w3.eth.get_balance(Web3.to_checksum_address(sc.blockchain_address)),
             'ether'
         ))
+        # Auto-fulfill any pending ETH request from this SC
+        pending_req = EthFundRequest.query.filter_by(sc_user_id=sc.id, status='pending').first()
+        if pending_req:
+            pending_req.status = 'fulfilled'
+            pending_req.fulfilled_at = datetime.utcnow()
+            _db.session.commit()
         return jsonify({
             'message': f'Sent {amount_eth} ETH to {sc.name or sc.email}',
             'new_balance': new_balance,
@@ -194,3 +202,56 @@ def fund_all_service_centers():
         'message': f'Funded {funded}/{len(results)} service centers with {amount_eth} ETH each',
         'results': results,
     }), 200
+
+
+# ─── ETH Fund Request endpoints ──────────────────────────────────────────────
+
+@sc_bp.route('/eth-request', methods=['POST'])
+@role_required('SERVICE_CENTER')
+def create_eth_request():
+    sc_user_id = request.user['id']
+    brand = request.user.get('brand', '')
+    if not brand:
+        return jsonify({'error': 'No brand associated with your account'}), 400
+
+    existing = EthFundRequest.query.filter_by(sc_user_id=sc_user_id, status='pending').first()
+    if existing:
+        return jsonify({'message': 'Request already pending', 'request': existing.to_dict()}), 200
+
+    data = request.get_json() or {}
+    notes = (data.get('notes') or '').strip()[:500]
+
+    req = EthFundRequest(sc_user_id=sc_user_id, brand=brand, notes=notes or None)
+    _db.session.add(req)
+    _db.session.commit()
+    return jsonify({'message': 'ETH request sent to manufacturer', 'request': req.to_dict()}), 201
+
+
+@sc_bp.route('/manufacturer/eth-requests', methods=['GET'])
+@role_required('MANUFACTURER')
+def list_eth_requests():
+    brand = request.user.get('brand', '')
+    reqs = EthFundRequest.query.filter_by(brand=brand, status='pending').order_by(
+        EthFundRequest.created_at.desc()
+    ).all()
+    return jsonify({'requests': [r.to_dict() for r in reqs], 'count': len(reqs)}), 200
+
+
+@sc_bp.route('/manufacturer/eth-requests/count', methods=['GET'])
+@role_required('MANUFACTURER')
+def eth_requests_count():
+    brand = request.user.get('brand', '')
+    count = EthFundRequest.query.filter_by(brand=brand, status='pending').count()
+    return jsonify({'count': count}), 200
+
+
+@sc_bp.route('/manufacturer/eth-requests/<int:req_id>/dismiss', methods=['POST'])
+@role_required('MANUFACTURER')
+def dismiss_eth_request(req_id):
+    brand = request.user.get('brand', '')
+    req = EthFundRequest.query.filter_by(id=req_id, brand=brand).first()
+    if not req:
+        return jsonify({'error': 'Request not found'}), 404
+    req.status = 'dismissed'
+    _db.session.commit()
+    return jsonify({'message': 'Request dismissed'}), 200

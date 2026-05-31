@@ -5,6 +5,7 @@ import { ActivatedRoute, RouterModule } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { debounceTime } from 'rxjs/operators';
 import { ServiceService } from '../../../core/services/service';
+import { VehicleService } from '../../../core/services/vehicle';
 
 @Component({
   selector: 'app-submit-service',
@@ -21,6 +22,8 @@ export class SubmitServiceComponent implements OnInit, OnDestroy {
   showAdvanced = false;
   liveHash = '';
   vinPrefilled = false;
+  activeRecalls: any[] = [];
+  recallsChecked = false;
   selectedPhotos: File[] = [];
   photoPreviews: string[] = [];
   private subs = new Subscription();
@@ -41,7 +44,8 @@ export class SubmitServiceComponent implements OnInit, OnDestroy {
   constructor(
     private fb: FormBuilder,
     private route: ActivatedRoute,
-    private serviceService: ServiceService
+    private serviceService: ServiceService,
+    private vehicleService: VehicleService,
   ) {
     this.serviceForm = this.fb.group({
       vin: ['', [Validators.required, Validators.pattern(/^[A-HJ-NPR-Z0-9]{17}$/i)]],
@@ -71,7 +75,36 @@ export class SubmitServiceComponent implements OnInit, OnDestroy {
         this.updateLiveHash();
       })
     );
+    this.subs.add(
+      this.serviceForm.get('vin')!.valueChanges.pipe(debounceTime(500)).subscribe(vin => {
+        if (vin && /^[A-HJ-NPR-Z0-9]{17}$/i.test(vin)) {
+          this.checkVinRecalls(vin);
+        } else {
+          this.activeRecalls = [];
+          this.recallsChecked = false;
+        }
+      })
+    );
+    if (this.vinPrefilled) {
+      const vin = this.serviceForm.get('vin')?.value;
+      if (vin) this.checkVinRecalls(vin);
+    }
     this.updateLiveHash();
+  }
+
+  private checkVinRecalls(vin: string): void {
+    this.vehicleService.checkVinRecalls(vin).subscribe({
+      next: r => { this.activeRecalls = r.recalls.filter((x: any) => !x.serviced_for_vin); this.recallsChecked = true; },
+      error: () => { this.activeRecalls = []; this.recallsChecked = true; }
+    });
+  }
+
+  markRecallServiced(recallId: number): void {
+    const vin = this.serviceForm.get('vin')?.value || '';
+    this.vehicleService.markRecallServiced(recallId, vin).subscribe({
+      next: () => { this.activeRecalls = this.activeRecalls.filter(r => r.id !== recallId); },
+      error: () => {}
+    });
   }
 
   ngOnDestroy(): void { this.subs.unsubscribe(); }

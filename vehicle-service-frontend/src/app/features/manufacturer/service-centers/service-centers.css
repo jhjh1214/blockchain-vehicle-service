@@ -13,7 +13,6 @@
 .map-container {
   height: 520px;
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
-  overflow: hidden;
 }
 
 .map-legend {

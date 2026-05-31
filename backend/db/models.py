@@ -279,6 +279,89 @@ class EmailVerificationToken(db.Model):
         return self.expires_at > datetime.utcnow()
 
 
+class EthFundRequest(db.Model):
+    __tablename__ = 'eth_fund_requests'
+
+    id = db.Column(db.Integer, primary_key=True)
+    sc_user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    brand = db.Column(db.String(100), nullable=False, index=True)
+    status = db.Column(db.String(20), default='pending', nullable=False)  # pending | fulfilled | dismissed
+    notes = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    fulfilled_at = db.Column(db.DateTime, nullable=True)
+
+    sc = db.relationship('User', backref=db.backref('eth_requests', lazy=True, cascade='all, delete-orphan'))
+
+    def to_dict(self) -> dict:
+        return {
+            'id': self.id,
+            'sc_user_id': self.sc_user_id,
+            'sc_name': self.sc.name if self.sc else None,
+            'sc_email': self.sc.email if self.sc else None,
+            'sc_id': self.sc.id if self.sc else None,
+            'brand': self.brand,
+            'status': self.status,
+            'notes': self.notes,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'fulfilled_at': self.fulfilled_at.isoformat() if self.fulfilled_at else None,
+        }
+
+
+class VehicleRecall(db.Model):
+    __tablename__ = 'vehicle_recalls'
+
+    id = db.Column(db.Integer, primary_key=True)
+    brand = db.Column(db.String(100), nullable=False, index=True)
+    issued_by_user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    affected_models = db.Column(db.JSON, nullable=True)  # null = all models of brand
+    status = db.Column(db.String(20), default='active', nullable=False)  # active | closed
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    issued_by = db.relationship('User', backref=db.backref('recalls_issued', lazy=True))
+
+    def to_dict(self) -> dict:
+        return {
+            'id': self.id,
+            'brand': self.brand,
+            'issued_by': self.issued_by.name if self.issued_by else None,
+            'title': self.title,
+            'description': self.description,
+            'affected_models': self.affected_models,
+            'status': self.status,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class RecallVINService(db.Model):
+    __tablename__ = 'recall_vin_services'
+
+    id = db.Column(db.Integer, primary_key=True)
+    recall_id = db.Column(db.Integer, db.ForeignKey('vehicle_recalls.id', ondelete='CASCADE'), nullable=False)
+    vin = db.Column(db.String(17), nullable=False)
+    sc_user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    serviced_at = db.Column(db.DateTime, default=datetime.utcnow)
+    notes = db.Column(db.Text, nullable=True)
+
+    recall = db.relationship('VehicleRecall', backref=db.backref('vin_services', lazy=True, cascade='all, delete-orphan'))
+    sc = db.relationship('User', backref=db.backref('recall_services', lazy=True))
+
+    __table_args__ = (
+        db.UniqueConstraint('recall_id', 'vin', name='uq_recall_vin'),
+    )
+
+    def to_dict(self) -> dict:
+        return {
+            'id': self.id,
+            'recall_id': self.recall_id,
+            'vin': self.vin,
+            'sc_name': self.sc.name if self.sc else None,
+            'serviced_at': self.serviced_at.isoformat() if self.serviced_at else None,
+            'notes': self.notes,
+        }
+
+
 class AuditLog(db.Model):
     __tablename__ = 'audit_logs'
 

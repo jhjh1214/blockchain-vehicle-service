@@ -20,6 +20,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   stats: SCStats | null = null;
   statsLoading = true;
   statsError = false;
+  ethRequestLoading = false;
+  ethRequestMsg = '';
   private subs = new Subscription();
 
   constructor(
@@ -44,6 +46,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.scService.getMyStats().subscribe({
       next: s => { this.stats = s; this.statsLoading = false; this.cdr.detectChanges(); },
       error: () => { this.statsLoading = false; this.statsError = true; this.cdr.detectChanges(); }
+    });
+  }
+
+  requestEth(): void {
+    if (this.ethRequestLoading) return;
+    this.ethRequestLoading = true;
+    this.ethRequestMsg = '';
+    this.scService.createEthRequest().subscribe({
+      next: r => { this.ethRequestMsg = r.message; this.ethRequestLoading = false; this.cdr.detectChanges(); },
+      error: e => { this.ethRequestMsg = e.error?.error || 'Failed to send request'; this.ethRequestLoading = false; this.cdr.detectChanges(); }
     });
   }
 }

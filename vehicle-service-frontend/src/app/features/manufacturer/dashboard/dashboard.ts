@@ -15,6 +15,7 @@ import { AuthService } from '../../../core/services/auth';
 import { BlockchainService } from '../../../core/services/blockchain.service';
 import { VehicleService, DashboardStats, ActivityItem } from '../../../core/services/vehicle';
 import { ThemeService } from '../../../core/services/theme.service';
+import { ScManagementService } from '../../../core/services/sc-management.service';
 import { User } from '../../../core/models/user.model';
 
 Chart.register(
@@ -45,8 +46,13 @@ export class ManufacturerDashboardComponent implements OnInit, OnDestroy {
   recallTitle = '';
   recallMessage = '';
   recallSending = false;
-  recallResult: { sent: number } | null = null;
+  recallResult: { sent: number; recall_id?: number } | null = null;
   recallError = '';
+  recalls: any[] = [];
+  recallsLoading = false;
+  ethRequestsCount = 0;
+  ethRequests: any[] = [];
+  ethRequestsLoading = false;
   private subs = new Subscription();
 
   pieChartData: ChartData<'pie'> = { labels: [], datasets: [{ data: [] }] };
@@ -69,6 +75,7 @@ export class ManufacturerDashboardComponent implements OnInit, OnDestroy {
     private blockchain: BlockchainService,
     private vehicleService: VehicleService,
     private themeService: ThemeService,
+    private scService: ScManagementService,
     private cdr: ChangeDetectorRef
   ) {
     this.currentUser = this.authService.currentUserValue;
@@ -85,6 +92,8 @@ export class ManufacturerDashboardComponent implements OnInit, OnDestroy {
     }));
     this.loadStats();
     this.loadActivityFeed();
+    this.loadRecalls();
+    this.loadEthRequests();
   }
 
   ngOnDestroy(): void {
@@ -257,6 +266,7 @@ export class ManufacturerDashboardComponent implements OnInit, OnDestroy {
       next: res => {
         this.recallSending = false;
         this.recallResult = res;
+        this.loadRecalls();
         this.cdr.detectChanges();
       },
       error: () => {
@@ -264,6 +274,41 @@ export class ManufacturerDashboardComponent implements OnInit, OnDestroy {
         this.recallError = 'Failed to send recall notice. Please try again.';
         this.cdr.detectChanges();
       }
+    });
+  }
+
+  loadRecalls(): void {
+    this.recallsLoading = true;
+    this.vehicleService.getRecalls('active').subscribe({
+      next: r => { this.recalls = r.recalls; this.recallsLoading = false; this.cdr.detectChanges(); },
+      error: () => { this.recallsLoading = false; this.cdr.detectChanges(); }
+    });
+  }
+
+  closeRecall(id: number): void {
+    this.vehicleService.closeRecall(id).subscribe({
+      next: () => { this.loadRecalls(); this.cdr.detectChanges(); },
+      error: () => {}
+    });
+  }
+
+  loadEthRequests(): void {
+    this.ethRequestsLoading = true;
+    this.scService.getEthRequests().subscribe({
+      next: r => {
+        this.ethRequests = r.requests;
+        this.ethRequestsCount = r.count;
+        this.ethRequestsLoading = false;
+        this.cdr.detectChanges();
+      },
+      error: () => { this.ethRequestsLoading = false; this.cdr.detectChanges(); }
+    });
+  }
+
+  dismissEthRequest(id: number): void {
+    this.scService.dismissEthRequest(id).subscribe({
+      next: () => { this.loadEthRequests(); this.cdr.detectChanges(); },
+      error: () => {}
     });
   }
 
