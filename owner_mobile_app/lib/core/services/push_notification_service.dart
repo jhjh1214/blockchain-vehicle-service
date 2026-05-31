@@ -2,8 +2,9 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:dio/dio.dart';
 import '../api/api_client.dart';
 import '../api/api_endpoints.dart';
+import '../../features/notifications/notifications_provider.dart';
 
-/// Handles FCM token registration with the backend.
+/// Handles FCM token registration with the backend and stores received messages locally.
 ///
 /// Requires a valid google-services.json in android/app/ and a Firebase project.
 /// If Firebase is not configured, all methods are no-ops.
@@ -13,6 +14,11 @@ class PushNotificationService {
   static PushNotificationService get instance => _instance;
 
   bool _initialized = false;
+  NotificationsProvider? _store;
+
+  void attachStore(NotificationsProvider store) {
+    _store = store;
+  }
 
   Future<void> init() async {
     if (_initialized) return;
@@ -31,10 +37,7 @@ class PushNotificationService {
         await _registerToken(token);
       }
 
-      // Re-register when token refreshes
       FirebaseMessaging.instance.onTokenRefresh.listen(_registerToken);
-
-      // Handle foreground messages
       FirebaseMessaging.onMessage.listen(_onForegroundMessage);
     } catch (_) {
       // Firebase not configured — push notifications unavailable
@@ -51,7 +54,13 @@ class PushNotificationService {
   }
 
   void _onForegroundMessage(RemoteMessage message) {
-    // Foreground messages are handled by the OS notification tray on Android 13+.
-    // No-op — local notification display can be added here if needed.
+    final title = message.notification?.title ?? message.data['title'] ?? '';
+    final body = message.notification?.body ?? message.data['body'] ?? '';
+    if (title.isEmpty && body.isEmpty) return;
+    _store?.add(
+      title,
+      body,
+      Map<String, String>.from(message.data.map((k, v) => MapEntry(k, v.toString()))),
+    );
   }
 }

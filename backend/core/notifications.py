@@ -76,3 +76,14 @@ def notify_warranty_claim_update(owner_user_id: int, vin: str, status: str) -> N
         body=f'Your warranty claim for {vin} has been {label}.',
         data={'type': 'warranty_claim', 'vin': vin, 'status': status},
     )
+
+
+def notify_dispute_resolved(owner_user_id: int, vin: str, decision: int) -> None:
+    labels = {1: 'accepted', 2: 'rejected', 3: 'modified'}
+    label = labels.get(decision, 'resolved')
+    send_to_user(
+        owner_user_id,
+        title='Dispute Resolved',
+        body=f'The disputed service record for {vin} has been {label} by the manufacturer.',
+        data={'type': 'dispute_resolved', 'vin': vin, 'decision': str(decision)},
+    )

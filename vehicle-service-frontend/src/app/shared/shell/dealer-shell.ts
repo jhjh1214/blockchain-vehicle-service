@@ -7,6 +7,7 @@ import { AuthService } from '../../core/services/auth';
 import { BlockchainService } from '../../core/services/blockchain.service';
 import { ThemeService } from '../../core/services/theme.service';
 import { InactivityService } from '../../core/services/inactivity.service';
+import { NotificationBadgeService } from '../../core/services/notification-badge.service';
 import { User } from '../../core/models/user.model';
 
 @Component({
@@ -24,6 +25,7 @@ export class DealerShellComponent implements OnInit, OnDestroy {
   routeLoading = false;
   showInactivityWarning = false;
   resendState: 'idle' | 'loading' | 'sent' | 'error' = 'idle';
+  disputeBadge = 0;
 
   private subs = new Subscription();
 
@@ -33,6 +35,7 @@ export class DealerShellComponent implements OnInit, OnDestroy {
     private blockchain: BlockchainService,
     private theme: ThemeService,
     readonly inactivity: InactivityService,
+    private badge: NotificationBadgeService,
   ) {}
 
   ngOnInit(): void {
@@ -47,6 +50,8 @@ export class DealerShellComponent implements OnInit, OnDestroy {
     );
     this.subs.add(this.inactivity.showWarning$.subscribe(v => this.showInactivityWarning = v));
     this.inactivity.start();
+    this.badge.startDealer();
+    this.subs.add(this.badge.disputeBadge$.subscribe(v => this.disputeBadge = v));
   }
 
   get initials(): string {
@@ -78,6 +83,7 @@ export class DealerShellComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.inactivity.stop();
+    this.badge.stop();
     this.subs.unsubscribe();
   }
 }

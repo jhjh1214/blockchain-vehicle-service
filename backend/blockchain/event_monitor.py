@@ -84,17 +84,16 @@ class EventMonitor:
         with self.app.app_context():
             try:
                 from db.repositories import vehicles as vehicle_repo, users as user_repo
+                from core.notifications import notify_new_pending_service
                 vin_hash = '0x' + event['args']['vin'].hex()
                 mapping = vehicle_repo.find_by_vin_hash(vin_hash)
                 if not mapping:
                     logger.warning(f"VIN mapping not found for hash: {vin_hash}")
                     return
-                # Use the DB owner address — avoids a blocking blockchain call
                 owner = user_repo.find_by_blockchain_address(mapping.owner_address)
                 if owner:
-                    logger.info(f"Service submitted for VIN {mapping.vin} — notifying {owner.email}")
-                    self._notify(owner.email, "New Service Pending Verification",
-                                 f"A service has been submitted for your vehicle {mapping.vin}. Please review and verify.")
+                    logger.info(f"ServiceSubmitted on-chain for {mapping.vin} — FCM to owner {owner.email}")
+                    notify_new_pending_service(owner.id, mapping.vin, 'Service Record')
             except Exception as e:
                 logger.error(f"Error handling ServiceSubmitted event: {e}")
 
@@ -106,19 +105,31 @@ class EventMonitor:
                 record_index = event['args']['recordIndex']
                 mapping = vehicle_repo.find_by_vin_hash(vin_hash)
                 if mapping:
-                    logger.info(f"Service verified for VIN {mapping.vin} — record index: {record_index}")
+                    logger.info(f"ServiceVerified on-chain for VIN {mapping.vin} record {record_index}")
             except Exception as e:
                 logger.error(f"Error handling ServiceVerified event: {e}")
 
     def _handle_service_disputed(self, event):
         with self.app.app_context():
             try:
-                from db.repositories import vehicles as vehicle_repo
+                from db.repositories import vehicles as vehicle_repo, users as user_repo
+                from core.email import send_email
                 vin_hash = '0x' + event['args']['vin'].hex()
                 reason = event['args']['reason']
                 mapping = vehicle_repo.find_by_vin_hash(vin_hash)
-                if mapping:
-                    logger.warning(f"Service DISPUTED for VIN {mapping.vin} — reason: {reason}")
+                if not mapping:
+                    return
+                logger.warning(f"ServiceDisputed on-chain for VIN {mapping.vin} — emailing manufacturers")
+                for manufacturer in user_repo.find_all_by_role('MANUFACTURER'):
+                    send_email(
+                        manufacturer.email,
+                        f'Service Dispute Filed — {mapping.vin}',
+                        (
+                            f'A service record for vehicle {mapping.vin} has been disputed by the owner.\n\n'
+                            f'Reason: {reason}\n\n'
+                            f'Log in to VehicleChain to review the dispute and take action.'
+                        ),
+                    )
             except Exception as e:
                 logger.error(f"Error handling ServiceDisputed event: {e}")
 
@@ -126,19 +137,23 @@ class EventMonitor:
         with self.app.app_context():
             try:
                 from db.repositories import vehicles as vehicle_repo, users as user_repo
+                from core.email import send_email
                 vin_hash = '0x' + event['args']['vin'].hex()
                 mapping = vehicle_repo.find_by_vin_hash(vin_hash)
-                if mapping:
-                    logger.info(f"Warranty claim submitted for VIN {mapping.vin}")
-                    for manufacturer in user_repo.find_all_by_role('MANUFACTURER'):
-                        self._notify(manufacturer.email, "New Warranty Claim",
-                                     f"A warranty claim has been submitted for vehicle {mapping.vin}. Review required.")
+                if not mapping:
+                    return
+                logger.info(f"ClaimSubmitted on-chain for VIN {mapping.vin} — emailing manufacturers")
+                for manufacturer in user_repo.find_all_by_role('MANUFACTURER'):
+                    send_email(
+                        manufacturer.email,
+                        f'New Warranty Claim — {mapping.vin}',
+                        (
+                            f'A warranty claim has been submitted for vehicle {mapping.vin}.\n\n'
+                            f'Log in to VehicleChain to review and process the claim.'
+                        ),
+                    )
             except Exception as e:
                 logger.error(f"Error handling ClaimSubmitted event: {e}")
-
-    @staticmethod
-    def _notify(recipient_email: str, subject: str, message: str):
-        logger.info(f"NOTIFICATION — To: {recipient_email} | {subject} | {message}")
 
 
 _monitor_instance = None

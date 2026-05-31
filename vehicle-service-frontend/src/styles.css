@@ -231,6 +231,19 @@ a:hover {
   opacity: 1;
 }
 
+.nav-badge {
+  margin-left: auto;
+  background: #ef4444;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  min-width: 18px;
+  padding: 3px 5px;
+  border-radius: 999px;
+  text-align: center;
+}
+
 .sidebar-nav-label {
   padding: 14px 10px 5px;
   font-size: 10px;

@@ -79,6 +79,18 @@ def submit_claim():
             photos=data.get('photos', []),
             from_address=request.user['blockchain_address']
         )
+        # Email all manufacturers about the new warranty claim
+        from db.repositories import users as _user_repo
+        from core.email import send_email as _send_email
+        for _mfr in _user_repo.find_all_by_role('MANUFACTURER'):
+            _send_email(
+                _mfr.email,
+                f'New Warranty Claim — {vin}',
+                (
+                    f'A warranty claim has been submitted for vehicle {vin}.\n\n'
+                    f'Log in to VehicleChain to review and process the claim.'
+                ),
+            )
         return jsonify(result), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400

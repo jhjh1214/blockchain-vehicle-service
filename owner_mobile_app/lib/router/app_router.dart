@@ -17,6 +17,7 @@ import '../features/profile/change_password_screen.dart';
 import '../features/services/dispute_chat_screen.dart';
 import '../features/auth/forgot_password_screen.dart';
 import '../features/auth/privacy_policy_screen.dart';
+import '../features/notifications/notifications_screen.dart';
 import 'shell_screen.dart';
 
 GoRouter createRouter(AuthProvider auth) => GoRouter(
@@ -53,6 +54,10 @@ GoRouter createRouter(AuthProvider auth) => GoRouter(
             GoRoute(
               path: '/warranties',
               builder: (_, __) => const WarrantyClaimsScreen(),
+            ),
+            GoRoute(
+              path: '/notifications',
+              builder: (_, __) => const NotificationsScreen(),
             ),
             GoRoute(
               path: '/profile',

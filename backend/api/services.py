@@ -285,6 +285,34 @@ def resolve_dispute():
         )
         log_event('dispute_resolved', user_id=request.user.get('user_id'),
                   detail={'vin': vin, 'record_index': record_index, 'decision': decision_int})
+        # Notify owner via FCM
+        from db.repositories import vehicles as vehicle_repo, users as user_repo
+        from core.notifications import notify_dispute_resolved
+        from core.email import send_email
+        _mapping = vehicle_repo.find_by_vin(vin)
+        if _mapping and _mapping.owner_address:
+            _owner = user_repo.find_by_blockchain_address(_mapping.owner_address)
+            if _owner:
+                notify_dispute_resolved(_owner.id, vin, decision_int)
+        # Email the service centre that submitted the disputed record
+        from db.models import ServiceMetadata
+        _sm = ServiceMetadata.query.filter_by(vin=vin, disputed=True).order_by(
+            ServiceMetadata.id.desc()
+        ).first()
+        if _sm and _sm.service_center_address:
+            _sc = user_repo.find_by_blockchain_address(_sm.service_center_address)
+            if _sc:
+                decision_labels = {1: 'accepted', 2: 'rejected', 3: 'modified'}
+                _label = decision_labels.get(decision_int, 'resolved')
+                send_email(
+                    _sc.email,
+                    f'Dispute Resolution — {vin}',
+                    (
+                        f'The disputed service record you submitted for vehicle {vin} '
+                        f'has been {_label} by the manufacturer.\n\n'
+                        f'Log in to VehicleChain to review the resolution details.'
+                    ),
+                )
         return jsonify(result), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -409,6 +437,20 @@ def owner_dispute_service():
             if sm:
                 sm.disputed = True
                 _db.session.commit()
+
+        # Email all manufacturers about the new dispute
+        from db.repositories import users as _user_repo
+        from core.email import send_email as _send_email
+        for _mfr in _user_repo.find_all_by_role('MANUFACTURER'):
+            _send_email(
+                _mfr.email,
+                f'Service Dispute Filed — {vin}',
+                (
+                    f'An owner has disputed a service record for vehicle {vin}.\n\n'
+                    f'Reason: {reason}\n\n'
+                    f'Log in to VehicleChain to review the dispute and take action.'
+                ),
+            )
 
         return jsonify(result), 200
     except Exception as e:

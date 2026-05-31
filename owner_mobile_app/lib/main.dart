@@ -4,6 +4,7 @@ import 'features/auth/auth_provider.dart';
 import 'features/vehicles/vehicles_provider.dart';
 import 'features/services/services_provider.dart';
 import 'features/warranties/warranties_provider.dart';
+import 'features/notifications/notifications_provider.dart';
 import 'router/app_router.dart';
 import 'shared/theme/app_theme.dart';
 import 'shared/theme/theme_provider.dart';
@@ -28,6 +29,7 @@ class OwnerApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ServicesProvider()),
         ChangeNotifierProvider(create: (_) => WarrantiesProvider()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationsProvider()),
       ],
       child: _AppWithRouter(),
     );
@@ -49,6 +51,10 @@ class _AppWithRouterState extends State<_AppWithRouter> {
     _auth = context.read<AuthProvider>();
     _router = createRouter(_auth);
     _auth.tryAutoLogin();
+    final notifProvider = context.read<NotificationsProvider>();
+    notifProvider.load();
+    PushNotificationService.instance.attachStore(notifProvider);
+    PushNotificationService.instance.init();
   }
 
   @override
