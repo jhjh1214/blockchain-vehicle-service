@@ -18,6 +18,10 @@ export class ThemeService {
     this.apply(!this._dark.value);
   }
 
+  applyUserPreference(pref: 'light' | 'dark'): void {
+    this.apply(pref === 'dark');
+  }
+
   private apply(dark: boolean): void {
     this._dark.next(dark);
     document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');

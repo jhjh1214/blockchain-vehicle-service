@@ -53,7 +53,10 @@ export class ManufacturerShellComponent implements OnInit, OnDestroy {
     return src.split(/[\s@.]/).filter(Boolean).map(s => s[0]).join('').toUpperCase().slice(0, 2) || 'MF';
   }
 
-  toggleTheme(): void { this.theme.toggle(); }
+  toggleTheme(): void {
+    this.theme.toggle();
+    this.authService.updateProfile({ theme_preference: this.theme.isDark ? 'dark' : 'light' }).subscribe();
+  }
   toggleSidebar(): void { this.sidebarOpen = !this.sidebarOpen; }
   closeSidebar(): void { this.sidebarOpen = false; }
 

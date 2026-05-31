@@ -63,15 +63,16 @@ def find_service_centers(city: str = '', state: str = '', status: str = '',
 
 def update_profile(user_id: int, name: str = None, phone: str = None,
                    city: str = None, state: str = None,
-                   brand: str = None) -> User | None:
+                   brand: str = None, theme_preference: str = None) -> User | None:
     user = db.session.get(User, user_id)
     if not user:
         return None
-    if name  is not None: user.name  = name
-    if phone is not None: user.phone = phone
-    if city  is not None: user.city  = city
-    if state is not None: user.state = state
-    if brand is not None: user.brand = brand or None
+    if name             is not None: user.name             = name
+    if phone            is not None: user.phone            = phone
+    if city             is not None: user.city             = city
+    if state            is not None: user.state            = state
+    if brand            is not None: user.brand            = brand or None
+    if theme_preference is not None: user.theme_preference = theme_preference
     db.session.commit()
     return user
 

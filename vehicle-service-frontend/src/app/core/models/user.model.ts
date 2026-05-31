@@ -10,6 +10,7 @@ export interface User {
   blockchain_address: string;
   created_at?: string;
   email_verified?: boolean;
+  theme_preference?: 'light' | 'dark';
 }
 
 export interface LoginRequest {

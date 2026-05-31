@@ -35,6 +35,7 @@ class User(db.Model):
     consent_given_at = db.Column(db.DateTime, nullable=True)
 
     email_verified = db.Column(db.Boolean, default=False, nullable=False)
+    theme_preference = db.Column(db.String(10), default='light', nullable=False)
 
     def set_password(self, password: str):
         self.password_hash = bcrypt.hashpw(
@@ -64,6 +65,7 @@ class User(db.Model):
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'consent_given_at': self.consent_given_at.isoformat() if self.consent_given_at else None,
             'email_verified': self.email_verified,
+            'theme_preference': self.theme_preference or 'light',
         }
 
 

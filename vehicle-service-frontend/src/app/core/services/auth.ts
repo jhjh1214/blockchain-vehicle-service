@@ -5,13 +5,14 @@ import { tap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { User, LoginRequest, AuthResponse, RegisterRequest } from '../models/user.model';
 import { jwtDecode } from 'jwt-decode';
+import { ThemeService } from './theme.service';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private currentUserSubject: BehaviorSubject<User | null>;
   currentUser: Observable<User | null>;
 
-  constructor(private http: HttpClient) {
+  constructor(private http: HttpClient, private theme: ThemeService) {
     const stored = sessionStorage.getItem('currentUser') || localStorage.getItem('currentUser');
     this.currentUserSubject = new BehaviorSubject<User | null>(
       stored ? JSON.parse(stored) : null
@@ -74,7 +75,7 @@ export class AuthService {
     return this.currentUserValue?.role === role;
   }
 
-  updateProfile(data: { name?: string; phone?: string; city?: string; state?: string }): Observable<{ user: User; message: string }> {
+  updateProfile(data: { name?: string; phone?: string; city?: string; state?: string; theme_preference?: string }): Observable<{ user: User; message: string }> {
     const remember = !!localStorage.getItem('access_token');
     return this.http.put<{ user: User; message: string }>(`${environment.apiUrl}/auth/profile`, data).pipe(
       tap(r => {
@@ -107,5 +108,8 @@ export class AuthService {
     store.setItem('refresh_token', r.refresh_token);
     store.setItem('currentUser', JSON.stringify(r.user));
     this.currentUserSubject.next(r.user);
+    if (r.user?.theme_preference) {
+      this.theme.applyUserPreference(r.user.theme_preference);
+    }
   }
 }

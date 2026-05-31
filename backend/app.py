@@ -71,6 +71,13 @@ def create_app():
                         "ALTER TABLE users ADD COLUMN email_verified BOOLEAN NOT NULL DEFAULT FALSE"
                     ))
                     conn.commit()
+
+            if 'theme_preference' not in user_cols:
+                with db.engine.connect() as conn:
+                    conn.execute(text(
+                        "ALTER TABLE users ADD COLUMN theme_preference VARCHAR(10) NOT NULL DEFAULT 'light'"
+                    ))
+                    conn.commit()
         except Exception:
             pass
 

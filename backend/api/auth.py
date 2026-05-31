@@ -127,8 +127,13 @@ def update_profile():
     city  = sanitize(data['city'],  100) if 'city'  in data else None
     state = sanitize(data['state'], 100) if 'state' in data else None
     brand = sanitize(data['brand'], 100) if 'brand' in data else None
+    theme = data.get('theme_preference')
+    if theme is not None and theme not in ('light', 'dark'):
+        return jsonify({'error': 'theme_preference must be light or dark'}), 400
+    theme_preference = theme if theme in ('light', 'dark') else None
     user = user_repo.update_profile(request.user['user_id'], name=name, phone=phone,
-                                    city=city, state=state, brand=brand)
+                                    city=city, state=state, brand=brand,
+                                    theme_preference=theme_preference)
     if not user:
         return jsonify({'error': 'User not found'}), 404
     return jsonify({'message': 'Profile updated', 'user': user.to_dict()}), 200
