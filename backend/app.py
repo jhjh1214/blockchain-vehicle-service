@@ -3,7 +3,7 @@ from flask import Flask, request, jsonify, g
 from flask_cors import CORS
 from config import Config
 from db.models import db
-from extensions import limiter, mail
+from extensions import limiter
 import threading
 
 
@@ -16,7 +16,6 @@ def create_app():
 
     db.init_app(app)
     limiter.init_app(app)
-    mail.init_app(app)
 
     with app.app_context():
         db.create_all()
@@ -63,6 +62,13 @@ def create_app():
                 with db.engine.connect() as conn:
                     conn.execute(text(
                         "ALTER TABLE users ADD COLUMN consent_given_at TIMESTAMP"
+                    ))
+                    conn.commit()
+
+            if 'email_verified' not in user_cols:
+                with db.engine.connect() as conn:
+                    conn.execute(text(
+                        "ALTER TABLE users ADD COLUMN email_verified BOOLEAN NOT NULL DEFAULT FALSE"
                     ))
                     conn.commit()
         except Exception:

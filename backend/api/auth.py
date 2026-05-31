@@ -29,6 +29,15 @@ def register():
             brand=data.get('brand', ''),
             consent_given=bool(data.get('consent_given', False)),
         )
+        from flask import current_app
+        if not current_app.config.get('TESTING'):
+            import threading
+            _app = current_app._get_current_object()
+            threading.Thread(
+                target=_create_and_send_verification,
+                args=(_app, user.id, user.email, user.name or user.email),
+                daemon=True,
+            ).start()
         return jsonify({
             'message': 'User registered successfully',
             'access_token': access_token,
@@ -192,9 +201,9 @@ def forgot_password():
 def _send_reset_email(app, to_email: str, name: str, reset_url: str, expiry_minutes: int) -> None:
     import logging
     import os
-    import resend
     logger = logging.getLogger(__name__)
     try:
+        import resend
         resend.api_key = os.getenv('RESEND_API_KEY', '')
         if not resend.api_key:
             logger.warning('RESEND_API_KEY not set — skipping password reset email')
@@ -255,6 +264,103 @@ def reset_password():
     user_repo.revoke_all_refresh_tokens(user.id)
     log_event('password_reset', user_id=user.id)
     return jsonify({'message': 'Password reset successfully. Please log in with your new password.'}), 200
+
+
+def _create_and_send_verification(app, user_id: int, email: str, name: str) -> None:
+    with app.app_context():
+        import hashlib
+        from datetime import timedelta
+        from db.models import db, EmailVerificationToken
+        EmailVerificationToken.query.filter_by(user_id=user_id).delete()
+        raw = EmailVerificationToken.generate()
+        token_hash = hashlib.sha256(raw.encode()).hexdigest()
+        tok = EmailVerificationToken(
+            user_id=user_id,
+            token_hash=token_hash,
+            expires_at=datetime.utcnow() + timedelta(hours=24),
+        )
+        db.session.add(tok)
+        db.session.commit()
+        _send_verification_email(email, name, raw)
+
+
+def _send_verification_email(to_email: str, name: str, raw_token: str) -> None:
+    import logging, os
+    from config import Config
+    logger = logging.getLogger(__name__)
+    verify_url = f"{Config.FRONTEND_URL}/verify-email?token={raw_token}"
+    try:
+        import resend
+        resend.api_key = os.getenv('RESEND_API_KEY', '')
+        if not resend.api_key:
+            logger.warning('RESEND_API_KEY not set — skipping verification email')
+            return
+        resend.Emails.send({
+            'from': os.getenv('MAIL_DEFAULT_SENDER', 'VehicleChain <noreply@vehiclechain.my>'),
+            'to': [to_email],
+            'subject': 'Verify your VehicleChain email address',
+            'text': (
+                f"Hi {name},\n\n"
+                f"Thanks for registering. Please verify your email address by clicking "
+                f"the link below (valid for 24 hours):\n\n"
+                f"{verify_url}\n\n"
+                f"If you did not create this account you can safely ignore this email.\n\n"
+                f"-- The VehicleChain Team"
+            ),
+            'html': (
+                f"<p>Hi {name},</p>"
+                f"<p>Thanks for registering with <strong>VehicleChain</strong>.</p>"
+                f"<p>Click below to verify your email address (valid for 24 hours):</p>"
+                f"<p><a href='{verify_url}' style='background:#1A73E8;color:#fff;"
+                f"padding:10px 20px;border-radius:6px;text-decoration:none;display:inline-block;'>"
+                f"Verify Email</a></p>"
+                f"<p style='color:#666;font-size:13px;'>If you did not create this account, "
+                f"you can safely ignore this email.</p>"
+            ),
+        })
+        logger.info('Verification email sent to %s via Resend', to_email)
+    except Exception:
+        logging.getLogger(__name__).exception('Failed to send verification email to %s', to_email)
+
+
+@auth_bp.route('/verify-email', methods=['GET'])
+@limiter.limit('20 per minute')
+def verify_email():
+    import hashlib
+    from db.models import db, EmailVerificationToken
+    raw = (request.args.get('token') or '').strip()
+    if not raw:
+        return jsonify({'error': 'Token is required'}), 400
+    token_hash = hashlib.sha256(raw.encode()).hexdigest()
+    tok = EmailVerificationToken.query.filter_by(token_hash=token_hash).first()
+    if not tok or not tok.is_valid():
+        return jsonify({'error': 'Invalid or expired verification link. Please request a new one.'}), 400
+    tok.user.email_verified = True
+    db.session.delete(tok)
+    db.session.commit()
+    log_event('email_verified', user_id=tok.user.id)
+    return jsonify({'message': 'Email verified successfully. You can now log in.'}), 200
+
+
+@auth_bp.route('/resend-verification', methods=['POST'])
+@limiter.limit('5 per hour')
+@token_required
+def resend_verification():
+    user = auth_service.get_user_by_id(request.user['user_id'])
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    if user.email_verified:
+        return jsonify({'message': 'Email is already verified'}), 200
+    from flask import current_app
+    if not current_app.config.get('TESTING'):
+        import threading
+        _app = current_app._get_current_object()
+        threading.Thread(
+            target=_create_and_send_verification,
+            args=(_app, user.id, user.email, user.name or user.email),
+            daemon=True,
+        ).start()
+    return jsonify({'message': 'Verification email sent. Please check your inbox.'}), 200
 
 
 @auth_bp.route('/account', methods=['DELETE'])

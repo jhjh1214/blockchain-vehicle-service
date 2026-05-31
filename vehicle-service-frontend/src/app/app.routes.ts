@@ -5,6 +5,7 @@ import { LoginComponent } from './features/auth/login/login';
 import { RegisterComponent } from './features/auth/register/register';
 import { ForgotPasswordComponent } from './features/auth/forgot-password/forgot-password';
 import { ResetPasswordComponent } from './features/auth/reset-password/reset-password';
+import { VerifyEmailComponent } from './features/auth/verify-email/verify-email';
 
 import { DealerShellComponent } from './shared/shell/dealer-shell';
 import { DashboardComponent } from './features/dealer/dashboard/dashboard';
@@ -30,6 +31,7 @@ export const routes: Routes = [
   { path: 'register', component: RegisterComponent },
   { path: 'forgot-password', component: ForgotPasswordComponent },
   { path: 'reset-password', component: ResetPasswordComponent },
+  { path: 'verify-email', component: VerifyEmailComponent },
   { path: 'privacy-policy', component: PrivacyPolicyComponent },
   { path: 'verify/:vin', component: VerifyComponent },
   { path: 'verify', component: VerifyComponent },

@@ -1741,6 +1741,74 @@ class TestVehicleRegistrationDbRollback:
 # PDPA — account deletion and data export (right of erasure / right of access)
 # ---------------------------------------------------------------------------
 
+class TestEmailVerification:
+    def test_verify_email_requires_token(self, client):
+        r = client.get('/api/auth/verify-email')
+        assert r.status_code == 400
+
+    def test_verify_email_invalid_token(self, client):
+        r = client.get('/api/auth/verify-email?token=notarealtoken')
+        assert r.status_code == 400
+
+    def test_verify_email_valid_token(self, client, app):
+        import uuid, hashlib
+        from datetime import datetime, timedelta
+        email = f'verify_{uuid.uuid4().hex[:6]}@test.com'
+        r = client.post('/api/auth/register', json={
+            'email': email, 'password': STRONG_PASSWORD,
+            'role': 'OWNER', 'name': 'Verify Me', 'consent_given': True,
+        })
+        assert r.status_code == 200
+        user_id = r.get_json()['user']['id']
+        with app.app_context():
+            from db.models import db, EmailVerificationToken
+            raw = EmailVerificationToken.generate()
+            tok = EmailVerificationToken(
+                user_id=user_id,
+                token_hash=hashlib.sha256(raw.encode()).hexdigest(),
+                expires_at=datetime.utcnow() + timedelta(hours=24),
+            )
+            db.session.add(tok)
+            db.session.commit()
+        r2 = client.get(f'/api/auth/verify-email?token={raw}')
+        assert r2.status_code == 200
+        with app.app_context():
+            from db.models import User
+            user = User.query.get(user_id)
+            assert user.email_verified is True
+
+    def test_resend_verification_requires_auth(self, client):
+        r = client.post('/api/auth/resend-verification')
+        assert r.status_code == 401
+
+    def test_resend_verification_already_verified(self, client, app):
+        import uuid
+        email = f'alreadyv_{uuid.uuid4().hex[:6]}@test.com'
+        r = client.post('/api/auth/register', json={
+            'email': email, 'password': STRONG_PASSWORD,
+            'role': 'OWNER', 'name': 'Already Verified', 'consent_given': True,
+        })
+        token = r.get_json()['access_token']
+        user_id = r.get_json()['user']['id']
+        with app.app_context():
+            from db.models import User, db
+            User.query.filter_by(id=user_id).update({'email_verified': True})
+            db.session.commit()
+        r2 = client.post('/api/auth/resend-verification', headers=auth(token))
+        assert r2.status_code == 200
+        assert 'already' in r2.get_json().get('message', '').lower()
+
+    def test_registration_sets_email_verified_false(self, client):
+        import uuid
+        r = client.post('/api/auth/register', json={
+            'email': f'unveri_{uuid.uuid4().hex[:6]}@test.com',
+            'password': STRONG_PASSWORD, 'role': 'OWNER',
+            'name': 'Unverified', 'consent_given': True,
+        })
+        assert r.status_code == 200
+        assert r.get_json()['user']['email_verified'] is False
+
+
 class TestAccountDeletion:
     def test_delete_account_requires_auth(self, client):
         r = client.delete('/api/auth/account', json={'password': STRONG_PASSWORD})

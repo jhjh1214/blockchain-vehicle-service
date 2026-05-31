@@ -34,6 +34,8 @@ class User(db.Model):
     # PDPA consent — timestamp user accepted Privacy Policy & Terms at registration
     consent_given_at = db.Column(db.DateTime, nullable=True)
 
+    email_verified = db.Column(db.Boolean, default=False, nullable=False)
+
     def set_password(self, password: str):
         self.password_hash = bcrypt.hashpw(
             password.encode('utf-8'), bcrypt.gensalt()
@@ -61,6 +63,7 @@ class User(db.Model):
             'blockchain_address': self.blockchain_address,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'consent_given_at': self.consent_given_at.isoformat() if self.consent_given_at else None,
+            'email_verified': self.email_verified,
         }
 
 
@@ -253,6 +256,25 @@ class PasswordResetToken(db.Model):
 
     def is_valid(self) -> bool:
         return not self.used and self.expires_at > datetime.utcnow()
+
+
+class EmailVerificationToken(db.Model):
+    __tablename__ = 'email_verification_tokens'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    token_hash = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship('User', backref=db.backref('verification_tokens', lazy=True, cascade='all, delete-orphan'))
+
+    @staticmethod
+    def generate() -> str:
+        return secrets.token_urlsafe(48)
+
+    def is_valid(self) -> bool:
+        return self.expires_at > datetime.utcnow()
 
 
 class AuditLog(db.Model):

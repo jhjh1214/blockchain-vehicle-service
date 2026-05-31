@@ -1,0 +1,46 @@
+<div class="auth-page">
+  <div class="auth-card">
+    <div class="auth-card-header">
+      <div class="auth-logo">
+        @if (state === 'success') {
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+          </svg>
+        } @else if (state === 'error') {
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+          </svg>
+        } @else {
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
+          </svg>
+        }
+      </div>
+      <h1 class="auth-title">
+        @if (state === 'loading') { Verifying Email... }
+        @else if (state === 'success') { Email Verified }
+        @else { Verification Failed }
+      </h1>
+    </div>
+
+    <div class="auth-card-body">
+      @if (state === 'loading') {
+        <div style="text-align:center;padding:16px 0;">
+          <span class="spinner" style="display:inline-block;width:28px;height:28px;border-width:3px;"></span>
+          <p style="margin-top:12px;color:#6b7280;font-size:14px;">Please wait...</p>
+        </div>
+      } @else if (state === 'success') {
+        <div class="alert alert-success" style="margin-bottom:20px;">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+          </svg>
+          {{ message }}
+        </div>
+        <a routerLink="/login" class="btn btn-primary btn-block">Go to Login</a>
+      } @else {
+        <div class="alert alert-danger" style="margin-bottom:20px;">{{ message }}</div>
+        <a routerLink="/login" class="btn btn-secondary btn-block">Back to Login</a>
+      }
+    </div>
+  </div>
+</div>
