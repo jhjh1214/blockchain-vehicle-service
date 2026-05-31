@@ -197,7 +197,6 @@ class VehicleVINMapping(db.Model):
             'owner_address': self.owner_address,
             'registered_by': self.registered_by,
             'registration_status': self.registration_status,
-            'intended_owner_email': self.intended_owner_email,
             'make': self.make,
             'model': self.model,
             'year': self.year,

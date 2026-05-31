@@ -1,8 +1,9 @@
 import os
 from datetime import datetime
 from werkzeug.utils import secure_filename
+from config import Config
 
-UPLOAD_FOLDER = 'uploads/'
+UPLOAD_FOLDER = Config.UPLOAD_FOLDER
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf'}
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB per file
 

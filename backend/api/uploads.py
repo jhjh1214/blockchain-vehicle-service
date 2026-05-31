@@ -1,11 +1,10 @@
 from flask import Blueprint, request, jsonify, send_from_directory
 from api.middleware import token_required
 from core import upload_service
+from config import Config
 from extensions import limiter
 
 upload_bp = Blueprint('upload', __name__)
-
-UPLOAD_FOLDER = 'uploads/'
 
 
 @upload_bp.route('/photo', methods=['POST'])
@@ -36,4 +35,4 @@ def upload_multiple_photos():
 
 @upload_bp.route('/files/<filename>', methods=['GET'])
 def get_uploaded_file(filename):
-    return send_from_directory(UPLOAD_FOLDER, filename)
+    return send_from_directory(Config.UPLOAD_FOLDER, filename)

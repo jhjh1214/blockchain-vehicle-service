@@ -15,7 +15,8 @@ _INSECURE_DEFAULTS = {
 
 class Config:
     SECRET_KEY = os.getenv('SECRET_KEY', 'your-secret-key-change-in-production')
-    SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL', 'sqlite:///vehicle_service.db')
+    _db_url = os.getenv('DATABASE_URL', 'sqlite:///vehicle_service.db')
+    SQLALCHEMY_DATABASE_URI = _db_url.replace('postgres://', 'postgresql://', 1)
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     GANACHE_URL = os.getenv('GANACHE_URL', 'http://127.0.0.1:8545')
@@ -62,6 +63,9 @@ class Config:
 
     # How long (minutes) a password-reset token stays valid
     PASSWORD_RESET_EXPIRY_MINUTES = int(os.getenv('PASSWORD_RESET_EXPIRY_MINUTES', '60'))
+
+    # Upload storage — override with an absolute path (e.g. /data/uploads) when using a Railway Volume
+    UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', 'uploads/')
 
     @classmethod
     def validate(cls):
