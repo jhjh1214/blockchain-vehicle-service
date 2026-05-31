@@ -709,3 +709,17 @@ def export_fleet_pdf():
         )
     except ImportError:
         return jsonify({'error': 'PDF generation not available — install reportlab'}), 503
+
+
+@vehicle_bp.route('/recall', methods=['POST'])
+@role_required('MANUFACTURER')
+def send_recall():
+    data = request.get_json() or {}
+    title = sanitize(data.get('title', ''), 100)
+    message = sanitize(data.get('message', ''), 500)
+    if not title or not message:
+        return jsonify({'error': 'title and message are required'}), 400
+    from core.notifications import broadcast_recall
+    issued_by = request.user.get('name', 'Manufacturer')
+    sent = broadcast_recall(title=title, body=message, issued_by=issued_by)
+    return jsonify({'sent': sent}), 200

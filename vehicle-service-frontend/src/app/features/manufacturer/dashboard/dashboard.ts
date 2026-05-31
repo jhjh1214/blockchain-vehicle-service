@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { BaseChartDirective } from 'ng2-charts';
@@ -27,7 +28,7 @@ Chart.register(
 @Component({
   selector: 'app-manufacturer-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterModule, BaseChartDirective],
+  imports: [CommonModule, FormsModule, RouterModule, BaseChartDirective],
   templateUrl: './dashboard.html',
   styleUrls: ['./dashboard.css']
 })
@@ -40,6 +41,12 @@ export class ManufacturerDashboardComponent implements OnInit, OnDestroy {
   activityFeed: ActivityItem[] = [];
   activityLoading = true;
   exportLoading = false;
+  showRecallModal = false;
+  recallTitle = '';
+  recallMessage = '';
+  recallSending = false;
+  recallResult: { sent: number } | null = null;
+  recallError = '';
   private subs = new Subscription();
 
   pieChartData: ChartData<'pie'> = { labels: [], datasets: [{ data: [] }] };
@@ -227,6 +234,37 @@ export class ManufacturerDashboardComponent implements OnInit, OnDestroy {
       if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
       return `${Math.floor(diff / 86400)}d ago`;
     } catch { return '—'; }
+  }
+
+  openRecallModal(): void {
+    this.showRecallModal = true;
+    this.recallTitle = '';
+    this.recallMessage = '';
+    this.recallResult = null;
+    this.recallError = '';
+  }
+
+  closeRecallModal(): void {
+    this.showRecallModal = false;
+  }
+
+  sendRecall(): void {
+    if (!this.recallTitle.trim() || !this.recallMessage.trim()) return;
+    this.recallSending = true;
+    this.recallResult = null;
+    this.recallError = '';
+    this.vehicleService.sendRecall(this.recallTitle.trim(), this.recallMessage.trim()).subscribe({
+      next: res => {
+        this.recallSending = false;
+        this.recallResult = res;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.recallSending = false;
+        this.recallError = 'Failed to send recall notice. Please try again.';
+        this.cdr.detectChanges();
+      }
+    });
   }
 
   exportAuditReport(): void {

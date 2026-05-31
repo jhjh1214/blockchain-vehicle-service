@@ -1,7 +1,9 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:local_auth/local_auth.dart';
 import 'package:provider/provider.dart';
+import '../../core/storage/token_storage.dart';
 import 'auth_provider.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -17,6 +19,41 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordCtrl = TextEditingController();
   bool _obscurePassword = true;
   bool _rememberMe = true;
+  bool _biometricAvailable = false;
+  final _localAuth = LocalAuthentication();
+
+  @override
+  void initState() {
+    super.initState();
+    _checkBiometric();
+  }
+
+  Future<void> _checkBiometric() async {
+    try {
+      final creds = await TokenStorage.loadCredentials();
+      if (creds == null) return;
+      final canCheck = await _localAuth.canCheckBiometrics;
+      final isSupported = await _localAuth.isDeviceSupported();
+      if (mounted && canCheck && isSupported) {
+        setState(() => _biometricAvailable = true);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _biometricLogin() async {
+    try {
+      final authenticated = await _localAuth.authenticate(
+        localizedReason: 'Authenticate to sign in to VehicleChain',
+        options: const AuthenticationOptions(biometricOnly: false),
+      );
+      if (!authenticated || !mounted) return;
+      final creds = await TokenStorage.loadCredentials();
+      if (creds == null) return;
+      _emailCtrl.text = creds.email;
+      _passwordCtrl.text = creds.password;
+      await _submit();
+    } catch (_) {}
+  }
 
   @override
   void dispose() {
@@ -129,6 +166,17 @@ class _LoginScreenState extends State<LoginScreen> {
                               color: Colors.white, strokeWidth: 2))
                       : const Text('Sign In'),
                 ),
+                if (_biometricAvailable) ...[
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: auth.loading ? null : _biometricLogin,
+                    icon: const Icon(Icons.fingerprint),
+                    label: const Text('Sign in with Biometrics'),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(48),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,

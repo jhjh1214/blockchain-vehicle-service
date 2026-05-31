@@ -3,9 +3,11 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 const _storage = FlutterSecureStorage(
   aOptions: AndroidOptions(encryptedSharedPreferences: true),
 );
-const _accessKey  = 'access_token';
-const _refreshKey = 'refresh_token';
-const _rememberKey = 'remember_me';
+const _accessKey      = 'access_token';
+const _refreshKey     = 'refresh_token';
+const _rememberKey    = 'remember_me';
+const _credEmailKey   = 'biometric_email';
+const _credPasswordKey = 'biometric_password';
 
 /// In-memory fallback for session-only mode (remember me = false).
 /// Cleared when the app process is killed.
@@ -58,5 +60,22 @@ class TokenStorage {
     if (_memAccess != null) return true;
     final t = await _storage.read(key: _accessKey);
     return t != null;
+  }
+
+  static Future<void> saveCredentials(String email, String password) async {
+    await _storage.write(key: _credEmailKey,    value: email);
+    await _storage.write(key: _credPasswordKey, value: password);
+  }
+
+  static Future<({String email, String password})?> loadCredentials() async {
+    final email    = await _storage.read(key: _credEmailKey);
+    final password = await _storage.read(key: _credPasswordKey);
+    if (email == null || password == null) return null;
+    return (email: email, password: password);
+  }
+
+  static Future<void> clearCredentials() async {
+    await _storage.delete(key: _credEmailKey);
+    await _storage.delete(key: _credPasswordKey);
   }
 }

@@ -168,3 +168,14 @@ def upsert_device_token(user_id: int, token: str, platform: str) -> None:
 
 def get_device_tokens(user_id: int) -> list[str]:
     return [dt.token for dt in DeviceToken.query.filter_by(user_id=user_id).all()]
+
+
+def get_all_owner_device_tokens() -> list[str]:
+    """Return all FCM tokens belonging to OWNER role users."""
+    rows = (
+        DeviceToken.query
+        .join(User, User.id == DeviceToken.user_id)
+        .filter(User.role == 'OWNER')
+        .all()
+    )
+    return [row.token for row in rows]

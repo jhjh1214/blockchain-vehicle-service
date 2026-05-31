@@ -52,6 +52,10 @@ export class VehicleService {
   getFleetExport(): Observable<Blob> {
     return this.http.get(`${environment.apiUrl}/vehicle/fleet-export`, { responseType: 'blob' });
   }
+
+  sendRecall(title: string, message: string): Observable<{ sent: number }> {
+    return this.http.post<{ sent: number }>(`${environment.apiUrl}/vehicle/recall`, { title, message });
+  }
 }
 
 export interface ManufacturerStats {

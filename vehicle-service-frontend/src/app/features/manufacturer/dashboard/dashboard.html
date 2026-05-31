@@ -11,6 +11,12 @@
         </svg>
         Refresh
       </button>
+      <button class="btn btn-danger" (click)="openRecallModal()" style="display:flex;align-items:center;gap:6px;font-size:13px;">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:16px;height:16px;">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0M3.124 7.5A8.969 8.969 0 0 1 5.292 3m13.416 0a8.969 8.969 0 0 1 2.168 4.5" />
+        </svg>
+        Send Recall
+      </button>
       <button class="btn btn-ghost" (click)="exportAuditReport()" [disabled]="exportLoading" style="display:flex;align-items:center;gap:6px;font-size:13px;">
         @if (exportLoading) {
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:16px;height:16px;animation:spin 1s linear infinite;">
@@ -293,3 +299,55 @@
     </div>
   </div>
 </div>
+
+<!-- Recall Broadcast Modal -->
+@if (showRecallModal) {
+  <div class="modal-backdrop" (click)="closeRecallModal()">
+    <div class="modal" (click)="$event.stopPropagation()" style="max-width:480px;">
+      <div class="modal-header">
+        <h3 class="modal-title" style="display:flex;align-items:center;gap:8px;">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="#EF4444" style="width:20px;height:20px;">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0M3.124 7.5A8.969 8.969 0 0 1 5.292 3m13.416 0a8.969 8.969 0 0 1 2.168 4.5" />
+          </svg>
+          Send Recall Notice
+        </h3>
+        <button class="modal-close" (click)="closeRecallModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">
+          This will send a push notification to <strong>all vehicle owners</strong> on the platform.
+        </p>
+        @if (recallResult) {
+          <div class="alert alert-success">
+            Recall notice sent to <strong>{{ recallResult.sent }}</strong> device{{ recallResult.sent !== 1 ? 's' : '' }}.
+          </div>
+        } @else {
+          <div class="form-group">
+            <label class="form-label">Recall Title</label>
+            <input class="form-control" [(ngModel)]="recallTitle" placeholder="e.g. Safety Recall: Brake Inspection Required" maxlength="100">
+          </div>
+          <div class="form-group" style="margin-top:12px;">
+            <label class="form-label">Message</label>
+            <textarea class="form-control" [(ngModel)]="recallMessage" placeholder="Describe the recall reason and required action…" rows="4" maxlength="500" style="resize:vertical;"></textarea>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:4px;text-align:right;">{{ recallMessage.length }}/500</div>
+          </div>
+          @if (recallError) {
+            <div class="alert alert-error" style="margin-top:12px;">{{ recallError }}</div>
+          }
+        }
+      </div>
+      @if (!recallResult) {
+        <div class="modal-footer">
+          <button class="btn btn-ghost" (click)="closeRecallModal()">Cancel</button>
+          <button class="btn btn-danger" (click)="sendRecall()" [disabled]="recallSending || !recallTitle.trim() || !recallMessage.trim()">
+            @if (recallSending) { Sending… } @else { Send to All Owners }
+          </button>
+        </div>
+      } @else {
+        <div class="modal-footer">
+          <button class="btn btn-primary" (click)="closeRecallModal()">Done</button>
+        </div>
+      }
+    </div>
+  </div>
+}

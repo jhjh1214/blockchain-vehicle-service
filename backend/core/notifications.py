@@ -78,6 +78,32 @@ def notify_warranty_claim_update(owner_user_id: int, vin: str, status: str) -> N
     )
 
 
+def broadcast_recall(title: str, body: str, issued_by: str) -> int:
+    """Broadcast a recall notice to all owner devices. Returns number of tokens targeted."""
+    if _get_app() is None:
+        return 0
+    from db.repositories import users as user_repo
+    tokens = user_repo.get_all_owner_device_tokens()
+    if not tokens:
+        return 0
+    try:
+        from firebase_admin import messaging
+        messages = [
+            messaging.Message(
+                notification=messaging.Notification(title=title, body=body),
+                data={'type': 'recall', 'issued_by': issued_by},
+                token=token,
+            )
+            for token in tokens
+        ]
+        response = messaging.send_each(messages)
+        logger.info('Recall broadcast: %d success, %d failure', response.success_count, response.failure_count)
+        return response.success_count
+    except Exception:
+        logger.exception('Recall broadcast failed')
+        return 0
+
+
 def notify_dispute_resolved(owner_user_id: int, vin: str, decision: int) -> None:
     labels = {1: 'accepted', 2: 'rejected', 3: 'modified'}
     label = labels.get(decision, 'resolved')

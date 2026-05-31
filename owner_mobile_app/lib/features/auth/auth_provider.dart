@@ -53,6 +53,9 @@ class AuthProvider extends ChangeNotifier {
           data: {'email': email, 'password': password});
       await TokenStorage.save(res.data['access_token'], res.data['refresh_token'],
           rememberMe: rememberMe);
+      if (rememberMe) {
+        await TokenStorage.saveCredentials(email, password);
+      }
       _user = User.fromJson(res.data['user']);
       PushNotificationService.instance.init();
       return true;
@@ -100,6 +103,7 @@ class AuthProvider extends ChangeNotifier {
             .post(ApiEndpoints.logout, data: {'refresh_token': refresh});
       } catch (_) {}
       await TokenStorage.clear();
+      await TokenStorage.clearCredentials();
     } catch (_) {}
     _user = null;
     notifyListeners();

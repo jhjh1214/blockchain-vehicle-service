@@ -1,4 +1,5 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:go_router/go_router.dart';
 import 'package:dio/dio.dart';
 import '../api/api_client.dart';
 import '../api/api_endpoints.dart';
@@ -15,9 +16,14 @@ class PushNotificationService {
 
   bool _initialized = false;
   NotificationsProvider? _store;
+  GoRouter? _router;
 
   void attachStore(NotificationsProvider store) {
     _store = store;
+  }
+
+  void attachRouter(GoRouter router) {
+    _router = router;
   }
 
   Future<void> init() async {
@@ -39,6 +45,13 @@ class PushNotificationService {
 
       FirebaseMessaging.instance.onTokenRefresh.listen(_registerToken);
       FirebaseMessaging.onMessage.listen(_onForegroundMessage);
+
+      // Tapped from terminated state
+      final initial = await FirebaseMessaging.instance.getInitialMessage();
+      if (initial != null) _handleTap(initial);
+
+      // Tapped from background state
+      FirebaseMessaging.onMessageOpenedApp.listen(_handleTap);
     } catch (_) {
       // Firebase not configured — push notifications unavailable
     }
@@ -62,5 +75,29 @@ class PushNotificationService {
       body,
       Map<String, String>.from(message.data.map((k, v) => MapEntry(k, v.toString()))),
     );
+  }
+
+  void _handleTap(RemoteMessage message) {
+    final router = _router;
+    if (router == null) return;
+    final type = message.data['type'] ?? '';
+    final vin = message.data['vin'] ?? '';
+    switch (type) {
+      case 'new_service':
+        router.go('/services/pending');
+      case 'dispute_resolved':
+      case 'service_completed':
+        router.go('/services/history');
+      case 'warranty_update':
+        router.go('/warranties');
+      case 'recall':
+        router.go('/notifications');
+      default:
+        if (vin.isNotEmpty) {
+          router.go('/vehicles/$vin');
+        } else {
+          router.go('/notifications');
+        }
+    }
   }
 }
