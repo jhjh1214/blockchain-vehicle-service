@@ -309,6 +309,51 @@
   </div>
 </div>
 
+<!-- Warranty Void Requests -->
+@if (voidRequests.length > 0) {
+  <div class="card" style="margin-top:24px;border-left:4px solid var(--color-danger,#ef4444);">
+    <div class="card-header">
+      <h3 class="card-title" style="color:var(--color-danger,#ef4444);">Warranty Void Requests ({{ voidRequests.length }})</h3>
+      <span style="font-size:12px;color:var(--text-muted);">Review and decide whether to void vehicle warranties</span>
+    </div>
+    <div class="card-body" style="padding:0;">
+      @for (r of voidRequests; track r.id) {
+        <div style="padding:16px 20px;border-bottom:1px solid var(--border);" [style.border-bottom]="$last?'none':''">
+          <div style="display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:200px;">
+              <div style="font-weight:600;font-family:monospace;font-size:13px;">{{ r.vin }}</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">
+                Submitted by <strong>{{ r.sc_name || r.sc_email }}</strong>@if (r.sc_brand) { ({{ r.sc_brand }}) }
+                &nbsp;·&nbsp; {{ r.created_at | date:'mediumDate' }}
+              </div>
+              <div style="font-size:13px;color:var(--text-secondary);margin-top:6px;">{{ r.reason }}</div>
+              @if (r.mileage_submitted && r.last_authorized_mileage) {
+                <div style="font-size:12px;color:var(--color-warning,#d97706);margin-top:4px;">
+                  Mileage gap: {{ (r.mileage_submitted - r.last_authorized_mileage) | number }} km
+                  (last authorised: {{ r.last_authorized_mileage | number }} km → submitted: {{ r.mileage_submitted | number }} km)
+                </div>
+              }
+              @if (r.owner_dispute_reason) {
+                <div style="margin-top:8px;padding:8px 10px;background:var(--color-info-light,#eff6ff);border-left:3px solid #3b82f6;border-radius:4px;font-size:12px;">
+                  <strong>Owner dispute:</strong> {{ r.owner_dispute_reason }}
+                </div>
+              }
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;min-width:200px;">
+              <input type="text" class="form-control" style="font-size:12px;" placeholder="Optional notes…"
+                     [(ngModel)]="voidNotes[r.id]" />
+              <div style="display:flex;gap:6px;">
+                <button class="btn btn-sm btn-danger" (click)="resolveVoid(r.id, 'approved')">Approve Void</button>
+                <button class="btn btn-sm btn-ghost" (click)="resolveVoid(r.id, 'denied')">Deny</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+}
+
 <!-- Active Recalls section -->
 @if (recalls.length > 0) {
   <div class="card" style="margin-top:24px;">

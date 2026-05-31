@@ -86,6 +86,15 @@ def submit_service():
     if max_mileage is not None and mileage < max_mileage:
         return jsonify({'error': f'Mileage cannot decrease: last recorded mileage is {max_mileage} km'}), 400
 
+    # Detect suspicious mileage gap (> 50 000 km jump suggests unauthorized service elsewhere)
+    _MILEAGE_GAP_THRESHOLD = 50_000
+    mileage_gap_warning = None
+    if max_mileage is not None and (mileage - max_mileage) > _MILEAGE_GAP_THRESHOLD:
+        mileage_gap_warning = {
+            'gap': mileage - max_mileage,
+            'last_authorized_mileage': max_mileage,
+        }
+
     try:
         result = service_log_service.submit_service(
             vin=vin,
@@ -107,6 +116,8 @@ def submit_service():
             owner = user_repo.find_by_blockchain_address(owner_mapping.owner_address)
             if owner:
                 notify_new_pending_service(owner.id, vin, service_type)
+        if mileage_gap_warning:
+            result['mileage_gap_warning'] = mileage_gap_warning
         return jsonify(result), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -570,3 +581,179 @@ def post_dispute_message():
     _db.session.add(msg)
     _db.session.commit()
     return jsonify(msg.to_dict()), 201
+
+
+# ─── Warranty Void Requests ───────────────────────────────────────────────────
+
+@service_bp.route('/void-request', methods=['POST'])
+@role_required('SERVICE_CENTER')
+def create_void_request():
+    data = request.get_json() or {}
+    from api.utils import validate_vin
+    try:
+        vin = validate_vin(data.get('vin', ''))
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+
+    reason = (data.get('reason') or '').strip()[:1000]
+    if not reason:
+        return jsonify({'error': 'reason is required'}), 400
+
+    mileage_submitted = data.get('mileage_submitted')
+    last_authorized_mileage = data.get('last_authorized_mileage')
+
+    from db.models import WarrantyVoidRequest, db as _db
+    from db.repositories import vehicles as vehicle_repo, users as user_repo
+
+    existing = WarrantyVoidRequest.query.filter_by(vin=vin, status='pending').first()
+    if existing:
+        return jsonify({'message': 'A pending void request already exists for this VIN', 'request': existing.to_dict()}), 200
+
+    req = WarrantyVoidRequest(
+        vin=vin,
+        sc_user_id=request.user['id'],
+        reason=reason,
+        mileage_submitted=mileage_submitted,
+        last_authorized_mileage=last_authorized_mileage,
+    )
+    _db.session.add(req)
+    _db.session.commit()
+
+    # Notify manufacturer via notification system (find manufacturer for this vehicle's brand)
+    try:
+        mapping = vehicle_repo.find_by_vin(vin)
+        if mapping and mapping.registered_by:
+            mfr = user_repo.find_by_blockchain_address(mapping.registered_by)
+            if mfr:
+                from core.email import send_email
+                send_email(
+                    to=mfr.email,
+                    subject=f'[Warranty Void Request] VIN {vin}',
+                    text=f'A service centre has submitted a warranty void request for VIN {vin}.\n\n'
+                         f'Reason: {reason}\n\n'
+                         f'Please review this in your dashboard.',
+                )
+        # Also notify the vehicle owner
+        if mapping and mapping.owner_address:
+            owner = user_repo.find_by_blockchain_address(mapping.owner_address)
+            if owner:
+                from core.notifications import send_to_user
+                send_to_user(
+                    owner.id,
+                    title='Warranty Void Request',
+                    body=f'A service centre has requested to void the warranty on your vehicle {vin}. Tap to review and dispute.',
+                    data={'type': 'warranty_void', 'vin': vin, 'request_id': str(req.id)},
+                )
+    except Exception:
+        pass
+
+    return jsonify({'message': 'Void request submitted', 'request': req.to_dict()}), 201
+
+
+@service_bp.route('/void-requests/manufacturer', methods=['GET'])
+@role_required('MANUFACTURER')
+def list_void_requests_manufacturer():
+    from db.models import WarrantyVoidRequest
+    from db.repositories import vehicles as vehicle_repo, users as user_repo
+
+    mfr_brand = request.user.get('brand', '')
+    # Get all VINs for vehicles registered by this manufacturer
+    reqs = WarrantyVoidRequest.query.order_by(WarrantyVoidRequest.created_at.desc()).all()
+
+    # Filter to only vehicles registered by this manufacturer (same brand)
+    result = []
+    for r in reqs:
+        mapping = vehicle_repo.find_by_vin(r.vin)
+        if mapping and mapping.registered_by:
+            mfr = user_repo.find_by_blockchain_address(mapping.registered_by)
+            if mfr and (not mfr_brand or mfr.brand == mfr_brand) and mfr.id == request.user['id']:
+                result.append(r.to_dict())
+
+    return jsonify({'requests': result}), 200
+
+
+@service_bp.route('/void-requests/owner', methods=['GET'])
+@role_required('OWNER')
+def list_void_requests_owner():
+    from db.models import WarrantyVoidRequest
+    from db.repositories import vehicles as vehicle_repo
+
+    owner_addr = request.user.get('blockchain_address', '')
+    vehicles = vehicle_repo.find_by_owner(owner_addr)
+    vins = {v.vin for v in vehicles}
+    reqs = WarrantyVoidRequest.query.filter(
+        WarrantyVoidRequest.vin.in_(vins)
+    ).order_by(WarrantyVoidRequest.created_at.desc()).all()
+    return jsonify({'requests': [r.to_dict() for r in reqs]}), 200
+
+
+@service_bp.route('/void-requests/<int:req_id>/resolve', methods=['POST'])
+@role_required('MANUFACTURER')
+def resolve_void_request(req_id):
+    data = request.get_json() or {}
+    decision = data.get('decision')  # 'approved' | 'denied'
+    notes = (data.get('notes') or '').strip()[:500]
+    if decision not in ('approved', 'denied'):
+        return jsonify({'error': "decision must be 'approved' or 'denied'"}), 400
+
+    from db.models import WarrantyVoidRequest, db as _db
+    from db.repositories import vehicles as vehicle_repo, users as user_repo
+
+    req = WarrantyVoidRequest.query.get(req_id)
+    if not req:
+        return jsonify({'error': 'Request not found'}), 404
+    if req.status not in ('pending', 'disputed'):
+        return jsonify({'error': 'Request already resolved'}), 400
+
+    req.status = decision
+    req.manufacturer_notes = notes or None
+    req.resolved_at = datetime.utcnow()
+    _db.session.commit()
+
+    # Notify owner
+    try:
+        mapping = vehicle_repo.find_by_vin(req.vin)
+        if mapping and mapping.owner_address:
+            owner = user_repo.find_by_blockchain_address(mapping.owner_address)
+            if owner:
+                from core.notifications import send_to_user
+                label = 'approved — warranty voided' if decision == 'approved' else 'denied — warranty remains valid'
+                send_to_user(
+                    owner.id,
+                    title='Warranty Void Decision',
+                    body=f'The warranty void request for {req.vin} has been {label}.',
+                    data={'type': 'warranty_void_resolved', 'vin': req.vin, 'decision': decision},
+                )
+    except Exception:
+        pass
+
+    return jsonify({'message': f'Void request {decision}', 'request': req.to_dict()}), 200
+
+
+@service_bp.route('/void-requests/<int:req_id>/dispute', methods=['POST'])
+@role_required('OWNER')
+def dispute_void_request(req_id):
+    data = request.get_json() or {}
+    dispute_reason = (data.get('reason') or '').strip()[:1000]
+    if not dispute_reason:
+        return jsonify({'error': 'reason is required'}), 400
+
+    from db.models import WarrantyVoidRequest, db as _db
+    from db.repositories import vehicles as vehicle_repo
+
+    req = WarrantyVoidRequest.query.get(req_id)
+    if not req:
+        return jsonify({'error': 'Request not found'}), 404
+
+    owner_addr = request.user.get('blockchain_address', '')
+    mapping = vehicle_repo.find_by_vin(req.vin)
+    if not mapping or mapping.owner_address.lower() != owner_addr.lower():
+        return jsonify({'error': 'You do not own this vehicle'}), 403
+
+    if req.status not in ('pending',):
+        return jsonify({'error': 'Can only dispute a pending request'}), 400
+
+    req.status = 'disputed'
+    req.owner_dispute_reason = dispute_reason
+    _db.session.commit()
+    return jsonify({'message': 'Dispute submitted', 'request': req.to_dict()}), 200

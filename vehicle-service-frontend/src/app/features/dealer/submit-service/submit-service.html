@@ -13,6 +13,51 @@
     {{ success }}
   </div>
 
+  @if (voidSuccess) {
+    <div class="alert alert-success">{{ voidSuccess }}</div>
+  }
+
+  @if (mileageGapWarning) {
+    <div class="card" style="border:1px solid var(--color-warning,#f59e0b);margin-bottom:16px;">
+      <div class="card-body">
+        <div style="display:flex;align-items:flex-start;gap:12px;">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:20px;height:20px;flex-shrink:0;color:var(--color-warning,#d97706);margin-top:2px;">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+          </svg>
+          <div style="flex:1;">
+            <div style="font-weight:600;font-size:14px;color:var(--color-warning,#d97706);">Large Mileage Gap Detected</div>
+            <div style="font-size:13px;color:var(--text-secondary);margin-top:4px;">
+              Submitted mileage is <strong>{{ mileageGapWarning.gap | number }} km</strong> higher than the last authorised service
+              ({{ mileageGapWarning.last_authorized_mileage | number }} km). This may indicate the vehicle was serviced elsewhere without authorisation,
+              which could affect the warranty.
+            </div>
+            @if (!showVoidForm) {
+              <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+                <button class="btn btn-sm" style="background:var(--color-warning,#d97706);color:#fff;border:none;"
+                        (click)="showVoidForm = true">Request Warranty Void</button>
+                <button class="btn btn-sm btn-ghost" (click)="mileageGapWarning = null; onReset(); success = ''">Dismiss</button>
+              </div>
+            } @else {
+              <div style="margin-top:10px;">
+                <label style="font-size:13px;font-weight:500;display:block;margin-bottom:6px;">Reason for warranty void request</label>
+                <textarea class="form-control" rows="3" [(ngModel)]="voidReason"
+                          placeholder="e.g. Mileage gap of 65,000 km since last authorised service — likely serviced outside network…"
+                          style="margin-bottom:8px;"></textarea>
+                <div style="display:flex;gap:8px;">
+                  <button class="btn btn-sm btn-ghost" (click)="showVoidForm = false">Cancel</button>
+                  <button class="btn btn-sm" style="background:var(--color-warning,#d97706);color:#fff;border:none;"
+                          (click)="submitVoidRequest()" [disabled]="!voidReason.trim() || voidLoading">
+                    @if (voidLoading) { <span class="spinner"></span> } @else { Submit Void Request }
+                  </button>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+
   <div *ngIf="error" class="alert alert-danger">
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
       <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />

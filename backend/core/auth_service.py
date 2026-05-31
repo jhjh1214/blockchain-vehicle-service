@@ -89,8 +89,8 @@ def register_user(email: str, password: str, role: str, name: str, phone: str,
     if role not in valid_roles:
         raise ValueError(f'Invalid role. Must be one of: {", ".join(valid_roles)}')
 
-    if role in ('MANUFACTURER', 'SERVICE_CENTER') and not brand:
-        raise ValueError('brand is required for MANUFACTURER and SERVICE_CENTER accounts')
+    if role == 'MANUFACTURER' and not brand:
+        raise ValueError('brand is required for MANUFACTURER accounts')
 
     validate_password(password)
 

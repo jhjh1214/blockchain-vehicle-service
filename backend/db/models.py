@@ -362,6 +362,42 @@ class RecallVINService(db.Model):
         }
 
 
+class WarrantyVoidRequest(db.Model):
+    __tablename__ = 'warranty_void_requests'
+
+    id = db.Column(db.Integer, primary_key=True)
+    vin = db.Column(db.String(17), nullable=False, index=True)
+    sc_user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    reason = db.Column(db.Text, nullable=False)
+    mileage_submitted = db.Column(db.Integer, nullable=True)
+    last_authorized_mileage = db.Column(db.Integer, nullable=True)
+    # pending | approved | denied | disputed
+    status = db.Column(db.String(20), default='pending', nullable=False)
+    manufacturer_notes = db.Column(db.Text, nullable=True)
+    owner_dispute_reason = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    resolved_at = db.Column(db.DateTime, nullable=True)
+
+    sc = db.relationship('User', backref=db.backref('void_requests', lazy=True))
+
+    def to_dict(self) -> dict:
+        return {
+            'id': self.id,
+            'vin': self.vin,
+            'sc_name': self.sc.name if self.sc else None,
+            'sc_email': self.sc.email if self.sc else None,
+            'sc_brand': self.sc.brand if self.sc else None,
+            'reason': self.reason,
+            'mileage_submitted': self.mileage_submitted,
+            'last_authorized_mileage': self.last_authorized_mileage,
+            'status': self.status,
+            'manufacturer_notes': self.manufacturer_notes,
+            'owner_dispute_reason': self.owner_dispute_reason,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'resolved_at': self.resolved_at.isoformat() if self.resolved_at else None,
+        }
+
+
 class AuditLog(db.Model):
     __tablename__ = 'audit_logs'
 

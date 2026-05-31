@@ -79,4 +79,26 @@ export class ServiceService {
   postDisputeMessage(vin: string, recordIndex: number, message: string): Observable<any> {
     return this.http.post(`${environment.apiUrl}/service/dispute-messages`, { vin, record_index: recordIndex, message });
   }
+
+  createVoidRequest(vin: string, reason: string, mileageSubmitted?: number, lastAuthorizedMileage?: number): Observable<any> {
+    return this.http.post(`${environment.apiUrl}/service/void-request`, {
+      vin, reason, mileage_submitted: mileageSubmitted, last_authorized_mileage: lastAuthorizedMileage
+    });
+  }
+
+  getVoidRequestsManufacturer(): Observable<{ requests: any[] }> {
+    return this.http.get<{ requests: any[] }>(`${environment.apiUrl}/service/void-requests/manufacturer`);
+  }
+
+  getVoidRequestsOwner(): Observable<{ requests: any[] }> {
+    return this.http.get<{ requests: any[] }>(`${environment.apiUrl}/service/void-requests/owner`);
+  }
+
+  resolveVoidRequest(id: number, decision: 'approved' | 'denied', notes = ''): Observable<any> {
+    return this.http.post(`${environment.apiUrl}/service/void-requests/${id}/resolve`, { decision, notes });
+  }
+
+  disputeVoidRequest(id: number, reason: string): Observable<any> {
+    return this.http.post(`${environment.apiUrl}/service/void-requests/${id}/dispute`, { reason });
+  }
 }

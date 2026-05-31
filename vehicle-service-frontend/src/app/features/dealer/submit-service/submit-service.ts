@@ -6,11 +6,12 @@ import { Subscription } from 'rxjs';
 import { debounceTime } from 'rxjs/operators';
 import { ServiceService } from '../../../core/services/service';
 import { VehicleService } from '../../../core/services/vehicle';
+import { FormsModule } from '@angular/forms';
 
 @Component({
   selector: 'app-submit-service',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, RouterModule],
   templateUrl: './submit-service.html',
   styleUrls: ['./submit-service.css']
 })
@@ -24,6 +25,11 @@ export class SubmitServiceComponent implements OnInit, OnDestroy {
   vinPrefilled = false;
   activeRecalls: any[] = [];
   recallsChecked = false;
+  mileageGapWarning: { gap: number; last_authorized_mileage: number } | null = null;
+  showVoidForm = false;
+  voidReason = '';
+  voidLoading = false;
+  voidSuccess = '';
   selectedPhotos: File[] = [];
   photoPreviews: string[] = [];
   private subs = new Subscription();
@@ -197,14 +203,35 @@ export class SubmitServiceComponent implements OnInit, OnDestroy {
         this.success = `Service record submitted. Hash: ${(response.metadata_hash || '').slice(0, 18)}…${photoNote} — Awaiting owner verification.`;
         this.loading = false;
         this.liveHash = '';
-        setTimeout(() => {
-          this.onReset();
-          this.success = '';
-        }, 5000);
+        if (response.mileage_gap_warning) {
+          this.mileageGapWarning = response.mileage_gap_warning;
+        } else {
+          setTimeout(() => { this.onReset(); this.success = ''; }, 5000);
+        }
       },
       error: (err) => {
         this.error = err.error?.error || 'Failed to submit service record.';
         this.loading = false;
+      }
+    });
+  }
+
+  submitVoidRequest(): void {
+    if (!this.voidReason.trim() || this.voidLoading) return;
+    this.voidLoading = true;
+    const vin = this.serviceForm.getRawValue().vin;
+    const mileage = parseInt(this.serviceForm.getRawValue().mileage, 10) || undefined;
+    const lastMileage = this.mileageGapWarning?.last_authorized_mileage;
+    this.serviceService.createVoidRequest(vin, this.voidReason.trim(), mileage, lastMileage).subscribe({
+      next: () => {
+        this.voidSuccess = 'Warranty void request submitted. The manufacturer will be notified.';
+        this.voidLoading = false;
+        this.showVoidForm = false;
+        setTimeout(() => { this.mileageGapWarning = null; this.voidSuccess = ''; this.onReset(); this.success = ''; }, 4000);
+      },
+      error: (e) => {
+        this.voidLoading = false;
+        this.error = e.error?.error || 'Failed to submit void request';
       }
     });
   }
