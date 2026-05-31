@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ServiceService } from '../../../core/services/service';
 
 interface DisputedRecord {
@@ -25,7 +25,7 @@ interface DisputedRecord {
 @Component({
   selector: 'app-dispute-resolution',
   standalone: true,
-  imports: [CommonModule, DatePipe, ReactiveFormsModule],
+  imports: [CommonModule, DatePipe, FormsModule, ReactiveFormsModule],
   templateUrl: './dispute-resolution.html',
   styleUrl: './dispute-resolution.css'
 })
@@ -44,6 +44,12 @@ export class DisputeResolutionComponent {
   resolvingIndex: number | null = null;
   resolvingDecision: 'approve' | 'reject' | 'modify' | null = null;
 
+  threadOpen: { [key: string]: boolean } = {};
+  threadMessages: { [key: string]: any[] } = {};
+  threadLoading: { [key: string]: boolean } = {};
+  threadInput: { [key: string]: string } = {};
+  threadSending: { [key: string]: boolean } = {};
+
   constructor(private fb: FormBuilder, private serviceService: ServiceService) {
     this.searchForm = this.fb.group({
       vin: ['', [Validators.required, Validators.pattern(/^[A-HJ-NPR-Z0-9]{17}$/i)]]
@@ -51,6 +57,54 @@ export class DisputeResolutionComponent {
     this.resolveForm = this.fb.group({
       resolution_notes: ['', Validators.required]
     });
+  }
+
+  threadKey(vin: string, recordIndex: number): string {
+    return `${vin}-${recordIndex}`;
+  }
+
+  toggleThread(vin: string, recordIndex: number): void {
+    const key = this.threadKey(vin, recordIndex);
+    this.threadOpen[key] = !this.threadOpen[key];
+    if (this.threadOpen[key] && !this.threadMessages[key]) {
+      this.loadThread(vin, recordIndex);
+    }
+  }
+
+  loadThread(vin: string, recordIndex: number): void {
+    const key = this.threadKey(vin, recordIndex);
+    this.threadLoading[key] = true;
+    this.serviceService.getDisputeMessages(vin, recordIndex).subscribe({
+      next: (res) => {
+        this.threadMessages[key] = res.messages || [];
+        this.threadLoading[key] = false;
+      },
+      error: () => { this.threadLoading[key] = false; }
+    });
+  }
+
+  sendThreadMessage(vin: string, recordIndex: number): void {
+    const key = this.threadKey(vin, recordIndex);
+    const text = (this.threadInput[key] || '').trim();
+    if (!text || this.threadSending[key]) return;
+    this.threadSending[key] = true;
+    this.threadInput[key] = '';
+    this.serviceService.postDisputeMessage(vin, recordIndex, text).subscribe({
+      next: () => {
+        this.threadSending[key] = false;
+        this.loadThread(vin, recordIndex);
+      },
+      error: () => {
+        this.threadSending[key] = false;
+        this.threadInput[key] = text;
+      }
+    });
+  }
+
+  senderLabel(msg: any): string {
+    if (msg.sender_role === 'OWNER') return 'Owner';
+    if (msg.sender_role === 'MANUFACTURER') return msg.sender_name || 'Manufacturer';
+    return msg.sender_name || 'Service Centre';
   }
 
   get f() { return this.searchForm.controls; }

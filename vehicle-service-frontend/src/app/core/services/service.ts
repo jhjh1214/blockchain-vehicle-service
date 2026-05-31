@@ -71,4 +71,12 @@ export class ServiceService {
     if (filters?.date_to)      params['date_to']      = filters.date_to;
     return this.http.get<any>(`${environment.apiUrl}/service/owner/history`, { params });
   }
+
+  getDisputeMessages(vin: string, recordIndex: number): Observable<{ messages: any[] }> {
+    return this.http.get<any>(`${environment.apiUrl}/service/dispute-messages/${vin}/${recordIndex}`);
+  }
+
+  postDisputeMessage(vin: string, recordIndex: number, message: string): Observable<any> {
+    return this.http.post(`${environment.apiUrl}/service/dispute-messages`, { vin, record_index: recordIndex, message });
+  }
 }

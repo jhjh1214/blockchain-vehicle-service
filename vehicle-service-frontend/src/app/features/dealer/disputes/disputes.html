@@ -1,0 +1,225 @@
+<div class="page">
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Disputes</h1>
+      <p class="page-subtitle">Manage owner-disputed service records and communicate via the thread</p>
+    </div>
+    <button class="btn btn-secondary btn-sm" (click)="load()" [disabled]="loading">
+      @if (loading) { <span class="spinner"></span> } @else { Refresh }
+    </button>
+  </div>
+
+  @if (error) {
+    <div class="alert alert-danger">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+      </svg>
+      {{ error }}
+    </div>
+  }
+
+  @if (rebuttalSuccess) {
+    <div class="alert alert-success">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+      </svg>
+      {{ rebuttalSuccess }}
+    </div>
+  }
+
+  @if (escalateSuccess) {
+    <div class="alert alert-success">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+      </svg>
+      {{ escalateSuccess }}
+    </div>
+  }
+
+  @if (escalateError) {
+    <div class="alert alert-danger">{{ escalateError }}</div>
+  }
+
+  @if (loading) {
+    <div class="card">
+      <div class="card-body">
+        @for (n of [1,2,3]; track n) {
+          <div class="dispute-skeleton">
+            <div class="sk-cell w-55" style="height:14px;margin-bottom:8px;"></div>
+            <div class="sk-cell w-40" style="height:11px;margin-bottom:16px;"></div>
+            <div class="sk-cell w-85" style="height:11px;margin-bottom:6px;"></div>
+            <div class="sk-cell w-70" style="height:11px;margin-bottom:20px;"></div>
+          </div>
+        }
+      </div>
+    </div>
+  } @else if (disputedRecords.length === 0 && !error) {
+    <div class="card">
+      <div class="card-body">
+        <div class="empty-state">
+          <div class="empty-state-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+            </svg>
+          </div>
+          <h3>No Active Disputes</h3>
+          <p>None of your pending service records have been disputed by owners.</p>
+        </div>
+      </div>
+    </div>
+  } @else {
+    <div class="disputes-count mb-16">
+      <span class="badge badge-disputed">{{ disputedRecords.length }} disputed</span>
+    </div>
+
+    @for (record of disputedRecords; track record; let i = $index) {
+      <div class="card dispute-card mb-16">
+        <div class="dispute-card-header">
+          <div class="dispute-card-title">
+            <span class="dispute-index">#{{ i + 1 }}</span>
+            <div>
+              <div class="dispute-service-type">{{ record.metadata?.service_type || 'Service Record' }}</div>
+              <div class="dispute-vin mono">VIN: {{ record.vin }} &nbsp;·&nbsp; Record #{{ record.record_index }}</div>
+            </div>
+          </div>
+          @if (record.metadata?.escalated) {
+            <span class="badge" style="background:var(--color-warning-light,#fff7ed);color:var(--color-warning,#d97706);border:1px solid var(--color-warning,#d97706);">Escalated</span>
+          } @else {
+            <span class="badge badge-disputed">Disputed</span>
+          }
+        </div>
+
+        <div class="dispute-card-body">
+          <!-- Service details -->
+          <div class="detail-grid">
+            <div class="detail-item">
+              <div class="detail-label">Service Date</div>
+              <div class="detail-value">{{ formatDate(record.metadata?.service_date || '') }}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">Mileage</div>
+              <div class="detail-value">{{ record.metadata?.mileage ? (record.metadata.mileage + ' km') : '—' }}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">Technician</div>
+              <div class="detail-value">{{ record.metadata?.technician_name || '—' }}</div>
+            </div>
+          </div>
+
+          <!-- Dispute reason -->
+          @if (record.dispute_reason) {
+            <div class="info-box info-box-danger">
+              <strong>Owner's Dispute Reason:</strong> {{ record.dispute_reason }}
+            </div>
+          }
+
+          <!-- Existing rebuttal -->
+          @if (record.metadata?.rebuttal_notes) {
+            <div class="info-box info-box-success">
+              <strong>Your Rebuttal:</strong> {{ record.metadata?.rebuttal_notes }}
+              @if (record.metadata?.rebuttal_submitted_at) {
+                <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
+                  Submitted {{ record.metadata?.rebuttal_submitted_at | date:'d MMM y, HH:mm' }}
+                </div>
+              }
+            </div>
+          }
+
+          <!-- Rebuttal form (inline) -->
+          @if (rebuttalRecord === record) {
+            <div class="rebuttal-form">
+              <textarea
+                class="form-control"
+                rows="3"
+                [(ngModel)]="rebuttalText"
+                placeholder="Explain why this service was performed correctly…"
+                style="margin-bottom:8px;"
+              ></textarea>
+              @if (rebuttalError) {
+                <div class="invalid-feedback" style="display:block;margin-bottom:8px;">{{ rebuttalError }}</div>
+              }
+              <div style="display:flex;gap:8px;">
+                <button class="btn btn-secondary btn-sm" (click)="cancelRebuttal()">Cancel</button>
+                <button class="btn btn-primary btn-sm" (click)="submitRebuttal()" [disabled]="rebuttalLoading || !rebuttalText.trim()">
+                  @if (rebuttalLoading) { <span class="spinner"></span> } @else { Submit Rebuttal }
+                </button>
+              </div>
+            </div>
+          } @else if (!record.metadata?.rebuttal_notes) {
+            <button class="btn btn-secondary btn-sm" style="margin-bottom:8px;" (click)="openRebuttal(record)">Submit Rebuttal</button>
+          }
+
+          <!-- Escalate to manufacturer -->
+          @if (!record.metadata?.escalated) {
+            <div style="margin-bottom:12px;">
+              <button
+                class="btn btn-sm"
+                style="background:var(--color-warning-light,#fff7ed);color:var(--color-warning,#d97706);border:1px solid var(--color-warning,#d97706);"
+                (click)="escalateDispute(record)"
+                [disabled]="escalatingRecord === record">
+                @if (escalatingRecord === record) { <span class="spinner"></span> } @else { Escalate to Manufacturer }
+              </button>
+            </div>
+          }
+
+          <!-- Dispute Thread -->
+          <div class="thread-toggle-row">
+            <button class="btn btn-sm btn-thread" (click)="toggleThread(record.vin, record.record_index)">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:14px;height:14px;">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" />
+              </svg>
+              {{ threadOpen[threadKey(record.vin, record.record_index)] ? 'Hide Thread' : 'View Dispute Thread' }}
+            </button>
+          </div>
+          @if (threadOpen[threadKey(record.vin, record.record_index)]) {
+            <div class="thread-panel">
+              @if (threadLoading[threadKey(record.vin, record.record_index)]) {
+                <div class="thread-loading">Loading messages…</div>
+              } @else if (!threadMessages[threadKey(record.vin, record.record_index)]?.length) {
+                <div class="thread-empty">No messages yet. Start the conversation below.</div>
+              } @else {
+                <div class="thread-messages">
+                  @for (msg of threadMessages[threadKey(record.vin, record.record_index)]; track msg) {
+                    <div class="thread-msg" [class.thread-msg-me]="msg.sender_role === 'SERVICE_CENTER'">
+                      <div class="thread-msg-meta">
+                        <span class="thread-msg-sender"
+                          [class.sender-owner]="msg.sender_role === 'OWNER'"
+                          [class.sender-sc]="msg.sender_role === 'SERVICE_CENTER'"
+                          [class.sender-mfr]="msg.sender_role === 'MANUFACTURER'">
+                          {{ senderLabel(msg) }}
+                        </span>
+                        <span class="thread-msg-time">{{ msg.created_at | date:'d MMM, HH:mm' }}</span>
+                      </div>
+                      <div class="thread-msg-bubble" [class.bubble-me]="msg.sender_role === 'SERVICE_CENTER'">{{ msg.message }}</div>
+                    </div>
+                  }
+                </div>
+              }
+              <div class="thread-input-row">
+                <textarea
+                  class="form-control thread-input"
+                  rows="2"
+                  placeholder="Reply to this dispute thread…"
+                  [(ngModel)]="threadInput[threadKey(record.vin, record.record_index)]"
+                  [disabled]="threadSending[threadKey(record.vin, record.record_index)]"
+                ></textarea>
+                <button
+                  class="btn btn-primary btn-sm thread-send-btn"
+                  (click)="sendThreadMessage(record.vin, record.record_index)"
+                  [disabled]="threadSending[threadKey(record.vin, record.record_index)] || !threadInput[threadKey(record.vin, record.record_index)]?.trim()">
+                  @if (threadSending[threadKey(record.vin, record.record_index)]) {
+                    <span class="spinner"></span>
+                  } @else {
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:16px;height:16px;">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
+                    </svg>
+                  }
+                </button>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+    }
+  }
+</div>

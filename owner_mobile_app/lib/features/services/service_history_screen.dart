@@ -177,7 +177,7 @@ class _TimelineItemState extends State<_TimelineItem> {
                   Expanded(
                     child: Container(
                       width: 2,
-                      color: Colors.grey.shade200,
+                      color: Theme.of(context).dividerColor,
                     ),
                   ),
               ],
@@ -274,7 +274,7 @@ class _RecordCard extends StatelessWidget {
       elevation: 1,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: Colors.grey.shade200),
+        side: BorderSide(color: Theme.of(context).dividerColor),
       ),
       child: Column(
         children: [
@@ -379,9 +379,9 @@ class _DetailsPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: Theme.of(context).colorScheme.surfaceContainerLowest,
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(10)),
-        border: Border(top: BorderSide(color: Colors.grey.shade200)),
+        border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
       ),
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
       child: Column(

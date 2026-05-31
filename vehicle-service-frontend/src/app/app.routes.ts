@@ -12,6 +12,7 @@ import { DashboardComponent } from './features/dealer/dashboard/dashboard';
 import { VehicleLookupComponent } from './features/dealer/vehicle-lookup/vehicle-lookup';
 import { SubmitServiceComponent } from './features/dealer/submit-service/submit-service';
 import { PendingRecordsComponent } from './features/dealer/pending-records/pending-records';
+import { DealerDisputesComponent } from './features/dealer/disputes/disputes';
 
 import { ManufacturerShellComponent } from './shared/shell/manufacturer-shell';
 import { ManufacturerDashboardComponent } from './features/manufacturer/dashboard/dashboard';
@@ -48,6 +49,7 @@ export const routes: Routes = [
       { path: 'vehicle-lookup', component: VehicleLookupComponent },
       { path: 'submit-service', component: SubmitServiceComponent },
       { path: 'pending-records', component: PendingRecordsComponent },
+      { path: 'disputes', component: DealerDisputesComponent },
       { path: 'profile', component: ProfileComponent },
     ]
   },

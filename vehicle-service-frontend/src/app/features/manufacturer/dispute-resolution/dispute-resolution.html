@@ -197,6 +197,60 @@
                 </div>
               </div>
 
+              <!-- Dispute Thread -->
+              <div class="thread-toggle-row">
+                <button class="btn btn-sm btn-thread" (click)="toggleThread(record.vin, record.record_index)">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:14px;height:14px;">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" />
+                  </svg>
+                  {{ threadOpen[threadKey(record.vin, record.record_index)] ? 'Hide Thread' : 'View Thread' }}
+                </button>
+              </div>
+              @if (threadOpen[threadKey(record.vin, record.record_index)]) {
+                <div class="thread-panel">
+                  @if (threadLoading[threadKey(record.vin, record.record_index)]) {
+                    <div class="thread-loading">Loading messages…</div>
+                  } @else if (!threadMessages[threadKey(record.vin, record.record_index)]?.length) {
+                    <div class="thread-empty">No messages yet. Start the conversation below.</div>
+                  } @else {
+                    <div class="thread-messages">
+                      @for (msg of threadMessages[threadKey(record.vin, record.record_index)]; track msg) {
+                        <div class="thread-msg" [class.thread-msg-me]="msg.sender_role === 'MANUFACTURER'">
+                          <div class="thread-msg-meta">
+                            <span class="thread-msg-sender" [class.sender-owner]="msg.sender_role === 'OWNER'" [class.sender-sc]="msg.sender_role === 'SERVICE_CENTER'" [class.sender-mfr]="msg.sender_role === 'MANUFACTURER'">
+                              {{ senderLabel(msg) }}
+                            </span>
+                            <span class="thread-msg-time">{{ msg.created_at | date:'d MMM, HH:mm' }}</span>
+                          </div>
+                          <div class="thread-msg-bubble" [class.bubble-me]="msg.sender_role === 'MANUFACTURER'">{{ msg.message }}</div>
+                        </div>
+                      }
+                    </div>
+                  }
+                  <div class="thread-input-row">
+                    <textarea
+                      class="form-control thread-input"
+                      rows="2"
+                      placeholder="Reply to this dispute thread…"
+                      [(ngModel)]="threadInput[threadKey(record.vin, record.record_index)]"
+                      [disabled]="threadSending[threadKey(record.vin, record.record_index)]"
+                    ></textarea>
+                    <button
+                      class="btn btn-primary btn-sm thread-send-btn"
+                      (click)="sendThreadMessage(record.vin, record.record_index)"
+                      [disabled]="threadSending[threadKey(record.vin, record.record_index)] || !threadInput[threadKey(record.vin, record.record_index)]?.trim()">
+                      @if (threadSending[threadKey(record.vin, record.record_index)]) {
+                        <span class="spinner"></span>
+                      } @else {
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:16px;height:16px;">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
+                        </svg>
+                      }
+                    </button>
+                  </div>
+                </div>
+              }
+
               <!-- Resolve form (inline) -->
               @if (resolvingIndex === i) {
                 <div class="resolve-form"

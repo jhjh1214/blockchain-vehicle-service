@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'features/auth/auth_provider.dart';
 import 'features/vehicles/vehicles_provider.dart';
 import 'features/services/services_provider.dart';
@@ -12,8 +13,11 @@ import 'core/services/push_notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Firebase init is deferred — PushNotificationService handles it gracefully
-  // when google-services.json is present.
+  try {
+    await Firebase.initializeApp();
+  } catch (_) {
+    // Firebase not configured — push notifications unavailable
+  }
   runApp(const OwnerApp());
 }
 

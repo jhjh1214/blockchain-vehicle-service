@@ -69,51 +69,55 @@ class _ShellScreenState extends State<ShellScreen> {
       body: Column(
         children: [
           if (showBanner)
-            Container(
-              color: const Color(0xFFFFFBEB),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: SafeArea(
-                bottom: false,
-                child: Row(
-                  children: [
-                    const Icon(Icons.mark_email_unread_outlined,
-                        size: 18, color: Color(0xFF92400E)),
-                    const SizedBox(width: 10),
-                    const Expanded(
-                      child: Text(
-                        'Please verify your email address.',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF92400E),
-                          fontWeight: FontWeight.w500,
+            Builder(builder: (context) {
+              final isDark = Theme.of(context).brightness == Brightness.dark;
+              final bg = isDark ? const Color(0xFF2D2200) : const Color(0xFFFFFBEB);
+              final fg = isDark ? const Color(0xFFFFD54F) : const Color(0xFF92400E);
+              return Container(
+                color: bg,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                child: SafeArea(
+                  bottom: false,
+                  child: Row(
+                    children: [
+                      Icon(Icons.mark_email_unread_outlined, size: 18, color: fg),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Please verify your email address.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: fg,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
-                    ),
-                    TextButton(
-                      onPressed: _resendSent ? null : () => _handleResend(context),
-                      style: TextButton.styleFrom(
-                        foregroundColor: const Color(0xFF92400E),
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      child: Text(
-                        _resending
-                            ? 'Sending...'
-                            : _resendSent
-                                ? 'Sent!'
-                                : 'Resend',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          decoration: TextDecoration.underline,
+                      TextButton(
+                        onPressed: _resendSent ? null : () => _handleResend(context),
+                        style: TextButton.styleFrom(
+                          foregroundColor: fg,
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: Text(
+                          _resending
+                              ? 'Sending...'
+                              : _resendSent
+                                  ? 'Sent!'
+                                  : 'Resend',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            decoration: TextDecoration.underline,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ),
+              );
+            }),
           Expanded(child: widget.child),
         ],
       ),

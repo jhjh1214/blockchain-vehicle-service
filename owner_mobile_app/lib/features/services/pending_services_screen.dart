@@ -99,15 +99,15 @@ class _PendingServicesScreenState extends State<PendingServicesScreen> {
       {required String confirmLabel, Color? confirmColor}) async {
     final result = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         title: Text(title),
         content: Text(content),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context, false),
+              onPressed: () => Navigator.pop(ctx, false),
               child: const Text('Cancel')),
           TextButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(ctx, true),
             style: TextButton.styleFrom(foregroundColor: confirmColor),
             child: Text(confirmLabel),
           ),
@@ -121,7 +121,7 @@ class _PendingServicesScreenState extends State<PendingServicesScreen> {
     final ctrl = TextEditingController();
     final result = await showDialog<String>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         title: const Text('Dispute Service'),
         content: TextField(
           controller: ctrl,
@@ -133,12 +133,12 @@ class _PendingServicesScreenState extends State<PendingServicesScreen> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(ctx),
               child: const Text('Cancel')),
           TextButton(
             onPressed: () {
               if (ctrl.text.trim().isNotEmpty) {
-                Navigator.pop(context, ctrl.text.trim());
+                Navigator.pop(ctx, ctrl.text.trim());
               }
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -297,7 +297,7 @@ class _ServiceCard extends StatelessWidget {
                       width: double.infinity,
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
+                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Column(
@@ -367,7 +367,7 @@ class _ServiceCard extends StatelessWidget {
   static void _showPhotoDialog(BuildContext context, String url) {
     showDialog(
       context: context,
-      builder: (_) => Dialog(
+      builder: (ctx) => Dialog(
         child: Stack(
           children: [
             InteractiveViewer(
@@ -378,7 +378,7 @@ class _ServiceCard extends StatelessWidget {
               right: 4,
               child: IconButton(
                 icon: const Icon(Icons.close, color: Colors.white),
-                onPressed: () => Navigator.pop(context),
+                onPressed: () => Navigator.pop(ctx),
               ),
             ),
           ],
