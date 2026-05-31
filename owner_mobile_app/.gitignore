@@ -12,6 +12,7 @@ local.properties
 android/local.properties
 android/.gradle/
 android/captures/
+android/app/google-services.json
 android/gradlew
 android/gradlew.bat
 android/gradle/
