@@ -1,6 +1,6 @@
 .policy-page {
   min-height: 100vh;
-  background: var(--bg-secondary, #f8fafc);
+  background: var(--bg, #f8fafc);
   padding: 32px 16px 64px;
 }
 
@@ -35,7 +35,7 @@
 .policy-title {
   font-size: 26px;
   font-weight: 700;
-  color: var(--text-primary, #111827);
+  color: var(--text, #111827);
   margin: 0 0 4px;
 }
 
@@ -47,7 +47,7 @@
 
 .policy-tabs {
   display: flex;
-  border-bottom: 2px solid var(--border-color, #e5e7eb);
+  border-bottom: 2px solid var(--border, #e5e7eb);
   margin-bottom: 28px;
   gap: 0;
 }
@@ -56,7 +56,7 @@
   padding: 10px 24px;
   font-size: 14px;
   font-weight: 500;
-  color: var(--text-secondary, #6b7280);
+  color: var(--text-muted, #6b7280);
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
@@ -71,13 +71,13 @@
 }
 
 .policy-tab:hover:not(.active) {
-  color: var(--text-primary, #111827);
+  color: var(--text, #111827);
 }
 
 .policy-body {
-  background: #fff;
+  background: var(--surface, #fff);
   border-radius: 12px;
-  border: 1px solid var(--border-color, #e5e7eb);
+  border: 1px solid var(--border, #e5e7eb);
   padding: 28px 32px;
 }
 
@@ -92,7 +92,7 @@
 .section-heading {
   font-size: 15px;
   font-weight: 700;
-  color: var(--text-primary, #111827);
+  color: var(--text, #111827);
   margin: 0 0 8px;
 }
 

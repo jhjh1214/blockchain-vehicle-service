@@ -2348,3 +2348,63 @@ tbody tr:hover {
 /* ─── Inactivity warning banner ──────────────────────── */
 .inactivity-banner { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 20px; background:#b45309; color:#fff; font-size:14px; font-weight:500; z-index:1000; }
 .inactivity-banner button { padding:5px 14px; background:#fff; color:#b45309; border:none; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap; }
+
+/* ─── Auth & legal pages always render light (industry standard) ─ */
+/* Login, register, forgot/reset password, verify email, and legal  */
+/* pages are always light regardless of the user's dark preference.  */
+[data-theme="dark"] .auth-page,
+[data-theme="dark"] .policy-page {
+  color-scheme: light;
+  --bg:                  #f8fafc;
+  --surface:             #ffffff;
+  --surface-2:           #f8fafc;
+  --surface-hover:       #f8fafc;
+  --border:              #e2e8f0;
+  --border-strong:       #cbd5e1;
+  --text:                #0f172a;
+  --text-primary:        #0f172a;
+  --text-secondary:      #334155;
+  --text-muted:          #64748b;
+  --color-primary:       #0369a1;
+  --color-primary-dark:  #025985;
+  --color-primary-light: #e0f2fe;
+  --color-success:       #15803d;
+  --color-success-light: #dcfce7;
+  --color-danger:        #b91c1c;
+  --color-danger-light:  #fee2e2;
+  --color-warning:       #b45309;
+  --color-warning-light: #fef3c7;
+  --color-info:          #0369a1;
+  --color-info-light:    #e0f2fe;
+  --shadow-sm: 0 1px 2px rgba(15,23,42,0.04), 0 0 0 1px rgba(15,23,42,0.03);
+  --shadow:    0 2px 8px rgba(15,23,42,0.06), 0 0 0 1px rgba(15,23,42,0.04);
+  --shadow-md: 0 4px 16px rgba(15,23,42,0.08), 0 0 0 1px rgba(15,23,42,0.04);
+  --shadow-lg: 0 16px 48px rgba(15,23,42,0.14), 0 0 0 1px rgba(15,23,42,0.06);
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+/* Restore light-mode colours for elements that have hardcoded dark overrides */
+[data-theme="dark"] .auth-page .auth-note {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #14532d;
+}
+
+[data-theme="dark"] .auth-page .alert-success {
+  background: #dcfce7;
+  color: #14532d;
+  border-color: #86efac;
+}
+
+[data-theme="dark"] .auth-page .alert-danger {
+  background: #fee2e2;
+  color: #7f1d1d;
+  border-color: #fca5a5;
+}
+
+[data-theme="dark"] .auth-page .alert-warning {
+  background: #fef3c7;
+  color: #78350f;
+  border-color: #fcd34d;
+}
