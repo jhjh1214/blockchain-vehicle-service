@@ -168,4 +168,40 @@
       </div>
     </div>
   </div>
+
+  <!-- Danger Zone -->
+  <div class="card" style="margin-top:24px;border:1px solid var(--color-danger,#ef4444);">
+    <div class="card-header" style="cursor:pointer;user-select:none;" (click)="showDeleteZone = !showDeleteZone">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:16px;height:16px;color:var(--color-danger,#ef4444);">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+        </svg>
+        <h3 class="card-title" style="color:var(--color-danger,#ef4444);margin:0;">Danger Zone</h3>
+      </div>
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:16px;height:16px;transition:transform .2s;" [style.transform]="showDeleteZone ? 'rotate(180deg)' : 'rotate(0)'">
+        <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+      </svg>
+    </div>
+    @if (showDeleteZone) {
+      <div class="card-body">
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">
+          Permanently delete your account and all associated personal data. This action is <strong>immediate and irreversible</strong>.
+        </p>
+        <div class="form-group mb-16">
+          <label class="form-label" style="color:var(--color-danger,#ef4444);">
+            Type <strong>DELETE</strong> to confirm
+          </label>
+          <input type="text" class="form-control" [(ngModel)]="deleteConfirmText"
+                 placeholder="DELETE" style="border-color:var(--color-danger,#ef4444);" />
+        </div>
+        @if (deleteError) {
+          <div class="alert alert-danger mb-16">{{ deleteError }}</div>
+        }
+        <button class="btn btn-danger" (click)="deleteAccount()"
+                [disabled]="deleteConfirmText !== 'DELETE' || deleteLoading">
+          @if (deleteLoading) { <span class="spinner"></span> } @else { Delete My Account Permanently }
+        </button>
+      </div>
+    }
+  </div>
 </div>

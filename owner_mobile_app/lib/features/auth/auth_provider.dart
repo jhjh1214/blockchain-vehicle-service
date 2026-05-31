@@ -159,6 +159,21 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  Future<String?> deleteAccount() async {
+    try {
+      await ApiClient.instance.dio.delete(ApiEndpoints.deleteAccount);
+      await TokenStorage.clear();
+      await TokenStorage.clearCredentials();
+      _user = null;
+      notifyListeners();
+      return null;
+    } on DioException catch (e) {
+      return (e.response?.data as Map?)?['error'] as String? ?? 'Failed to delete account';
+    } catch (_) {
+      return 'Failed to delete account';
+    }
+  }
+
   void clearError() {
     _error = null;
     notifyListeners();

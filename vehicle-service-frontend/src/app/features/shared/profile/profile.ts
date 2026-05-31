@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
+import { ReactiveFormsModule, FormsModule, FormBuilder, FormGroup, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
+import { Router } from '@angular/router';
 import { AuthService } from '../../../core/services/auth';
 import { User } from '../../../core/models/user.model';
 import { MY_CITIES, getStateForCity } from '../../../shared/constants/my-cities';
@@ -25,7 +26,7 @@ function passwordMatch(g: AbstractControl): ValidationErrors | null {
 @Component({
   selector: 'app-profile',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule],
   templateUrl: './profile.html',
 })
 export class ProfileComponent implements OnInit {
@@ -45,6 +46,11 @@ export class ProfileComponent implements OnInit {
   showNewPw     = false;
   showConfirmPw = false;
 
+  deleteConfirmText = '';
+  deleteLoading = false;
+  deleteError = '';
+  showDeleteZone = false;
+
   cities = MY_CITIES;
 
   get initials(): string {
@@ -56,7 +62,7 @@ export class ProfileComponent implements OnInit {
     return this.currentUser?.role === 'SERVICE_CENTER';
   }
 
-  constructor(private fb: FormBuilder, private authService: AuthService) {
+  constructor(private fb: FormBuilder, private authService: AuthService, private router: Router) {
     this.profileForm = this.fb.group({
       name:  [''],
       phone: [''],
@@ -136,4 +142,20 @@ export class ProfileComponent implements OnInit {
     { key: 'number',    label: 'One number' },
     { key: 'special',  label: 'One special character' },
   ];
+
+  deleteAccount(): void {
+    if (this.deleteConfirmText !== 'DELETE' || this.deleteLoading) return;
+    this.deleteLoading = true;
+    this.deleteError = '';
+    this.authService.deleteAccount().subscribe({
+      next: () => {
+        this.authService.logout();
+        this.router.navigate(['/login']);
+      },
+      error: (e) => {
+        this.deleteError = e.error?.error || 'Failed to delete account';
+        this.deleteLoading = false;
+      }
+    });
+  }
 }

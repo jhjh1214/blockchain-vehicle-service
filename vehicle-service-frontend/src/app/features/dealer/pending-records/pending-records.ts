@@ -6,6 +6,7 @@ import { ServiceService } from '../../../core/services/service';
 import { ServiceRecord } from '../../../core/models/service.model';
 
 type FilterTab = 'all' | 'pending' | 'disputed';
+type ViewMode = 'search' | 'all-disputes';
 
 @Component({
   selector: 'app-pending-records',
@@ -22,6 +23,7 @@ export class PendingRecordsComponent {
   currentVin = '';
   activeFilter: FilterTab = 'all';
   expandedIndex: number | null = null;
+  viewMode: ViewMode = 'search';
 
   rebuttalRecord: ServiceRecord | null = null;
   rebuttalText = '';
@@ -113,6 +115,7 @@ export class PendingRecordsComponent {
     this.pendingRecords = [];
     this.activeFilter = 'all';
     this.expandedIndex = null;
+    this.viewMode = 'search';
     this.currentVin = this.searchForm.value.vin;
 
     this.serviceService.getPendingServices(this.currentVin).subscribe({
@@ -122,6 +125,28 @@ export class PendingRecordsComponent {
       },
       error: (err) => {
         this.error = err.error?.error || 'Failed to load pending services';
+        this.loading = false;
+      }
+    });
+  }
+
+  loadAllDisputes(): void {
+    this.loading = true;
+    this.error = '';
+    this.pendingRecords = [];
+    this.activeFilter = 'disputed';
+    this.expandedIndex = null;
+    this.viewMode = 'all-disputes';
+    this.currentVin = '';
+    this.serviceService.getCenterPending().subscribe({
+      next: (data) => {
+        this.pendingRecords = (data.pending_services || [])
+          .map((r: any, i: number) => ({ ...r, record_index: i }))
+          .filter((r: any) => r.disputed);
+        this.loading = false;
+      },
+      error: (err) => {
+        this.error = err.error?.error || 'Failed to load disputes';
         this.loading = false;
       }
     });

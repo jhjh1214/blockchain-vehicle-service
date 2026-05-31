@@ -97,6 +97,10 @@ export class AuthService {
     return this.http.post<{ message: string }>(`${environment.apiUrl}/auth/resend-verification`, {});
   }
 
+  deleteAccount(): Observable<{ message: string }> {
+    return this.http.delete<{ message: string }>(`${environment.apiUrl}/auth/account`);
+  }
+
   private _storeSession(r: AuthResponse, remember: boolean): void {
     // Clear both storages to avoid stale tokens in the other one
     ['access_token', 'refresh_token', 'currentUser'].forEach(k => {
