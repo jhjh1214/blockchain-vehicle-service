@@ -8,6 +8,7 @@ import '../features/vehicles/vehicles_screen.dart';
 import '../features/vehicles/vehicle_detail_screen.dart';
 import '../features/vehicles/claim_vehicle_screen.dart';
 import '../features/vehicles/transfer_vehicle_screen.dart';
+import '../features/vehicles/recalls_screen.dart';
 import '../features/services/pending_services_screen.dart';
 import '../features/services/service_history_screen.dart';
 import '../features/warranties/warranty_claims_screen.dart';
@@ -64,6 +65,10 @@ GoRouter createRouter(AuthProvider auth) => GoRouter(
               builder: (_, __) => const ProfileScreen(),
             ),
           ],
+        ),
+        GoRoute(
+          path: '/vehicles/recalls',
+          builder: (_, __) => const RecallsScreen(),
         ),
         GoRoute(
           path: '/vehicles/claim',

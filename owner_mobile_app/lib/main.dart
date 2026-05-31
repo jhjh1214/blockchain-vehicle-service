@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'features/auth/auth_provider.dart';
 import 'features/vehicles/vehicles_provider.dart';
+import 'features/vehicles/recalls_provider.dart';
 import 'features/services/services_provider.dart';
 import 'features/warranties/warranties_provider.dart';
 import 'features/notifications/notifications_provider.dart';
@@ -30,6 +31,7 @@ class OwnerApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => VehiclesProvider()),
+        ChangeNotifierProvider(create: (_) => RecallsProvider()),
         ChangeNotifierProvider(create: (_) => ServicesProvider()),
         ChangeNotifierProvider(create: (_) => WarrantiesProvider()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),

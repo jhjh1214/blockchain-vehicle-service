@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'vehicles_provider.dart';
+import 'recalls_provider.dart';
 import '../services/services_provider.dart';
 import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/error_view.dart';
@@ -23,6 +24,7 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
       context.read<VehiclesProvider>().loadVehicles();
       final sp = context.read<ServicesProvider>();
       if (sp.pending.isEmpty) sp.loadPending();
+      context.read<RecallsProvider>().load();
     });
   }
 
@@ -70,14 +72,40 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
         ),
       );
     }
+    final recalls = context.watch<RecallsProvider>();
+    final unservicedRecallCount = recalls.unservicedCount;
+
     return RefreshIndicator(
-      onRefresh: () => context.read<VehiclesProvider>().loadVehicles(),
+      onRefresh: () async {
+        await context.read<VehiclesProvider>().loadVehicles();
+        await context.read<RecallsProvider>().load();
+      },
       child: ListView.separated(
         padding: const EdgeInsets.all(16),
-        itemCount: provider.vehicles.length,
+        itemCount: provider.vehicles.length + (unservicedRecallCount > 0 ? 1 : 0),
         separatorBuilder: (_, __) => const SizedBox(height: 8),
         itemBuilder: (context, i) {
-          final v = provider.vehicles[i];
+          if (unservicedRecallCount > 0 && i == 0) {
+            return Card(
+              color: Colors.orange.shade50,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: Colors.orange.shade300, width: 1.5),
+              ),
+              child: ListTile(
+                leading: Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700),
+                title: Text(
+                  '$unservicedRecallCount Active Recall${unservicedRecallCount != 1 ? "s" : ""}',
+                  style: TextStyle(fontWeight: FontWeight.w600, color: Colors.orange.shade800),
+                ),
+                subtitle: const Text('Your vehicle(s) require safety recall service'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push('/vehicles/recalls'),
+              ),
+            );
+          }
+          final vehicleIndex = unservicedRecallCount > 0 ? i - 1 : i;
+          final v = provider.vehicles[vehicleIndex];
           final pendingCount = servicesProvider.pending
               .where((r) => r.vin == v.vin)
               .length;

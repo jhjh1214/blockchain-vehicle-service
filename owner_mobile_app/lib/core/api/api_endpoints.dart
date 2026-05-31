@@ -39,4 +39,7 @@ class ApiEndpoints {
   static String disputeMessages(String vin, int recordIndex) =>
       '/service/dispute-messages/$vin/$recordIndex';
   static const postDisputeMessage = '/service/dispute-messages';
+
+  // Recalls
+  static const ownerRecalls = '/vehicle/recalls/owner';
 }
