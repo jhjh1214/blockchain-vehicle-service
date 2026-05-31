@@ -17,6 +17,7 @@ class Config:
     SECRET_KEY = os.getenv('SECRET_KEY', 'your-secret-key-change-in-production')
     _db_url = os.getenv('DATABASE_URL', 'sqlite:///vehicle_service.db')
     SQLALCHEMY_DATABASE_URI = _db_url.replace('postgres://', 'postgresql://', 1)
+    SQLALCHEMY_ENGINE_OPTIONS = {'pool_pre_ping': True}
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     GANACHE_URL = os.getenv('GANACHE_URL', 'http://127.0.0.1:8545')
