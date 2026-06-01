@@ -734,6 +734,7 @@ def export_fleet_pdf():
 
 @vehicle_bp.route('/recall', methods=['POST'])
 @role_required('MANUFACTURER')
+@limiter.limit('10 per hour')
 def send_recall():
     data = request.get_json() or {}
     title = sanitize(data.get('title', ''), 200)
