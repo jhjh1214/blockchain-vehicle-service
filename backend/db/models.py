@@ -124,6 +124,7 @@ class ServiceMetadata(db.Model):
     technician_name = db.Column(db.String(255))
     service_notes = db.Column(db.Text)
     photos = db.Column(db.JSON)
+    ecu_modules = db.Column(db.JSON, nullable=True)
     sc_brand = db.Column(db.String(100), nullable=True)  # null = independent/external workshop
     # 'ok' | 'tampered' | None (unverified — never reconciled)
     integrity_status = db.Column(db.String(20), nullable=True)

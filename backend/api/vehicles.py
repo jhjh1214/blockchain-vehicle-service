@@ -955,7 +955,7 @@ def reconcile_records():
             'parts_replaced':  row.parts_replaced or '',
             'technician_name': row.technician_name or '',
             'service_notes':   row.service_notes or '',
-            'ecu_modules':     [],
+            'ecu_modules':     row.ecu_modules or [],
             'photos':          row.photos or [],
         }
         recomputed = '0x' + hashlib.sha256(

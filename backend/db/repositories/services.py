@@ -10,7 +10,8 @@ def create(vin: str, metadata_hash: str, service_type: str, service_date: dateti
            mileage: int, parts_replaced: str, technician_name: str,
            service_notes: str, photos,
            service_center_address: str = None,
-           sc_brand: str = None) -> ServiceMetadata:
+           sc_brand: str = None,
+           ecu_modules=None) -> ServiceMetadata:
     record = ServiceMetadata(
         vin=vin,
         metadata_hash=metadata_hash,
@@ -22,6 +23,7 @@ def create(vin: str, metadata_hash: str, service_type: str, service_date: dateti
         technician_name=technician_name,
         service_notes=service_notes,
         photos=photos,
+        ecu_modules=ecu_modules or [],
         sc_brand=sc_brand,
     )
     db.session.add(record)

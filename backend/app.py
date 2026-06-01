@@ -95,6 +95,11 @@ def create_app():
                     conn.execute(text("ALTER TABLE service_metadata ADD COLUMN integrity_checked_at TIMESTAMP"))
                     conn.commit()
 
+            if 'ecu_modules' not in svc_cols:
+                with db.engine.connect() as conn:
+                    conn.execute(text("ALTER TABLE service_metadata ADD COLUMN ecu_modules JSON"))
+                    conn.commit()
+
             # ensure new tables created by SQLAlchemy models exist
             db.create_all()
 

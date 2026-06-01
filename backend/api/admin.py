@@ -220,7 +220,7 @@ def reconcile():
             'parts_replaced':  row.parts_replaced or '',
             'technician_name': row.technician_name or '',
             'service_notes':   row.service_notes or '',
-            'ecu_modules':     [],   # not persisted in ServiceMetadata; always empty at rest
+            'ecu_modules':     row.ecu_modules or [],
             'photos':          row.photos or [],
         }
         recomputed_hash = '0x' + hashlib.sha256(

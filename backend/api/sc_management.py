@@ -93,6 +93,24 @@ def suspend_service_center(sc_id):
         return jsonify({'error': 'Service center belongs to a different brand'}), 403
     user_repo.update_status(sc_id, 'suspended')
     user_repo.revoke_all_refresh_tokens(sc_id)
+
+    # Revoke on-chain SERVICE_CENTER_ROLE so a suspended SC cannot bypass Flask
+    # by calling the smart contract directly with their private key.
+    try:
+        from web3 import Web3 as _Web3
+        from blockchain.adapters.service_log import service_log as _sl
+        from config import Config as _Cfg
+        _SC_ROLE = _Web3.keccak(text="SERVICE_CENTER_ROLE")
+        revoke_tx = _sl.contract.functions.revokeRole(
+            _SC_ROLE, _Web3.to_checksum_address(sc.blockchain_address)
+        ).build_transaction({'from': _Web3.to_checksum_address(_Cfg.DEPLOYER_ADDRESS)})
+        web3_client.sign_and_send(revoke_tx, _Cfg.DEPLOYER_ADDRESS)
+    except Exception as _exc:
+        import logging
+        logging.getLogger(__name__).warning(
+            'Could not revoke on-chain SERVICE_CENTER_ROLE for %s: %s', sc.email, _exc
+        )
+
     from api.vehicles import invalidate_stats_cache; invalidate_stats_cache()
     return jsonify({'message': f'{sc.name or sc.email} suspended', 'sc': sc.to_dict()}), 200
 
