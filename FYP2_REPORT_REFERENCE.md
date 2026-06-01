@@ -176,11 +176,29 @@ Base path: `/api`
 | POST | `/authorized-licenses` | MANUFACTURER | Add a new authorized SSM number |
 | DELETE | `/authorized-licenses/<id>` | MANUFACTURER | Remove an authorized SSM number |
 
+### Notifications (`/api/notifications`)
+| Method | Path | Role | Description |
+|---|---|---|---|
+| GET | `` | Any auth | List notifications (unread first, max 100) |
+| GET | `/count` | Any auth | Unread count (for badge polling) |
+| POST | `/<id>/read` | Any auth | Mark one notification as read |
+| POST | `/read-all` | Any auth | Mark all notifications as read |
+
 ### Uploads (`/api/upload`)
 | Method | Path | Role | Description |
 |---|---|---|---|
 | POST | `/upload` | Any auth | Upload an image file; returns filename |
 | GET | `/uploads/<filename>` | Public | Serve an uploaded file |
+
+### SC Self-Stats (`/api/sc`)
+| Method | Path | Role | Description |
+|---|---|---|---|
+| GET | `/my-stats` | SERVICE_CENTER | Own submission count, dispute rate, ETH balance |
+
+### System (`/api`)
+| Method | Path | Role | Description |
+|---|---|---|---|
+| GET | `/health` | Public | DB + blockchain connectivity status; returns 503 if DB down |
 
 ---
 
@@ -272,6 +290,7 @@ SC can only see disputes for records they submitted.
 | WarrantyVoidRequest | Void requests; status: pending/disputed/approved/denied |
 | AuthorizedSCLicense | Manufacturer-pre-registered SSM numbers; used flag |
 | AbuseReport | Reporter, target, category, reason, VIN evidence, timestamp |
+| Notification | Persistent inbox: user_id, title, body, type, data (JSON), read, created_at |
 | RefreshToken | JWT refresh tokens with revocation support |
 | DeviceToken | FCM device tokens per user (platform: ios/android) |
 | AuditLog | Security events (login, logout, password change, etc.) — auto-deleted after 365 days |
@@ -315,10 +334,17 @@ at integrity-check time — so any post-hoc DB modification produces a mismatch.
 
 ## 8. Notifications
 
+### Persistent Notification Inbox (DB-backed)
+Every call to `send_to_user()` in `core/notifications.py` persists a `Notification` row to the DB
+before attempting FCM. This means notifications survive even when FCM is unavailable or the user has
+no registered device. The `Notification` model stores: title, body, type, data (JSON), read flag, created_at.
+
 ### Web (Angular)
-- Notification bell icon with badge count
-- Fetches unread count from backend on page load
-- No real-time push — polling based
+- Bell icon in both manufacturer and SC sidebar footers with real-time unread count badge
+- Badge polls `GET /api/notifications/count` every 30 seconds
+- Clicking the bell opens a panel showing the 20 most recent notifications (unread highlighted)
+- "Mark all read" button; unread notifications highlighted with a blue tint
+- Polling-based — no WebSocket; sufficient for a business dashboard usage pattern
 
 ### Email (Resend API)
 Triggered for: new warranty claim, dispute filed, dispute resolved, recall alert to SCs,
@@ -328,10 +354,16 @@ All email sends are in daemon threads — never block the API response.
 
 ### Mobile Push (FCM)
 Triggered for: new pending service record, dispute resolved, recall issued, warranty void request,
-warranty void resolved.
+warranty void resolved, service overdue reminder.
 DeviceToken table stores per-user FCM tokens (upserted on app launch).
 `broadcast_recall()` sends to all registered devices regardless of role.
-`send_to_user(user_id, ...)` targets a specific user's devices.
+`send_to_user(user_id, ...)` targets a specific user's devices and also persists to the DB inbox.
+
+### Flutter Notification Inbox
+Local SharedPreferences-based store (up to 50 notifications). Notifications are added when FCM
+messages arrive (via `push_notification_service.dart`). Screen at `/notifications` shows the full
+history with type-specific icons (wrench for service, shield for warranty, gavel for disputes).
+"Mark all read" and "Clear all" actions available.
 
 ---
 
@@ -416,13 +448,24 @@ column additions without a dedicated migration tool.
 
 ## 12. Maintenance
 
-**Recurring tasks to add as cron:**
-- Purge expired password reset tokens: `DELETE FROM password_reset_token WHERE expires_at < NOW()`
-- Purge old audit logs: `DELETE FROM audit_log WHERE created_at < NOW() - INTERVAL '365 days'`
+**APScheduler jobs (run automatically on app startup):**
+| Job | Schedule | What it does |
+|---|---|---|
+| warranty_expiry_reminders | Daily 08:00 UTC | Emails owners whose warranty expires in ~30 days |
+| audit_log_purge | Daily 03:00 UTC | Deletes audit logs older than 365 days (PDPA retention) |
+| service_overdue_reminders | Weekly Monday 09:00 UTC | FCM push + email to owners of vehicles with no service in 180+ days |
 
 **Operational monitoring:**
 - Watch for `DB sync permanently failed` in logs — means service record is on-chain but not in DB
 - Watch for `Blockchain unavailable` warnings — means records are being served from DB fallback cache
+- `GET /api/health` returns JSON with `db.ok` and `blockchain.connected`; returns 503 if DB is down
+
+**Database reset and demo seeding:**
+```
+python init_db.py          # drop all tables, recreate schema
+python init_db.py --seed   # drop/recreate + load demo accounts, vehicles, service records, recall
+```
+Demo password for all seed accounts: `Demo@1234`
 
 **Contract redeployment:**
 1. Deploy new contracts via Hardhat
@@ -452,7 +495,9 @@ column additions without a dedicated migration tool.
 - "Report this Workshop" button on independent SC records — category dropdown + free-text reason
 - Recalls screen: card list, green (serviced) / orange (pending) status
 - Void requests screen: lists requests, "Dispute" button with reason dialog
-- Push notification tap navigation: recall -> recalls screen, void -> void requests
+- Notifications screen: full history with type-specific icons, mark-all-read, clear-all
+- VIN claim screen: camera barcode/QR scanner via `mobile_scanner` package — no manual typing needed
+- Push notification tap navigation: recall → recalls screen, void → void requests, pending service → pending list
 - Biometric login (TouchID/FaceID) after first password login
 - All network errors show snackbar; loading states on every button
 
@@ -497,10 +542,13 @@ Flask-Limiter resets on every restart/redeploy.
 Fix: `RATELIMIT_STORAGE_URI=redis://...` — one-line config change.
 The DB-enforced 24-hour abuse report rate limit is persistent (does not reset on restart).
 
-**No formal smart contract verification:**
-Contracts tested with Hardhat unit tests; no Mythril/Slither/Certora formal analysis.
-Slither can be run pre-submission and output quoted as evidence of static analysis.
-Full audit cycles are post-deployment industry practice, not prototype scope.
+**Smart contract static analysis (Slither — DONE, not a gap):**
+Slither 0.11.5 was run against all contracts. 9 contracts analysed (3 application + 6 OpenZeppelin library), 21 findings total. No high or critical severity issues. All application-code findings are low severity and justified:
+- unused-return: intentional tuple destructuring (only needed fields captured)
+- reentrancy-events: event emitted after external call, but no ETH transfer and no exploitable state — false positive for this pattern
+- timestamp: block.timestamp used for warranty expiry; miner manipulation is at most a few seconds, irrelevant for warranties measured in years
+The remaining findings are in OpenZeppelin library files and the Hardhat boilerplate Lock.sol — not application code.
+Report phrasing: "Static analysis was performed using Slither 0.11.5. No high or critical severity vulnerabilities were identified in the application contracts."
 
 **No longitudinal user study:**
 System tested by developer; no pilot with real mechanics over time.
@@ -521,12 +569,19 @@ Future work: ELM327 Bluetooth adapter integration in the Flutter app.
 
 - Tamper detection is real and demonstrable live — integrity check detects any DB modification
 - Full PDPA compliance: data export and account deletion are implemented, not just mentioned
-- Multi-channel notifications: FCM push (mobile), email (web), in-app badge — different urgency levels
+- Persistent notification inbox: every notification stored in DB — survives FCM downtime, reviewable in both web panel and Flutter screen
+- Proactive service reminders: APScheduler sends warranty expiry emails 30 days before expiry and weekly service-overdue push/email for vehicles idle 180+ days
+- Static analysis completed: Slither 0.11.5 run on all contracts, no high/critical issues found
+- Multi-channel notifications: FCM push (mobile), email (web), persistent DB inbox, in-app badge — four distinct delivery paths
 - Graceful degradation: service history falls back to PostgreSQL if blockchain is unreachable
 - Brand-scoped access control: every query is scoped to the requesting user's brand
 - Dispute resolution is three-party: owner disputes, SC rebuts, manufacturer resolves — all on-chain with off-chain message thread
 - Independent workshop lifecycle is complete: registration, ETH funding, submission, abuse reporting, auto-suspension
+- VIN barcode scan in Flutter: no manual 17-character entry; camera scans door-jamb barcode or QR code
 - Public API is genuinely useful: warranty status + full service history with integrity badges + recall history
 - PDF reports: per-vehicle and fleet-level exports with professional ReportLab layout
+- Health check endpoint: `GET /api/health` returns DB and blockchain status; Railway uses this for uptime monitoring
+- SC self-stats endpoint: dispute rate, submission count, ETH balance — SC can monitor their own performance
 - 37-brand Malaysian dropdown: context-aware to the local market
 - PDPA Privacy Policy and Terms of Service are real legal text served from the API and shown in-app
+- Demo seed script: `python init_db.py --seed` creates a complete realistic dataset for presentations

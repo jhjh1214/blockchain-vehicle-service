@@ -1,0 +1,117 @@
+'npx hardhat clean' running (wd: C:\Users\User\Documents\FYP\blockchain-vehicle-service\smart-contracts)
+'npx hardhat clean --global' running (wd: C:\Users\User\Documents\FYP\blockchain-vehicle-service\smart-contracts)
+'npx hardhat compile --force' running (wd: C:\Users\User\Documents\FYP\blockchain-vehicle-service\smart-contracts)
+INFO:Detectors:
+Detector: unused-return
+ServiceLog.submitService(bytes32,bytes32) (contracts/ServiceLog.sol#50-69) ignores return value by (None,None,None,None,exists) = vehicleRegistry.getVehicle(vin) (contracts/ServiceLog.sol#54)
+ServiceLog.verifyService(bytes32,uint256) (contracts/ServiceLog.sol#72-91) ignores return value by (vehicleOwner,None,None,None,exists) = vehicleRegistry.getVehicle(vin) (contracts/ServiceLog.sol#73)
+ServiceLog.disputeService(bytes32,uint256,string) (contracts/ServiceLog.sol#94-110) ignores return value by (vehicleOwner,None,None,None,exists) = vehicleRegistry.getVehicle(vin) (contracts/ServiceLog.sol#95)
+WarrantyTracker.isWarrantyValid(bytes32) (contracts/WarrantyTracker.sol#34-39) ignores return value by (None,None,warrantyExpiry,None,exists) = vehicleRegistry.getVehicle(vin) (contracts/WarrantyTracker.sol#35)
+WarrantyTracker.submitClaim(bytes32,bytes32) (contracts/WarrantyTracker.sol#42-61) ignores return value by (owner,None,None,None,exists) = vehicleRegistry.getVehicle(vin) (contracts/WarrantyTracker.sol#43)
+WarrantyTracker.getWarrantyStatus(bytes32) (contracts/WarrantyTracker.sol#80-84) ignores return value by (None,None,warrantyExpiry,None,exists) = vehicleRegistry.getVehicle(vin) (contracts/WarrantyTracker.sol#81)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unused-return
+INFO:Detectors:
+Detector: reentrancy-events
+Reentrancy in ServiceLog.resolveDispute(bytes32,uint256,ServiceLog.DisputeDecision,bytes32) (contracts/ServiceLog.sol#112-140):
+	External calls:
+	- vehicleRegistry.addServiceHash(vin,capturedHash) (contracts/ServiceLog.sol#133)
+	Event emitted after the call(s):
+	- DisputeResolved(vin,recordIndex,decision) (contracts/ServiceLog.sol#139)
+Reentrancy in ServiceLog.verifyService(bytes32,uint256) (contracts/ServiceLog.sol#72-91):
+	External calls:
+	- vehicleRegistry.addServiceHash(vin,capturedHash) (contracts/ServiceLog.sol#86)
+	Event emitted after the call(s):
+	- ServiceVerified(vin,capturedHash,msg.sender,finalizedServices[vin].length - 1) (contracts/ServiceLog.sol#90)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-4
+INFO:Detectors:
+Detector: timestamp
+Lock.constructor(uint256) (contracts/Lock.sol#13-21) uses timestamp for comparisons
+	Dangerous comparisons:
+	- require(bool,string)(block.timestamp < _unlockTime,Unlock time should be in the future) (contracts/Lock.sol#14-17)
+Lock.withdraw() (contracts/Lock.sol#23-33) uses timestamp for comparisons
+	Dangerous comparisons:
+	- require(bool,string)(block.timestamp >= unlockTime,You can't withdraw yet) (contracts/Lock.sol#27)
+VehicleRegistry.registerVehicle(bytes32,address,uint256) (contracts/VehicleRegistry.sol#32-52) uses timestamp for comparisons
+	Dangerous comparisons:
+	- require(bool,string)(! vehicles[vin].exists,Vehicle already registered) (contracts/VehicleRegistry.sol#37)
+VehicleRegistry.transferOwnership(bytes32,address) (contracts/VehicleRegistry.sol#54-73) uses timestamp for comparisons
+	Dangerous comparisons:
+	- require(bool,string)(vehicles[vin].exists,Vehicle does not exist) (contracts/VehicleRegistry.sol#55)
+	- require(bool,string)(hasRole(OWNER_ROLE,msg.sender) || vehicles[vin].owner == msg.sender,Not the vehicle owner) (contracts/VehicleRegistry.sol#56)
+VehicleRegistry.addServiceHash(bytes32,bytes32) (contracts/VehicleRegistry.sol#75-79) uses timestamp for comparisons
+	Dangerous comparisons:
+	- require(bool,string)(vehicles[vin].exists,Vehicle does not exist) (contracts/VehicleRegistry.sol#76)
+WarrantyTracker.isWarrantyValid(bytes32) (contracts/WarrantyTracker.sol#34-39) uses timestamp for comparisons
+	Dangerous comparisons:
+	- block.timestamp > warrantyExpiry (contracts/WarrantyTracker.sol#37)
+WarrantyTracker.getWarrantyStatus(bytes32) (contracts/WarrantyTracker.sol#80-84) uses timestamp for comparisons
+	Dangerous comparisons:
+	- (warrantyExpiry,block.timestamp <= warrantyExpiry) (contracts/WarrantyTracker.sol#83)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#block-timestamp
+INFO:Detectors:
+Detector: pragma
+4 different versions of Solidity are used:
+	- Version constraint ^0.8.20 is used by:
+		-^0.8.20 (node_modules/@openzeppelin/contracts/access/AccessControl.sol#4)
+		-^0.8.20 (node_modules/@openzeppelin/contracts/utils/Context.sol#4)
+		-^0.8.20 (node_modules/@openzeppelin/contracts/utils/introspection/ERC165.sol#4)
+		-^0.8.20 (contracts/ServiceLog.sol#2)
+		-^0.8.20 (contracts/VehicleRegistry.sol#2)
+		-^0.8.20 (contracts/WarrantyTracker.sol#2)
+	- Version constraint >=0.8.4 is used by:
+		->=0.8.4 (node_modules/@openzeppelin/contracts/access/IAccessControl.sol#4)
+	- Version constraint >=0.4.16 is used by:
+		->=0.4.16 (node_modules/@openzeppelin/contracts/utils/introspection/IERC165.sol#4)
+	- Version constraint ^0.8.28 is used by:
+		-^0.8.28 (contracts/Lock.sol#2)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#different-pragma-directives-are-used
+INFO:Detectors:
+Detector: solc-version
+Version constraint ^0.8.20 contains known severe issues (https://solidity.readthedocs.io/en/latest/bugs.html)
+	- VerbatimInvalidDeduplication
+	- FullInlinerNonExpressionSplitArgumentEvaluationOrder
+	- MissingSideEffectsOnSelectorAccess.
+It is used by:
+	- ^0.8.20 (node_modules/@openzeppelin/contracts/access/AccessControl.sol#4)
+	- ^0.8.20 (node_modules/@openzeppelin/contracts/utils/Context.sol#4)
+	- ^0.8.20 (node_modules/@openzeppelin/contracts/utils/introspection/ERC165.sol#4)
+	- ^0.8.20 (contracts/ServiceLog.sol#2)
+	- ^0.8.20 (contracts/VehicleRegistry.sol#2)
+	- ^0.8.20 (contracts/WarrantyTracker.sol#2)
+Version constraint >=0.8.4 contains known severe issues (https://solidity.readthedocs.io/en/latest/bugs.html)
+	- FullInlinerNonExpressionSplitArgumentEvaluationOrder
+	- MissingSideEffectsOnSelectorAccess
+	- AbiReencodingHeadOverflowWithStaticArrayCleanup
+	- DirtyBytesArrayToStorage
+	- DataLocationChangeInInternalOverride
+	- NestedCalldataArrayAbiReencodingSizeValidation
+	- SignedImmutables.
+It is used by:
+	- >=0.8.4 (node_modules/@openzeppelin/contracts/access/IAccessControl.sol#4)
+Version constraint >=0.4.16 contains known severe issues (https://solidity.readthedocs.io/en/latest/bugs.html)
+	- DirtyBytesArrayToStorage
+	- ABIDecodeTwoDimensionalArrayMemory
+	- KeccakCaching
+	- EmptyByteArrayCopy
+	- DynamicArrayCleanup
+	- ImplicitConstructorCallvalueCheck
+	- TupleAssignmentMultiStackSlotComponents
+	- MemoryArrayCreationOverflow
+	- privateCanBeOverridden
+	- SignedArrayStorageCopy
+	- ABIEncoderV2StorageArrayWithMultiSlotElement
+	- DynamicConstructorArgumentsClippedABIV2
+	- UninitializedFunctionPointerInConstructor_0.4.x
+	- IncorrectEventSignatureInLibraries_0.4.x
+	- ExpExponentCleanup
+	- NestedArrayFunctionCallDecoder
+	- ZeroFunctionSelector.
+It is used by:
+	- >=0.4.16 (node_modules/@openzeppelin/contracts/utils/introspection/IERC165.sol#4)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#incorrect-versions-of-solidity
+INFO:Detectors:
+Detector: immutable-states
+Lock.owner (contracts/Lock.sol#9) should be immutable 
+Lock.unlockTime (contracts/Lock.sol#8) should be immutable 
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#state-variables-that-could-be-declared-immutable
+INFO:Slither:. analyzed (9 contracts with 101 detectors), 21 result(s) found
