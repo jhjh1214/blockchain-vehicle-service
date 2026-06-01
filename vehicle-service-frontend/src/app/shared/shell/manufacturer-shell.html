@@ -136,6 +136,32 @@
           </div>
         </div>
 
+        <!-- Notification panel -->
+        @if (showNotifPanel) {
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:8px;max-height:300px;overflow-y:auto;">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--border);">
+              <span style="font-size:13px;font-weight:600;color:var(--text);">Notifications</span>
+              @if (notifList.length > 0) {
+                <button (click)="markAllRead()" style="font-size:11px;color:var(--color-primary);background:none;border:none;cursor:pointer;padding:0;">Mark all read</button>
+              }
+            </div>
+            @if (notifLoading) {
+              <div style="padding:16px;text-align:center;font-size:12px;color:var(--text-muted);">Loading…</div>
+            } @else if (notifList.length === 0) {
+              <div style="padding:16px;text-align:center;font-size:12px;color:var(--text-muted);">No notifications</div>
+            } @else {
+              @for (n of notifList; track n.id) {
+                <div style="padding:10px 12px;border-bottom:1px solid var(--border);opacity:{{n.read ? '0.6' : '1'}};"
+                     [style.background]="n.read ? 'transparent' : 'var(--color-primary-alpha, rgba(59,130,246,.06))'">
+                  <div style="font-size:12px;font-weight:600;color:var(--text);">{{ n.title }}</div>
+                  <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">{{ n.body }}</div>
+                  <div style="font-size:10px;color:var(--text-muted);margin-top:4px;">{{ n.created_at | date:'d MMM, h:mm a' }}</div>
+                </div>
+              }
+            }
+          </div>
+        }
+
         <div class="sidebar-bottom-actions">
           <button class="btn-icon-sidebar" (click)="toggleTheme()" [attr.aria-label]="isDark ? 'Light mode' : 'Dark mode'">
             @if (!isDark) {
@@ -146,6 +172,14 @@
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
               </svg>
+            }
+          </button>
+          <button class="btn-icon-sidebar" (click)="toggleNotifPanel()" style="position:relative;" title="Notifications">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
+            </svg>
+            @if (notifCount > 0) {
+              <span style="position:absolute;top:-4px;right:-4px;background:#ef4444;color:#fff;border-radius:50%;width:16px;height:16px;font-size:9px;display:flex;align-items:center;justify-content:center;font-weight:700;">{{ notifCount > 9 ? '9+' : notifCount }}</span>
             }
           </button>
           <button class="btn-logout" (click)="logout()">

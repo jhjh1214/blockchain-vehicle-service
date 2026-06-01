@@ -34,8 +34,22 @@ def _get_app():
     return _firebase_app
 
 
+def _persist(user_id: int, title: str, body: str, type: str | None, data: dict | None) -> None:
+    """Save notification to DB so users can view their inbox later."""
+    try:
+        from db.models import db, Notification
+        n = Notification(user_id=user_id, title=title, body=body, type=type, data=data)
+        db.session.add(n)
+        db.session.commit()
+    except Exception:
+        logger.warning('Failed to persist notification for user %d', user_id)
+
+
 def send_to_user(user_id: int, title: str, body: str, data: dict | None = None) -> None:
-    """Send an FCM notification to all device tokens for a user."""
+    """Send an FCM notification to all device tokens for a user and persist to inbox."""
+    notif_type = (data or {}).get('type')
+    _persist(user_id, title, body, notif_type, data)
+
     if _get_app() is None:
         return
     from db.repositories import users as user_repo

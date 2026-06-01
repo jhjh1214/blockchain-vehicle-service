@@ -5,9 +5,10 @@ from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
-_REMINDER_DAYS   = 30    # send reminder this many days before expiry
-_SEND_HOUR       = 8     # run daily at 08:00
-_AUDIT_RETAIN_DAYS = 365  # delete audit logs older than this many days
+_REMINDER_DAYS      = 30    # send reminder this many days before warranty expiry
+_SEND_HOUR          = 8     # run daily at 08:00 UTC
+_AUDIT_RETAIN_DAYS  = 365   # delete audit logs older than this many days
+_SERVICE_OVERDUE_DAYS = 180  # flag vehicles not serviced in this many days
 
 
 def _send_expiry_reminders(app):
@@ -80,6 +81,97 @@ def _send_reminder_email(to_email, name, vin, make, model, expiry_ts):
         logger.exception('failed to send warranty reminder email to %s', to_email)
 
 
+def _send_service_overdue_reminders(app):
+    """Find vehicles not serviced in _SERVICE_OVERDUE_DAYS and push/email owners."""
+    with app.app_context():
+        try:
+            from db.models import VehicleVINMapping, ServiceMetadata, User, db
+            cutoff = datetime.utcnow() - timedelta(days=_SERVICE_OVERDUE_DAYS)
+
+            # Get the most recent service date per VIN in one query
+            from sqlalchemy import func as _func
+            last_service = (
+                db.session.query(
+                    ServiceMetadata.vin,
+                    _func.max(ServiceMetadata.service_date).label('last_date'),
+                )
+                .group_by(ServiceMetadata.vin)
+                .subquery()
+            )
+
+            # VINs that have at least one service but none within the cutoff window
+            overdue_with_service = (
+                db.session.query(VehicleVINMapping)
+                .join(last_service, VehicleVINMapping.vin == last_service.c.vin)
+                .filter(
+                    last_service.c.last_date < cutoff,
+                    VehicleVINMapping.registration_status == 'active',
+                    VehicleVINMapping.owner_address.isnot(None),
+                )
+                .all()
+            )
+
+            # VINs that have never been serviced and were registered > _SERVICE_OVERDUE_DAYS ago
+            serviced_vins = db.session.query(ServiceMetadata.vin).distinct().subquery()
+            never_serviced = (
+                db.session.query(VehicleVINMapping)
+                .filter(
+                    VehicleVINMapping.vin.notin_(serviced_vins),
+                    VehicleVINMapping.created_at < cutoff,
+                    VehicleVINMapping.registration_status == 'active',
+                    VehicleVINMapping.owner_address.isnot(None),
+                )
+                .all()
+            )
+
+            all_overdue = overdue_with_service + never_serviced
+            logger.info('Service overdue check: %d vehicles flagged', len(all_overdue))
+
+            for mapping in all_overdue:
+                owner = User.query.filter_by(
+                    blockchain_address=mapping.owner_address, role='OWNER'
+                ).first()
+                if not owner:
+                    continue
+                vehicle_str = f"{mapping.make or ''} {mapping.model or ''}".strip() or mapping.vin
+                # FCM push
+                try:
+                    from core.notifications import send_to_user
+                    send_to_user(
+                        owner.id,
+                        title='Service Due',
+                        body=f'Your {vehicle_str} ({mapping.vin}) is due for a service. '
+                             f'It has been over {_SERVICE_OVERDUE_DAYS} days since the last recorded service.',
+                        data={'type': 'service_reminder', 'vin': mapping.vin},
+                    )
+                except Exception:
+                    pass
+                # Email
+                try:
+                    import os, resend
+                    resend.api_key = os.getenv('RESEND_API_KEY', '')
+                    if resend.api_key:
+                        from config import Config
+                        resend.Emails.send({
+                            'from': os.getenv('MAIL_DEFAULT_SENDER', 'VehicleChain <noreply@vehiclechain.my>'),
+                            'to': [owner.email],
+                            'subject': f'Service reminder — {vehicle_str}',
+                            'text': (
+                                f'Hi {owner.name or owner.email},\n\n'
+                                f'Your {vehicle_str} (VIN: {mapping.vin}) has not had a recorded service '
+                                f'in over {_SERVICE_OVERDUE_DAYS} days.\n\n'
+                                f'Regular servicing keeps your warranty valid and your vehicle safe. '
+                                f'Book your next service through an authorised service centre.\n\n'
+                                f'-- The VehicleChain Team'
+                            ),
+                        })
+                except Exception:
+                    pass
+
+        except Exception:
+            logger.exception('service overdue reminder job failed')
+
+
 def _purge_old_audit_logs(app):
     """Delete audit log entries older than _AUDIT_RETAIN_DAYS (PDPA retention policy)."""
     with app.app_context():
@@ -114,7 +206,18 @@ def init_scheduler(app):
             id='audit_log_purge',
             replace_existing=True,
         )
+        scheduler.add_job(
+            _send_service_overdue_reminders,
+            trigger=CronTrigger(day_of_week='mon', hour=9, minute=0),  # Monday 09:00 UTC weekly
+            args=[app],
+            id='service_overdue_reminders',
+            replace_existing=True,
+        )
         scheduler.start()
-        logger.info('APScheduler started — warranty reminders at %02d:00 UTC, audit purge at 03:00 UTC', _SEND_HOUR)
+        logger.info(
+            'APScheduler started — warranty reminders at %02d:00 UTC, '
+            'audit purge at 03:00 UTC, service overdue check Mondays at 09:00 UTC',
+            _SEND_HOUR,
+        )
     except Exception:
         logger.exception('Failed to start APScheduler')

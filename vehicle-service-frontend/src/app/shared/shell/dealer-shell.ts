@@ -26,6 +26,10 @@ export class DealerShellComponent implements OnInit, OnDestroy {
   showInactivityWarning = false;
   resendState: 'idle' | 'loading' | 'sent' | 'error' = 'idle';
   disputeBadge = 0;
+  notifCount = 0;
+  showNotifPanel = false;
+  notifList: any[] = [];
+  notifLoading = false;
 
   private subs = new Subscription();
 
@@ -52,6 +56,7 @@ export class DealerShellComponent implements OnInit, OnDestroy {
     this.inactivity.start();
     this.badge.startDealer();
     this.subs.add(this.badge.disputeBadge$.subscribe(v => this.disputeBadge = v));
+    this.subs.add(this.badge.notifCount$.subscribe(v => this.notifCount = v));
   }
 
   get initials(): string {
@@ -72,6 +77,24 @@ export class DealerShellComponent implements OnInit, OnDestroy {
     this.authService.resendVerification().subscribe({
       next: () => { this.resendState = 'sent'; },
       error: () => { this.resendState = 'error'; setTimeout(() => this.resendState = 'idle', 3000); },
+    });
+  }
+
+  toggleNotifPanel(): void {
+    this.showNotifPanel = !this.showNotifPanel;
+    if (this.showNotifPanel && this.notifList.length === 0) {
+      this.notifLoading = true;
+      this.badge.getNotifications().subscribe({
+        next: r => { this.notifList = r.notifications; this.notifLoading = false; },
+        error: () => { this.notifLoading = false; },
+      });
+    }
+  }
+
+  markAllRead(): void {
+    this.badge.markAllRead().subscribe(() => {
+      this.notifList = this.notifList.map(n => ({ ...n, read: true }));
+      this.badge.refreshCount();
     });
   }
 

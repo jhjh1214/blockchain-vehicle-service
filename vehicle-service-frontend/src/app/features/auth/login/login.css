@@ -13,3 +13,38 @@
   height: 13px;
   color: var(--color-success);
 }
+
+/* Blockchain status badge */
+.chain-badge {
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+
+.chain-badge.connected {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #15803d;
+}
+
+.chain-badge.offline {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+
+.chain-badge.checking {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #475569;
+}
+
+.chain-badge .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.chain-badge.connected .dot { background: #16a34a; }
+.chain-badge.offline .dot   { background: #dc2626; }
+.chain-badge.checking .dot  { background: #94a3b8; animation: pulse 1.5s ease-in-out infinite; }
