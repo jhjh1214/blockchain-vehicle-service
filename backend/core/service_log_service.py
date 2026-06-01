@@ -74,47 +74,43 @@ def submit_service(vin: str, service_type: str, service_date: str, mileage: int,
     }
 
 
-def verify_service(vin: str, record_index: int, from_address: str) -> dict:
-    result = service_log.verify_service(vin, record_index, from_address)
+def verify_service(vin: str, metadata_hash: str, from_address: str) -> dict:
+    result = service_log.verify_service(vin, metadata_hash, from_address)
     return {
         'message': 'Service verified successfully',
         'vin': vin,
-        'record_index': record_index,
+        'metadata_hash': metadata_hash,
         'transaction': result
     }
 
 
-def dispute_service(vin: str, record_index: int, reason: str, from_address: str) -> dict:
-    result = service_log.dispute_service(vin, record_index, reason, from_address)
+def dispute_service(vin: str, metadata_hash: str, reason: str, from_address: str) -> dict:
+    result = service_log.dispute_service(vin, metadata_hash, reason, from_address)
     return {
         'message': 'Service disputed successfully',
         'vin': vin,
-        'record_index': record_index,
+        'metadata_hash': metadata_hash,
         'reason': reason,
         'transaction': result
     }
 
 
-def resolve_dispute(vin: str, record_index: int, decision: int,
+def resolve_dispute(vin: str, metadata_hash: str, decision: int,
                     resolution_notes: str, from_address: str) -> dict:
     resolution_hash = compute_string_hash(resolution_notes or '')
-    result = service_log.resolve_dispute(vin, record_index, decision, resolution_hash, from_address)
+    result = service_log.resolve_dispute(vin, metadata_hash, decision, resolution_hash, from_address)
     decision_label = {1: 'approved', 2: 'rejected', 3: 'modify'}.get(decision, 'rejected')
 
-    # Persist resolution to DB via metadata_hash from chain record
+    # Persist resolution to DB using the stable metadata_hash key
     try:
-        pending = service_log.get_pending_services(vin)
-        if record_index < len(pending):
-            meta_hash = pending[record_index].get('metadata_hash', '')
-            if meta_hash:
-                service_repo.update_resolution(meta_hash, decision_label, resolution_notes or '')
+        service_repo.update_resolution(metadata_hash, decision_label, resolution_notes or '')
     except Exception as exc:
-        logger.warning('Could not persist resolution for VIN %s index %d: %s', vin, record_index, exc)
+        logger.warning('Could not persist resolution for VIN %s hash %s: %s', vin, metadata_hash, exc)
 
     return {
         'message': 'Dispute resolved successfully',
         'vin': vin,
-        'record_index': record_index,
+        'metadata_hash': metadata_hash,
         'decision': decision_label,
         'transaction': result
     }

@@ -164,7 +164,7 @@ export class DisputeResolutionComponent {
     this.actionError = '';
     this.actionSuccess = '';
 
-    this.serviceService.resolveDispute(record.vin, record.record_index, decision, notes).subscribe({
+    this.serviceService.resolveDispute(record.vin, record.metadata_hash, decision, notes).subscribe({
       next: () => {
         const label = this.resolvingDecision === 'approve' ? 'approved' : this.resolvingDecision === 'reject' ? 'rejected' : 'flagged for modification';
         this.actionSuccess = `Dispute ${label} successfully for ${record.metadata?.service_type || 'record'}.`;

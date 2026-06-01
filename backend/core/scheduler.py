@@ -5,10 +5,11 @@ from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
-_REMINDER_DAYS      = 30    # send reminder this many days before warranty expiry
-_SEND_HOUR          = 8     # run daily at 08:00 UTC
-_AUDIT_RETAIN_DAYS  = 365   # delete audit logs older than this many days
-_SERVICE_OVERDUE_DAYS = 180  # flag vehicles not serviced in this many days
+_REMINDER_DAYS        = 30    # send reminder this many days before warranty expiry
+_SEND_HOUR            = 8     # run daily at 08:00 UTC
+_AUDIT_RETAIN_DAYS    = 365   # delete audit logs older than this many days
+_SERVICE_OVERDUE_DAYS = 180   # flag vehicles not serviced in this many days
+_NOTIF_RETAIN_DAYS    = 90    # delete notifications older than this many days
 
 
 def _send_expiry_reminders(app):
@@ -172,6 +173,20 @@ def _send_service_overdue_reminders(app):
             logger.exception('service overdue reminder job failed')
 
 
+def _purge_old_notifications(app):
+    """Delete notifications older than _NOTIF_RETAIN_DAYS to prevent unbounded table growth."""
+    with app.app_context():
+        try:
+            from db.models import Notification, db
+            cutoff = datetime.utcnow() - timedelta(days=_NOTIF_RETAIN_DAYS)
+            deleted = Notification.query.filter(Notification.created_at < cutoff).delete(synchronize_session=False)
+            db.session.commit()
+            if deleted:
+                logger.info('Purged %d notifications older than %d days', deleted, _NOTIF_RETAIN_DAYS)
+        except Exception:
+            logger.exception('notification purge job failed')
+
+
 def _purge_old_audit_logs(app):
     """Delete audit log entries older than _AUDIT_RETAIN_DAYS (PDPA retention policy)."""
     with app.app_context():
@@ -213,10 +228,18 @@ def init_scheduler(app):
             id='service_overdue_reminders',
             replace_existing=True,
         )
+        scheduler.add_job(
+            _purge_old_notifications,
+            trigger=CronTrigger(hour=4, minute=0),  # 04:00 UTC daily
+            args=[app],
+            id='notification_purge',
+            replace_existing=True,
+        )
         scheduler.start()
         logger.info(
             'APScheduler started — warranty reminders at %02d:00 UTC, '
-            'audit purge at 03:00 UTC, service overdue check Mondays at 09:00 UTC',
+            'audit purge at 03:00 UTC, service overdue check Mondays at 09:00 UTC, '
+            'notification purge at 04:00 UTC',
             _SEND_HOUR,
         )
     except Exception:

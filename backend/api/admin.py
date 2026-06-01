@@ -28,7 +28,7 @@ def reset_db():
     import hashlib, hmac, time as _time
 
     secret = request.headers.get('X-Admin-Secret', '')
-    if not Config.ADMIN_SECRET or secret != Config.ADMIN_SECRET:
+    if not Config.ADMIN_SECRET or not hmac.compare_digest(secret, Config.ADMIN_SECRET):
         return jsonify({'error': 'Unauthorized'}), 401
 
     timestamp_str = request.headers.get('X-Admin-Timestamp', '')
@@ -185,7 +185,7 @@ def reconcile():
     import hashlib, hmac as _hmac, json as _json, time as _t
 
     secret = request.headers.get('X-Admin-Secret', '')
-    if not Config.ADMIN_SECRET or secret != Config.ADMIN_SECRET:
+    if not Config.ADMIN_SECRET or not _hmac.compare_digest(secret, Config.ADMIN_SECRET):
         return jsonify({'error': 'Unauthorized'}), 401
     ts_str = request.headers.get('X-Admin-Timestamp', '')
     sig    = request.headers.get('X-Admin-Signature', '')

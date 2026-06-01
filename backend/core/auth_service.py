@@ -148,10 +148,12 @@ def register_user(email: str, password: str, role: str, name: str, phone: str,
             from blockchain.adapters.vehicle_registry import vehicle_registry
             from blockchain.adapters.service_log import service_log
             from blockchain.adapters.warranty_tracker import warranty_tracker
-            _DEFAULT_ADMIN_ROLE = b'\x00' * 32
+            # WarrantyTracker now uses a distinct MANUFACTURER_ADMIN_ROLE (not DEFAULT_ADMIN_ROLE)
+            # This prevents manufacturers from escalating privileges via grantRole().
+            _WARRANTY_ADMIN_ROLE = Web3.keccak(text="MANUFACTURER_ADMIN_ROLE")
             web3_client.grant_role(vehicle_registry.contract, _MANUFACTURER_ROLE, account['address'], deployer)
             web3_client.grant_role(service_log.contract, _MANUFACTURER_ADMIN_ROLE, account['address'], deployer)
-            web3_client.grant_role(warranty_tracker.contract, _DEFAULT_ADMIN_ROLE, account['address'], deployer)
+            web3_client.grant_role(warranty_tracker.contract, _WARRANTY_ADMIN_ROLE, account['address'], deployer)
         elif role == 'SERVICE_CENTER':
             from blockchain.adapters.service_log import service_log
             web3_client.grant_role(service_log.contract, _SERVICE_CENTER_ROLE, account['address'], deployer)

@@ -152,20 +152,17 @@ def verify_service():
         vin = validate_vin(data.get('vin', ''))
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
-    try:
-        record_index = int(data.get('record_index'))
-        if record_index < 0:
-            raise ValueError()
-    except (TypeError, ValueError):
-        return jsonify({'error': 'record_index must be a non-negative integer'}), 400
+    metadata_hash = sanitize(data.get('metadata_hash', ''), 66)
+    if not metadata_hash:
+        return jsonify({'error': 'metadata_hash required'}), 400
     from db.repositories import vehicles as vehicle_repo
     mapping = vehicle_repo.find_by_vin(vin)
     if not mapping or mapping.owner_address.lower() != request.user['blockchain_address'].lower():
         return jsonify({'error': 'You do not own this vehicle'}), 403
     try:
-        result = service_log_service.verify_service(vin, record_index, request.user['blockchain_address'])
+        result = service_log_service.verify_service(vin, metadata_hash, request.user['blockchain_address'])
         log_event('service_verified', user_id=request.user.get('user_id'),
-                  detail={'vin': vin, 'record_index': record_index})
+                  detail={'vin': vin, 'metadata_hash': metadata_hash})
         return jsonify(result), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -179,12 +176,9 @@ def dispute_service():
         vin = validate_vin(data.get('vin', ''))
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
-    try:
-        record_index = int(data.get('record_index'))
-        if record_index < 0:
-            raise ValueError()
-    except (TypeError, ValueError):
-        return jsonify({'error': 'record_index must be a non-negative integer'}), 400
+    metadata_hash = sanitize(data.get('metadata_hash', ''), 66)
+    if not metadata_hash:
+        return jsonify({'error': 'metadata_hash required'}), 400
     reason = sanitize(data.get('reason', ''), 500)
     if not reason:
         return jsonify({'error': 'reason required'}), 400
@@ -193,9 +187,9 @@ def dispute_service():
     if not mapping or mapping.owner_address.lower() != request.user['blockchain_address'].lower():
         return jsonify({'error': 'You do not own this vehicle'}), 403
     try:
-        result = service_log_service.dispute_service(vin, record_index, reason, request.user['blockchain_address'])
+        result = service_log_service.dispute_service(vin, metadata_hash, reason, request.user['blockchain_address'])
         log_event('service_disputed', user_id=request.user.get('user_id'),
-                  detail={'vin': vin, 'record_index': record_index, 'reason': reason[:100]})
+                  detail={'vin': vin, 'metadata_hash': metadata_hash, 'reason': reason[:100]})
         return jsonify(result), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -286,12 +280,9 @@ def resolve_dispute():
         vin = validate_vin(data.get('vin', ''))
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
-    try:
-        record_index = int(data.get('record_index'))
-        if record_index < 0:
-            raise ValueError()
-    except (TypeError, ValueError):
-        return jsonify({'error': 'record_index must be a non-negative integer'}), 400
+    metadata_hash = sanitize(data.get('metadata_hash', ''), 66)
+    if not metadata_hash:
+        return jsonify({'error': 'metadata_hash required'}), 400
     decision = data.get('decision')
     if decision is None:
         return jsonify({'error': 'decision required'}), 400
@@ -310,13 +301,13 @@ def resolve_dispute():
     try:
         result = service_log_service.resolve_dispute(
             vin=vin,
-            record_index=record_index,
+            metadata_hash=metadata_hash,
             decision=decision_int,
             resolution_notes=sanitize(data.get('resolution_notes', ''), 500),
             from_address=request.user['blockchain_address']
         )
         log_event('dispute_resolved', user_id=request.user.get('user_id'),
-                  detail={'vin': vin, 'record_index': record_index, 'decision': decision_int})
+                  detail={'vin': vin, 'metadata_hash': metadata_hash, 'decision': decision_int})
         # Notify owner via FCM
         from db.repositories import vehicles as vehicle_repo, users as user_repo
         from core.notifications import notify_dispute_resolved
@@ -414,18 +405,15 @@ def owner_verify_service():
         vin = validate_vin(data.get('vin', ''))
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
-    try:
-        record_index = int(data.get('record_index'))
-        if record_index < 0:
-            raise ValueError()
-    except (TypeError, ValueError):
-        return jsonify({'error': 'record_index must be a non-negative integer'}), 400
+    metadata_hash = sanitize(data.get('metadata_hash', ''), 66)
+    if not metadata_hash:
+        return jsonify({'error': 'metadata_hash required'}), 400
     from db.repositories import vehicles as vehicle_repo
     mapping = vehicle_repo.find_by_vin(vin)
     if not mapping or mapping.owner_address.lower() != request.user['blockchain_address'].lower():
         return jsonify({'error': 'You do not own this vehicle'}), 403
     try:
-        result = service_log_service.verify_service(vin, record_index, request.user['blockchain_address'])
+        result = service_log_service.verify_service(vin, metadata_hash, request.user['blockchain_address'])
         return jsonify(result), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -439,12 +427,9 @@ def owner_dispute_service():
         vin = validate_vin(data.get('vin', ''))
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
-    try:
-        record_index = int(data.get('record_index'))
-        if record_index < 0:
-            raise ValueError()
-    except (TypeError, ValueError):
-        return jsonify({'error': 'record_index must be a non-negative integer'}), 400
+    metadata_hash = sanitize(data.get('metadata_hash', ''), 66)
+    if not metadata_hash:
+        return jsonify({'error': 'metadata_hash required'}), 400
     reason = sanitize(data.get('reason', ''), 500)
     if not reason:
         return jsonify({'error': 'reason required'}), 400
@@ -453,22 +438,14 @@ def owner_dispute_service():
     if not mapping or mapping.owner_address.lower() != request.user['blockchain_address'].lower():
         return jsonify({'error': 'You do not own this vehicle'}), 403
     try:
-        # Fetch pending record to get metadata_hash before disputing
-        from blockchain.adapters.service_log import service_log as _sl
-        pending = _sl.get_pending_services(vin)
-        metadata_hash_for_record = None
-        if pending and record_index < len(pending):
-            metadata_hash_for_record = pending[record_index].get('metadata_hash')
-
-        result = service_log_service.dispute_service(vin, record_index, reason, request.user['blockchain_address'])
+        result = service_log_service.dispute_service(vin, metadata_hash, reason, request.user['blockchain_address'])
 
         # Mark the corresponding ServiceMetadata row as disputed for dispute-rate tracking
-        if metadata_hash_for_record:
-            from db.models import db as _db, ServiceMetadata
-            sm = ServiceMetadata.query.filter_by(metadata_hash=metadata_hash_for_record).first()
-            if sm:
-                sm.disputed = True
-                _db.session.commit()
+        from db.models import db as _db, ServiceMetadata
+        sm = ServiceMetadata.query.filter_by(metadata_hash=metadata_hash).first()
+        if sm:
+            sm.disputed = True
+            _db.session.commit()
 
         # Email all manufacturers about the new dispute
         from db.repositories import users as _user_repo
@@ -731,6 +708,17 @@ def resolve_void_request(req_id):
     req.manufacturer_notes = notes or None
     req.resolved_at = datetime.utcnow()
     _db.session.commit()
+
+    # If approved — enforce warranty void on-chain so no new claims can be filed
+    if decision == 'approved':
+        try:
+            from blockchain.adapters.warranty_tracker import warranty_tracker
+            warranty_tracker.void_warranty(req.vin, request.user['blockchain_address'])
+        except Exception as _exc:
+            import logging
+            logging.getLogger(__name__).warning(
+                'Could not void warranty on-chain for VIN %s: %s', req.vin, _exc
+            )
 
     # Notify owner
     try:

@@ -12,6 +12,13 @@ class WarrantyTrackerAdapter:
         result = self.contract.functions.isWarrantyValid(vin_to_bytes32(vin)).call()
         return {'valid': result[0], 'reason': result[1]}
 
+    def void_warranty(self, vin: str, from_address: str) -> dict:
+        """Manufacturer approves a void request — enforces on-chain so no new claims can be filed."""
+        tx = self.contract.functions.voidWarranty(
+            vin_to_bytes32(vin)
+        ).build_transaction({'from': Web3.to_checksum_address(from_address)})
+        return web3_client.sign_and_send(tx, from_address)
+
     def submit_claim(self, vin: str, claim_details_hash: str, from_address: str) -> dict:
         tx = self.contract.functions.submitClaim(
             vin_to_bytes32(vin),

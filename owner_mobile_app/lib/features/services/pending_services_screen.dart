@@ -36,6 +36,12 @@ class _PendingServicesScreenState extends State<PendingServicesScreen> {
   }
 
   Future<void> _verify(ServiceRecord record) async {
+    if (record.metadataHash == null || record.metadataHash!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cannot verify: missing record hash'), backgroundColor: Colors.red),
+      );
+      return;
+    }
     final confirm = await _showDialog(
       'Verify Service',
       'Confirm that this service was performed correctly?',
@@ -45,7 +51,7 @@ class _PendingServicesScreenState extends State<PendingServicesScreen> {
     if (!confirm || !mounted) return;
     final result = await context
         .read<ServicesProvider>()
-        .verifyService(record.vin, record.recordIndex);
+        .verifyService(record.vin, record.metadataHash!);
     if (!mounted) return;
     if (result.isSuccess) {
       _showTxSnackBar('Service verified', result.txHash, Colors.green);
@@ -58,11 +64,17 @@ class _PendingServicesScreenState extends State<PendingServicesScreen> {
   }
 
   Future<void> _dispute(ServiceRecord record) async {
+    if (record.metadataHash == null || record.metadataHash!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cannot dispute: missing record hash'), backgroundColor: Colors.red),
+      );
+      return;
+    }
     final reason = await _showDisputeDialog();
     if (reason == null || !mounted) return;
     final result = await context
         .read<ServicesProvider>()
-        .disputeService(record.vin, record.recordIndex, reason);
+        .disputeService(record.vin, record.metadataHash!, reason);
     if (!mounted) return;
     if (result.isSuccess) {
       _showTxSnackBar('Service disputed', result.txHash, Colors.orange);

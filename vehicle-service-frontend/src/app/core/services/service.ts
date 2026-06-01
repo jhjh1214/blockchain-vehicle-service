@@ -35,10 +35,10 @@ export class ServiceService {
     return this.http.get<any>(`${environment.apiUrl}/service/history/${vin}`);
   }
 
-  resolveDispute(vin: string, recordIndex: number, decision: number, resolutionNotes: string): Observable<any> {
+  resolveDispute(vin: string, metadataHash: string, decision: number, resolutionNotes: string): Observable<any> {
     return this.http.post(`${environment.apiUrl}/service/resolve-dispute`, {
       vin,
-      record_index: recordIndex,
+      metadata_hash: metadataHash,
       decision,
       resolution_notes: resolutionNotes
     });

@@ -49,14 +49,14 @@ class ServicesProvider extends ChangeNotifier {
     }
   }
 
-  Future<ServiceOpResult> verifyService(String vin, int recordIndex) async {
+  Future<ServiceOpResult> verifyService(String vin, String metadataHash) async {
     _loading = true;
     _error = null;
     notifyListeners();
     try {
       final res = await ApiClient.instance.dio.post(
           ApiEndpoints.ownerVerifyService,
-          data: {'vin': vin, 'record_index': recordIndex});
+          data: {'vin': vin, 'metadata_hash': metadataHash});
       final txHash = _extractTxHash(res.data);
       await loadPending();
       return ServiceOpResult(txHash: txHash);
@@ -72,14 +72,14 @@ class ServicesProvider extends ChangeNotifier {
   }
 
   Future<ServiceOpResult> disputeService(
-      String vin, int recordIndex, String reason) async {
+      String vin, String metadataHash, String reason) async {
     _loading = true;
     _error = null;
     notifyListeners();
     try {
       final res = await ApiClient.instance.dio.post(
           ApiEndpoints.ownerDisputeService,
-          data: {'vin': vin, 'record_index': recordIndex, 'reason': reason});
+          data: {'vin': vin, 'metadata_hash': metadataHash, 'reason': reason});
       final txHash = _extractTxHash(res.data);
       await loadPending();
       return ServiceOpResult(txHash: txHash);
