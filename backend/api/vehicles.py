@@ -898,3 +898,89 @@ def check_vin_recalls(vin):
         d['serviced_for_vin'] = r.id in serviced_recall_ids
         result.append(d)
     return jsonify({'recalls': result}), 200
+
+
+# ─── Integrity Reconciliation (manufacturer self-service) ─────────────────────
+
+@vehicle_bp.route('/reconcile', methods=['POST'])
+@role_required('MANUFACTURER', 'SERVICE_CENTER')
+def reconcile_records():
+    """
+    Manufacturer triggers integrity check on their brand's service records.
+    Re-computes SHA-256 from stored DB fields and compares to stored metadata_hash.
+    Records are marked 'ok' or 'tampered' and the result is returned.
+
+    Body: { "vin": "<VIN>" }   (optional — omit to check all vehicles of this brand)
+    """
+    import hashlib, json as _json
+    from db.models import ServiceMetadata as _SM, db as _db
+    from datetime import datetime as _dt
+
+    data = request.get_json(silent=True) or {}
+    vin_filter = data.get('vin', '').strip().upper() or None
+    role       = request.user['role']
+    addr       = request.user['blockchain_address']
+
+    if role == 'MANUFACTURER':
+        # Scope to all vehicles this manufacturer registered
+        brand_vins_query = VehicleVINMapping.query.filter_by(registered_by=addr)
+        if vin_filter:
+            brand_vins_query = brand_vins_query.filter_by(vin=vin_filter)
+        brand_vins = {v.vin for v in brand_vins_query.all()}
+    else:
+        # SERVICE_CENTER — scope to VINs they personally submitted services for
+        from db.models import ServiceMetadata as _SM2
+        sc_vins_query = _SM2.query.with_entities(_SM2.vin).filter(
+            _SM2.service_center_address.ilike(addr)
+        )
+        if vin_filter:
+            sc_vins_query = sc_vins_query.filter(_SM2.vin == vin_filter)
+        brand_vins = {row.vin for row in sc_vins_query.all()}
+
+    if not brand_vins:
+        return jsonify({'checked': 0, 'ok': 0, 'tampered': 0, 'records': []}), 200
+
+    rows = _SM.query.filter(_SM.vin.in_(brand_vins)).all()
+    checked = ok_count = tampered_count = 0
+    records_out = []
+
+    for row in rows:
+        checked += 1
+        # Reconstruct exactly what submit_service() hashed
+        meta = {
+            'service_type':    row.service_type or '',
+            'service_date':    row.service_date.isoformat() if row.service_date else '',
+            'mileage':         row.mileage,
+            'parts_replaced':  row.parts_replaced or '',
+            'technician_name': row.technician_name or '',
+            'service_notes':   row.service_notes or '',
+            'ecu_modules':     [],
+            'photos':          row.photos or [],
+        }
+        recomputed = '0x' + hashlib.sha256(
+            _json.dumps(meta, sort_keys=True).encode()
+        ).hexdigest()
+
+        status = 'ok' if recomputed == (row.metadata_hash or '') else 'tampered'
+        row.integrity_status     = status
+        row.integrity_checked_at = _dt.utcnow()
+
+        if status == 'ok':
+            ok_count += 1
+        else:
+            tampered_count += 1
+            records_out.append({
+                'vin':            row.vin,
+                'metadata_hash':  row.metadata_hash,
+                'service_date':   row.service_date.isoformat() if row.service_date else None,
+                'service_type':   row.service_type,
+                'integrity':      status,
+            })
+
+    _db.session.commit()
+    return jsonify({
+        'checked':  checked,
+        'ok':       ok_count,
+        'tampered': tampered_count,
+        'records':  records_out,
+    }), 200

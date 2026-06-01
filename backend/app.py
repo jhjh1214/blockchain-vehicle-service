@@ -89,6 +89,12 @@ def create_app():
                     conn.execute(text("ALTER TABLE service_metadata ADD COLUMN sc_brand VARCHAR(100)"))
                     conn.commit()
 
+            if 'integrity_status' not in svc_cols:
+                with db.engine.connect() as conn:
+                    conn.execute(text("ALTER TABLE service_metadata ADD COLUMN integrity_status VARCHAR(20)"))
+                    conn.execute(text("ALTER TABLE service_metadata ADD COLUMN integrity_checked_at TIMESTAMP"))
+                    conn.commit()
+
             # ensure new tables created by SQLAlchemy models exist
             db.create_all()
 

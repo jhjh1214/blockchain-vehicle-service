@@ -5,6 +5,7 @@ import { Router } from '@angular/router';
 import * as L from 'leaflet';
 import { HttpClient } from '@angular/common/http';
 import { ScManagementService, ServiceCenter } from '../../../core/services/sc-management.service';
+import { VehicleService } from '../../../core/services/vehicle';
 import { MY_CITIES, getCityCoords } from '../../../shared/constants/my-cities';
 import { environment } from '../../../../environments/environment';
 
@@ -47,6 +48,11 @@ export class ServiceCentersComponent implements OnInit, AfterViewInit, OnDestroy
   licenseError = '';
   licenseSuccess = '';
 
+  // Integrity reconciliation
+  reconcileVin = '';
+  reconcileLoading = false;
+  reconcileResult: { checked: number; ok: number; tampered: number; records: any[] } | null = null;
+
   states = [...new Set(MY_CITIES.map(c => c.state))].sort();
 
   private map!: L.Map;
@@ -54,6 +60,7 @@ export class ServiceCentersComponent implements OnInit, AfterViewInit, OnDestroy
 
   constructor(
     private scService: ScManagementService,
+    private vehicleService: VehicleService,
     private router: Router,
     private http: HttpClient,
     private cdr: ChangeDetectorRef,
@@ -181,6 +188,21 @@ export class ServiceCentersComponent implements OnInit, AfterViewInit, OnDestroy
   get activeSCs(): number { return this.serviceCenters.filter(s => s.status === 'active').length; }
   get pendingSCs(): number { return this.serviceCenters.filter(s => s.status === 'pending').length; }
   get suspendedSCs(): number { return this.serviceCenters.filter(s => s.status === 'suspended').length; }
+
+  runReconcile(): void {
+    if (this.reconcileLoading) return;
+    this.reconcileLoading = true;
+    this.reconcileResult = null;
+    const vin = this.reconcileVin.trim().toUpperCase() || undefined;
+    this.vehicleService.reconcileRecords(vin).subscribe({
+      next: r => { this.reconcileResult = r; this.reconcileLoading = false; this.cdr.detectChanges(); },
+      error: e => {
+        this.reconcileResult = { checked: 0, ok: 0, tampered: 0, records: [{ vin: 'Error', service_type: e.error?.error || 'Check failed', service_date: '', metadata_hash: '' }] };
+        this.reconcileLoading = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
 
   loadLicenses(): void {
     this.http.get<{ licenses: any[] }>(`${environment.apiUrl}/sc/authorized-licenses`).subscribe({

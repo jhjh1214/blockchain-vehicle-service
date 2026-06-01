@@ -113,7 +113,15 @@
                 @for (rec of serviceRecords; track rec.record_index) {
                   <tr>
                     <td class="mono" style="color:var(--text-muted);font-size:12px;">{{ rec.record_index }}</td>
-                    <td><strong>{{ rec.metadata?.service_type || '—' }}</strong></td>
+                    <td>
+                      <strong>{{ rec.metadata?.service_type || '—' }}</strong>
+                      @if (rec.integrity_status === 'tampered') {
+                        <span title="Hash mismatch — this record may have been modified after submission"
+                              style="margin-left:6px;padding:1px 6px;background:#fee2e2;color:#dc2626;border-radius:4px;font-size:10px;font-weight:700;">⚠ TAMPERED</span>
+                      } @else if (rec.integrity_status === 'ok') {
+                        <span title="Hash verified against blockchain" style="margin-left:6px;color:#16a34a;font-size:11px;">✓</span>
+                      }
+                    </td>
                     <td>{{ formatDate(rec.metadata?.service_date) }}</td>
                     <td>{{ rec.metadata?.mileage ? (rec.metadata.mileage + ' km') : '—' }}</td>
                     <td style="color:var(--text-muted);">{{ rec.metadata?.technician_name || '—' }}</td>

@@ -139,6 +139,7 @@ def _enrich_records(records: list) -> list:
                 'escalated': metadata.escalated,
                 'escalated_at': metadata.escalated_at.isoformat() if metadata.escalated_at else None,
             }
+            record['integrity_status'] = metadata.integrity_status
     return records
 
 
@@ -291,6 +292,7 @@ def _flatten_owner_record(record, index: int, mapping, sc_user_cache=None) -> di
         'metadata_hash': record.get('metadata_hash', ''),
         'rebuttal_notes': meta.get('rebuttal_notes'),
         'rebuttal_submitted_at': meta.get('rebuttal_submitted_at'),
+        'integrity_status': record.get('integrity_status'),
     }
 
 
@@ -328,6 +330,7 @@ def get_owner_finalized_services(owner_address: str, filters: dict = None) -> li
                     'escalated': metadata.escalated,
                     'escalated_at': metadata.escalated_at.isoformat() if metadata.escalated_at else None,
                 }
+                record['integrity_status'] = metadata.integrity_status
             collected.append((record, idx, mapping))
 
     if not collected:
@@ -389,6 +392,7 @@ def get_owner_pending_services(owner_address: str) -> list:
                     'escalated': metadata.escalated,
                     'escalated_at': metadata.escalated_at.isoformat() if metadata.escalated_at else None,
                 }
+                record['integrity_status'] = metadata.integrity_status
             collected.append((record, idx, mapping))
 
     if not collected:

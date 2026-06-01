@@ -125,6 +125,9 @@ class ServiceMetadata(db.Model):
     service_notes = db.Column(db.Text)
     photos = db.Column(db.JSON)
     sc_brand = db.Column(db.String(100), nullable=True)  # null = independent/external workshop
+    # 'ok' | 'tampered' | None (unverified — never reconciled)
+    integrity_status = db.Column(db.String(20), nullable=True)
+    integrity_checked_at = db.Column(db.DateTime, nullable=True)
     disputed = db.Column(db.Boolean, default=False, nullable=False)
     rebuttal_notes = db.Column(db.Text, nullable=True)
     rebuttal_submitted_at = db.Column(db.DateTime, nullable=True)
@@ -148,6 +151,7 @@ class ServiceMetadata(db.Model):
             'service_notes': self.service_notes,
             'photos': self.photos,
             'sc_brand': self.sc_brand,
+            'integrity_status': self.integrity_status,
             'disputed': self.disputed,
             'escalated': self.escalated,
             'escalated_at': self.escalated_at.isoformat() if self.escalated_at else None,

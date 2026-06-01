@@ -72,6 +72,10 @@ export class VehicleService {
   checkVinRecalls(vin: string): Observable<{ recalls: any[] }> {
     return this.http.get<{ recalls: any[] }>(`${environment.apiUrl}/vehicle/recalls/check/${vin}`);
   }
+
+  reconcileRecords(vin?: string): Observable<{ checked: number; ok: number; tampered: number; records: any[] }> {
+    return this.http.post<any>(`${environment.apiUrl}/vehicle/reconcile`, vin ? { vin } : {});
+  }
 }
 
 export interface ManufacturerStats {

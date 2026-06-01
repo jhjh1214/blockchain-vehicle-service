@@ -83,6 +83,49 @@
     }
   </div>
 
+  <!-- Integrity Check -->
+  <div class="card mb-24">
+    <div class="card-header">
+      <h3 class="card-title" style="display:flex;align-items:center;gap:8px;">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:16px;height:16px;">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
+        </svg>
+        Blockchain Integrity Check
+      </h3>
+      <span style="font-size:12px;color:var(--text-muted);">Verify service records haven't been tampered with since submission</span>
+    </div>
+    <div class="card-body">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
+        <input type="text" class="form-control" style="max-width:200px;font-family:monospace;text-transform:uppercase;"
+               [(ngModel)]="reconcileVin" placeholder="VIN (optional — leave blank for all)" maxlength="17" />
+        <button class="btn btn-primary btn-sm" (click)="runReconcile()" [disabled]="reconcileLoading">
+          @if (reconcileLoading) { <span class="spinner"></span> } @else { Run Check }
+        </button>
+      </div>
+      @if (reconcileResult) {
+        <div [class]="reconcileResult.tampered > 0 ? 'alert alert-danger' : 'alert alert-success'" style="margin-bottom:0;">
+          <div style="font-weight:600;margin-bottom:4px;">
+            Checked {{ reconcileResult.checked }} records —
+            @if (reconcileResult.tampered === 0) { All records match their blockchain hashes ✓ }
+            @else { ⚠ {{ reconcileResult.tampered }} record(s) have mismatched hashes — possible tampering detected }
+          </div>
+          @if (reconcileResult.tampered > 0) {
+            <div style="margin-top:8px;font-size:13px;">
+              <strong>What this means:</strong> The stored metadata no longer matches what was hashed at submission time.
+              This could indicate database tampering. These records are now flagged as <code>tampered</code> in the system
+              and will show a warning badge on the vehicle history.
+            </div>
+            <ul style="margin:8px 0 0 16px;font-size:12px;font-family:monospace;">
+              @for (r of reconcileResult.records; track r.metadata_hash) {
+                <li>{{ r.vin }} — {{ r.service_type }} ({{ r.service_date | date:'mediumDate' }}) — hash: {{ r.metadata_hash | slice:0:18 }}…</li>
+              }
+            </ul>
+          }
+        </div>
+      }
+    </div>
+  </div>
+
   <!-- Network summary stats -->
   <div class="stat-grid mb-24">
     <div class="stat-card">
