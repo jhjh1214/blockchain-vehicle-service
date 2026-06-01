@@ -3,6 +3,7 @@ from api.middleware import token_required, role_required
 from api.utils import sanitize, validate_vin, paginate
 from core import warranty_service
 from core.audit import log_event
+from extensions import limiter
 
 warranty_bp = Blueprint('warranty', __name__)
 
@@ -48,6 +49,7 @@ def check_warranty(vin):
 
 @warranty_bp.route('/submit-claim', methods=['POST'])
 @role_required('OWNER')
+@limiter.limit('5 per hour')
 def submit_claim():
     ct = request.content_type or ''
     if 'multipart/form-data' in ct:

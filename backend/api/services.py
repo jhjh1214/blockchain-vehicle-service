@@ -546,6 +546,7 @@ def get_dispute_messages(vin, record_index):
 
 @service_bp.route('/dispute-messages', methods=['POST'])
 @token_required
+@limiter.limit('30 per minute')
 def post_dispute_message():
     data = request.get_json() or {}
     try:

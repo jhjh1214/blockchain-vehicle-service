@@ -34,5 +34,6 @@ def upload_multiple_photos():
 
 
 @upload_bp.route('/files/<filename>', methods=['GET'])
+@token_required
 def get_uploaded_file(filename):
     return send_from_directory(Config.UPLOAD_FOLDER, filename)

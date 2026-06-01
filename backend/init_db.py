@@ -57,6 +57,9 @@ with app.app_context():
             email=email, password=DEMO_PASSWORD, role=role, name=name,
             consent_given=True, **kwargs
         )
+        # Mark demo accounts as verified so they can log in immediately
+        user.email_verified = True
+        db.session.commit()
         print(f'  CREATE {role:25s} {email}')
         return user
 
