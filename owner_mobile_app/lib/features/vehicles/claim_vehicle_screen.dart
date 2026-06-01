@@ -125,7 +125,23 @@ class _QrScannerScreen extends StatefulWidget {
 }
 
 class _QrScannerScreenState extends State<_QrScannerScreen> {
+  late final MobileScannerController _controller;
   bool _scanned = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = MobileScannerController(
+      facing: CameraFacing.back,
+      detectionSpeed: DetectionSpeed.normal,
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   void _onDetect(BarcodeCapture capture) {
     if (_scanned) return;
@@ -133,16 +149,14 @@ class _QrScannerScreenState extends State<_QrScannerScreen> {
     final raw = barcode?.rawValue;
     if (raw == null || raw.isEmpty) return;
     _scanned = true;
-    // Accept raw VIN, verify-page URL (/verify/<VIN>), or any string ending in a 17-char VIN
+    _controller.stop();
     final vin = _extractVin(raw);
     Navigator.pop(context, vin ?? raw);
   }
 
   static String? _extractVin(String raw) {
-    // Raw VIN (17 alphanumeric chars, no I/O/Q)
     final vinRe = RegExp(r'^[A-HJ-NPR-Z0-9]{17}$', caseSensitive: false);
     if (vinRe.hasMatch(raw.trim())) return raw.trim().toUpperCase();
-    // URL containing VIN: .../verify/VINSTRING or .../vehicles/VINSTRING
     final urlMatch = RegExp(r'[/=]([A-HJ-NPR-Z0-9]{17})(?:[/?#]|$)', caseSensitive: false)
         .firstMatch(raw);
     if (urlMatch != null) return urlMatch.group(1)!.toUpperCase();
@@ -155,7 +169,49 @@ class _QrScannerScreenState extends State<_QrScannerScreen> {
       appBar: AppBar(title: const Text('Scan VIN')),
       body: Stack(
         children: [
-          MobileScanner(onDetect: _onDetect),
+          MobileScanner(
+            controller: _controller,
+            onDetect: _onDetect,
+            errorBuilder: (context, error, child) {
+              final isPermission =
+                  error.errorCode == MobileScannerErrorCode.permissionDenied;
+              return ColoredBox(
+                color: Colors.black,
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 32),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isPermission
+                              ? Icons.no_photography_outlined
+                              : Icons.camera_alt_outlined,
+                          color: Colors.white54,
+                          size: 64,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          isPermission
+                              ? 'Camera permission required.\n\nTap Retry, then allow camera access when prompted.'
+                              : 'Camera could not start.\nTap Retry to try again.',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                              color: Colors.white70, fontSize: 14, height: 1.5),
+                        ),
+                        const SizedBox(height: 24),
+                        ElevatedButton.icon(
+                          onPressed: () => _controller.start(),
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
           Center(
             child: Container(
               width: 260,
