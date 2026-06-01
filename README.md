@@ -129,13 +129,16 @@ A full-stack decentralised application for vehicle registration, service history
 
 ### Role-Based Access Control (OpenZeppelin AccessControl)
 
-| Role | Holder | Permissions |
-|---|---|---|
-| `DEFAULT_ADMIN_ROLE` | Deployer EOA | Grant/revoke roles, resolve disputes, approve/deny claims |
-| `MANUFACTURER_ROLE` | Manufacturer wallet | Register vehicles on-chain |
-| `SERVICE_CENTER_ROLE` | Service centre wallet | Submit service records |
-| `OWNER_ROLE` | Vehicle owner wallet | Verify/dispute services, submit warranty claims |
-| `SERVICE_LOG_ROLE` | ServiceLog contract | Call `addServiceHash` on VehicleRegistry |
+| Role | Contract | Holder | Permissions |
+|---|---|---|---|
+| `DEFAULT_ADMIN_ROLE` | All 3 | Deployer EOA | Grant/revoke roles (system admin only) |
+| `MANUFACTURER_ROLE` | VehicleRegistry | Manufacturer wallet | Register vehicles on-chain |
+| `MANUFACTURER_ADMIN_ROLE` | ServiceLog + WarrantyTracker | Manufacturer wallet | Resolve disputes, approve/deny warranty claims, void warranties |
+| `SERVICE_CENTER_ROLE` | ServiceLog | SC wallet | Submit service records; revoked on account suspension |
+| `OWNER_ROLE` | VehicleRegistry | Owner wallet | Verify/dispute services, submit warranty claims |
+| `SERVICE_LOG_ROLE` | VehicleRegistry | ServiceLog contract | Internal: write finalized service hashes |
+
+`MANUFACTURER_ADMIN_ROLE` uses the same `keccak256("MANUFACTURER_ADMIN_ROLE")` hash on both ServiceLog and WarrantyTracker — one logical role, two contracts. It is intentionally **not** `DEFAULT_ADMIN_ROLE` so manufacturers cannot call `grantRole()` to escalate privileges.
 
 ---
 
@@ -242,20 +245,20 @@ All endpoints prefixed `/api`.
    Hash submitted on-chain → ServiceLog.submitService(vinHash, metadataHash)
    Status: PENDING on-chain
 
-2. Owner → POST /api/service/owner/verify
-   Backend calls ServiceLog.verifyService(vinHash, recordIndex)
-   Contract finalizes record (verified=true)
+2. Owner → POST /api/service/owner/verify  { vin, metadata_hash }
+   Backend calls ServiceLog.verifyService(vinHash, metadataHash)
+   Contract finds record by metadataHash (not index — swap-and-pop safe)
    Contract calls VehicleRegistry.addServiceHash(vinHash, metadataHash)
    Status: FINALIZED — permanent on-chain history
 
-3. Owner → POST /api/service/owner/dispute
-   Backend calls ServiceLog.disputeService(vinHash, recordIndex, reason)
+3. Owner → POST /api/service/owner/dispute  { vin, metadata_hash, reason }
+   Backend calls ServiceLog.disputeService(vinHash, metadataHash, reason)
    Status: DISPUTED on-chain
 
-4. Manufacturer → POST /api/service/resolve-dispute
-   Backend calls ServiceLog.resolveDispute(vinHash, recordIndex, decision, resolutionHash)
-   decision=1 (APPROVE): record finalized
-   decision=2 (REJECT): record removed
+4. Manufacturer → POST /api/service/resolve-dispute  { vin, metadata_hash, decision }
+   Backend calls ServiceLog.resolveDispute(vinHash, metadataHash, decision, resolutionHash)
+   decision=1 (APPROVE): record finalized and added to VehicleRegistry.serviceHashes
+   decision=2 (REJECT): record removed from pending array
 ```
 
 ### Vehicle Claim Lifecycle
@@ -463,30 +466,36 @@ DATABASE_URL=postgresql://...          # Provided by Railway PostgreSQL addon
 
 # Flask
 FLASK_ENV=production
-SECRET_KEY=<32-char hex>
-JWT_SECRET_KEY=<32-char hex>
-KEYSTORE_PASSWORD=<Fernet key>
-ADMIN_SECRET=<random string>
+SECRET_KEY=<generate: python -c "import secrets; print(secrets.token_hex(32))">
+JWT_SECRET_KEY=<generate: python -c "import secrets; print(secrets.token_hex(32))">
+KEYSTORE_PASSWORD=<generate: python -c "import secrets; print(secrets.token_hex(32))">
+ADMIN_SECRET=<generate: python -c "import secrets; print(secrets.token_hex(32))">
 PASSWORD_RESET_EXPIRY_MINUTES=60
 
-# Blockchain
-GANACHE_URL=https://ganache-production-83a3.up.railway.app
+# Blockchain — addresses printed by deploy.js, store in Railway env vars, never in code
+GANACHE_URL=<your Hardhat/Ganache RPC URL>
 CHAIN_ID=1337
-VEHICLE_REGISTRY_ADDRESS=0xe78A0F7E598Cc8b0Bb87894B0F60dD2a88d6a8Ab
-SERVICE_LOG_ADDRESS=0x5b1869D9A4C187F2EAa108f3062412ecf0526b24
-WARRANTY_TRACKER_ADDRESS=0xCfEB869F69431e42cdB54A4F4f105C19C080A601
-DEPLOYER_ADDRESS=0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1
-DEPLOYER_PRIVATE_KEY=<deployer private key>
+VEHICLE_REGISTRY_ADDRESS=<from deploy.js output>
+SERVICE_LOG_ADDRESS=<from deploy.js output>
+WARRANTY_TRACKER_ADDRESS=<from deploy.js output>
+DEPLOYER_ADDRESS=<from deploy.js output>
+DEPLOYER_PRIVATE_KEY=<from Hardhat node — store in Railway secrets only>
 
 # CORS / URLs
-CORS_ORIGINS=https://vehiclechain.up.railway.app
-FRONTEND_URL=https://vehiclechain.up.railway.app
+CORS_ORIGINS=https://your-frontend.up.railway.app
+FRONTEND_URL=https://your-frontend.up.railway.app
 USE_HTTPS=true
 
 # Email (Resend)
-RESEND_API_KEY=re_<key>
+RESEND_API_KEY=<from resend.com dashboard>
 MAIL_DEFAULT_SENDER=VehicleChain <noreply@yourdomain.com>
 MAIL_SUPPRESS_SEND=false
+
+# Trusted proxy IPs (set to Railway's internal proxy CIDR)
+TRUSTED_PROXY_IPS=<railway-proxy-ip>
+
+# Admin email for abuse alerts
+ADMIN_CONTACT_EMAIL=<your email>
 ```
 
 ---
@@ -508,7 +517,7 @@ MAIL_SUPPRESS_SEND=false
 
 **Dual storage model:** Every on-chain record has a corresponding PostgreSQL row linked by hash. The blockchain stores hashes; the DB stores full metadata. Either can independently verify the other — tampering with DB metadata is detectable by recomputing and comparing the hash.
 
-**Swap-and-pop in ServiceLog:** Solidity removes pending records with swap-and-pop for O(1) gas. This means `recordIndex` values shift after removals. All clients always re-fetch fresh indices from chain rather than caching stale values.
+**Metadata-hash-based record lookup:** ServiceLog identifies records by their `metadataHash` (SHA-256 of the service metadata) rather than array indices. This eliminates the index-shifting race condition that swap-and-pop removal would otherwise cause. The `record_index` field returned in API responses is display-only and not used for any chain operation.
 
 **VIN encoding:** VINs are hashed with `keccak256(abi.encodePacked(vin))` for on-chain storage. The `VehicleVINMapping` table maps the human-readable VIN to its on-chain key.
 
