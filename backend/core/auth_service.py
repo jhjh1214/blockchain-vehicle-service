@@ -137,7 +137,11 @@ def register_user(email: str, password: str, role: str, name: str, phone: str,
 
     deployer = Config.DEPLOYER_ADDRESS
     if deployer and keystore.has_key(deployer):
-        initial_eth = Web3.to_wei(1000, 'ether') if role == 'MANUFACTURER' else Web3.to_wei(0.01, 'ether')
+        # Manufacturers and independent SCs are self-funded; brand SCs top up via manufacturer
+        if role == 'MANUFACTURER' or (role == 'SERVICE_CENTER' and is_independent):
+            initial_eth = Web3.to_wei(1000, 'ether')
+        else:
+            initial_eth = Web3.to_wei(0.01, 'ether')
         web3_client.transfer_eth(deployer, account['address'], initial_eth)
 
         if role == 'MANUFACTURER':
@@ -155,8 +159,11 @@ def register_user(email: str, password: str, role: str, name: str, phone: str,
     if role == 'OWNER' and not consent_given:
         raise ValueError('You must accept the Privacy Policy and Terms of Service to register')
 
-    # SC pending by default (existing behaviour); manufacturer active
-    initial_status = 'pending' if role == 'SERVICE_CENTER' else 'active'
+    # Independent SCs are self-governed (active immediately); brand SCs require manufacturer activation
+    if role == 'SERVICE_CENTER':
+        initial_status = 'active' if is_independent else 'pending'
+    else:
+        initial_status = 'active'
 
     user = user_repo.create(
         email=email, password=password, role=role,

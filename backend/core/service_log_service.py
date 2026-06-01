@@ -229,6 +229,8 @@ def _flatten_owner_record(record, index: int, mapping, sc_user_cache=None) -> di
         'dispute_reason': record.get('dispute_reason'),
         'submitted_by': sc_address,
         'service_center_name': sc_user.name if sc_user else sc_address,
+        'service_center_id': sc_user.id if sc_user else None,
+        'sc_brand': sc_user.brand if sc_user else None,
         'make': mapping.make,
         'model': mapping.model,
         'year': mapping.year,

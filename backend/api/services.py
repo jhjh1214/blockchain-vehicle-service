@@ -758,3 +758,68 @@ def dispute_void_request(req_id):
     req.owner_dispute_reason = dispute_reason
     _db.session.commit()
     return jsonify({'message': 'Dispute submitted', 'request': req.to_dict()}), 200
+
+
+# ─── Abuse Reporting ──────────────────────────────────────────────────────────
+
+_AUTO_SUSPEND_THRESHOLD = 3  # reports against an independent SC before auto-suspension
+_ADMIN_EMAIL = 'yyingdorothy@gmail.com'
+
+
+@service_bp.route('/report', methods=['POST'])
+@role_required('OWNER', 'MANUFACTURER', 'SERVICE_CENTER')
+def report_abuse():
+    data = request.get_json() or {}
+    reported_id = data.get('reported_user_id')
+    reason = sanitize(data.get('reason', ''), 1000).strip()
+    category = data.get('category', 'other')
+    vin = data.get('vin', '') or None
+
+    if not reported_id or not reason:
+        return jsonify({'error': 'reported_user_id and reason are required'}), 400
+    if category not in ('spam', 'fake_service', 'harassment', 'other'):
+        category = 'other'
+
+    from db.models import AbuseReport, db as _db
+    from db.repositories import users as user_repo
+
+    target = user_repo.find_by_id(reported_id)
+    if not target:
+        return jsonify({'error': 'User not found'}), 404
+
+    report = AbuseReport(
+        reported_user_id=reported_id,
+        reporter_user_id=request.user['id'],
+        reporter_role=request.user['role'],
+        reason=reason,
+        category=category,
+        vin=vin,
+    )
+    _db.session.add(report)
+    _db.session.commit()
+
+    # Auto-suspend independent SCs that accumulate reports
+    if target.role == 'SERVICE_CENTER' and not target.brand:
+        report_count = AbuseReport.query.filter_by(reported_user_id=reported_id).count()
+        if report_count >= _AUTO_SUSPEND_THRESHOLD and target.status != 'suspended':
+            target.status = 'suspended'
+            _db.session.commit()
+            # Notify admin by email
+            try:
+                from core.email import send_email
+                send_email(
+                    to=_ADMIN_EMAIL,
+                    subject=f'[Auto-Suspend] Independent Workshop {target.email}',
+                    text=(
+                        f'Independent workshop account {target.name or target.email} '
+                        f'(ID {target.id}) has been automatically suspended after '
+                        f'{report_count} abuse reports.\n\n'
+                        f'Latest report reason: {reason}\n\n'
+                        f'Please review at your earliest convenience. '
+                        f'The workshop can dispute this suspension by contacting support.'
+                    ),
+                )
+            except Exception:
+                pass
+
+    return jsonify({'message': 'Report submitted. Our team will review it.'}), 201

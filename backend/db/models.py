@@ -432,6 +432,38 @@ class WarrantyVoidRequest(db.Model):
         }
 
 
+class AbuseReport(db.Model):
+    __tablename__ = 'abuse_reports'
+
+    id = db.Column(db.Integer, primary_key=True)
+    reported_user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    reporter_user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    reporter_role = db.Column(db.String(20), nullable=False)
+    reason = db.Column(db.Text, nullable=False)
+    # spam | fake_service | harassment | other
+    category = db.Column(db.String(30), default='other', nullable=False)
+    vin = db.Column(db.String(17), nullable=True)  # relevant VIN if any
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    reported = db.relationship('User', foreign_keys=[reported_user_id],
+                               backref=db.backref('reports_against', lazy=True))
+    reporter = db.relationship('User', foreign_keys=[reporter_user_id],
+                               backref=db.backref('reports_filed', lazy=True))
+
+    def to_dict(self) -> dict:
+        return {
+            'id': self.id,
+            'reported_user_id': self.reported_user_id,
+            'reported_name': self.reported.name if self.reported else None,
+            'reported_email': self.reported.email if self.reported else None,
+            'reporter_role': self.reporter_role,
+            'reason': self.reason,
+            'category': self.category,
+            'vin': self.vin,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+
+
 class AuditLog(db.Model):
     __tablename__ = 'audit_logs'
 

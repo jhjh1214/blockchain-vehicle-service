@@ -101,4 +101,10 @@ export class ServiceService {
   disputeVoidRequest(id: number, reason: string): Observable<any> {
     return this.http.post(`${environment.apiUrl}/service/void-requests/${id}/dispute`, { reason });
   }
+
+  reportAbuse(reportedUserId: number, reason: string, category: string, vin?: string): Observable<any> {
+    return this.http.post(`${environment.apiUrl}/service/report`, {
+      reported_user_id: reportedUserId, reason, category, vin
+    });
+  }
 }
