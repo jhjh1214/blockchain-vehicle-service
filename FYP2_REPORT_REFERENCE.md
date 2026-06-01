@@ -65,7 +65,18 @@ full metadata is in PostgreSQL. This is the industry-standard hybrid approach (c
 - Verify email resend: 5/hour
 - PDF export: 10/minute
 - Public vehicle lookup: 30/minute
+- Recall issuance: 10/hour (prevents notification flood attack)
+- Warranty claim submission: 5/hour per user
+- Dispute message posting: 30/minute per user
 - Abuse reports: 1 per reporter per target per 24 hours (DB-enforced, not rate-limiter)
+
+### Additional Security Hardening
+- Email must be verified before login is allowed (prevents account squatting on others' emails)
+- SC suspension revokes `SERVICE_CENTER_ROLE` on-chain — suspended SC cannot bypass Flask by calling the contract directly with their private key
+- Admin secret compared using `hmac.compare_digest()` — constant-time, prevents timing attack
+- Uploaded files require authentication (`@token_required`) — prevents unauthenticated file enumeration
+- Photos array in service submission validated: must be a list of strings, max 20 entries
+- X-Forwarded-For only trusted when request comes from a known proxy IP (`TRUSTED_PROXY_IPS` env var)
 
 ### PDPA Compliance (Malaysia)
 - `GET /api/auth/data-export` — returns all personal data held about the user (right of access)
@@ -144,7 +155,7 @@ Base path: `/api`
 | POST | `/void-request` | SERVICE_CENTER | Submit warranty void request (mileage gap evidence) |
 | GET | `/void-requests/manufacturer` | MANUFACTURER | List void requests for own brand vehicles |
 | GET | `/void-requests/owner` | OWNER | List void requests for own vehicles |
-| POST | `/void-requests/<id>/resolve` | MANUFACTURER | Approve or deny a void request |
+| POST | `/void-requests/<id>/resolve` | MANUFACTURER | Approve or deny a void request; if approved, calls `voidWarranty()` on-chain |
 | POST | `/void-requests/<id>/dispute` | OWNER | Dispute a pending void request |
 | POST | `/report` | OWNER, MANUFACTURER, SC | Report an independent workshop for abuse |
 
@@ -165,7 +176,7 @@ Base path: `/api`
 | GET | `/service-centers` | MANUFACTURER | List brand's service centres (filtered by city/state/status/search) |
 | GET | `/service-centers/<id>` | MANUFACTURER | Get SC detail + live ETH balance |
 | POST | `/service-centers/<id>/activate` | MANUFACTURER | Activate a pending SC |
-| POST | `/service-centers/<id>/suspend` | MANUFACTURER | Suspend a SC (revokes all sessions) |
+| POST | `/service-centers/<id>/suspend` | MANUFACTURER | Suspend a SC (revokes all sessions AND revokes SERVICE_CENTER_ROLE on-chain) |
 | POST | `/service-centers/<id>/fund` | MANUFACTURER | Transfer ETH to a SC |
 | POST | `/fund-all` | MANUFACTURER | Fund all active SCs with a fixed amount |
 | POST | `/eth-request` | SERVICE_CENTER | SC requests ETH from manufacturer |
@@ -241,8 +252,9 @@ SC can only see disputes for records they submitted.
 3. Manufacturer email notification sent
 4. Owner receives FCM push — goes to void requests screen in app
 5. Owner can dispute: `POST /service/void-requests/<id>/dispute`
-6. Manufacturer resolves: approved (warranty voided) or denied (warranty remains valid)
-7. Owner FCM push sent on resolution
+6. Manufacturer resolves: approved or denied
+7. If approved: `WarrantyTracker.voidWarranty(vinHash)` is called on-chain — the warranty is permanently marked void in the smart contract. `isWarrantyValid()` returns false for that VIN. No further warranty claims can be submitted on-chain, not just in the backend.
+8. Owner FCM push sent on resolution
 
 ### ETH Fund Request Flow
 1. SC sees low ETH balance warning in dashboard
@@ -257,13 +269,14 @@ SC can only see disputes for records they submitted.
 - **Authorized SC:** must supply SSM number that manufacturer pre-registered in `AuthorizedSCLicense` table matching their brand; SSM is marked as used after registration
 - **Independent SC:** no SSM required; self-registers; immediately active; no manufacturer linkage
 
-### Blockchain Integrity Check (Reconciliation)
+### Blockchain Integrity Check (Reconciliation — Two-Layer)
 1. Manufacturer (or SC) navigates to SC Network page — "Blockchain Integrity Check" panel
 2. Enters optional VIN to scope check; leaves blank to check all brand vehicles
-3. `POST /vehicle/reconcile` — backend re-computes SHA-256 from all stored DB fields
-4. Compares to `metadata_hash` stored at submission time
-5. Records marked `integrity_status = 'ok'` or `'tampered'` in DB
-6. Tampered records returned to UI; public verify page shows red "TAMPERED" badge
+3. `POST /vehicle/reconcile` — backend re-computes SHA-256 from all stored DB fields (including ecu_modules, photos)
+4. Layer 1 — DB field consistency: compares recomputed hash to stored `metadata_hash`. Catches naive tampering where fields are changed but hash is not updated.
+5. Layer 2 — On-chain verification: confirms the stored `metadata_hash` actually appears in the on-chain pending/finalized record set. Catches sophisticated tampering where both fields AND metadata_hash are updated consistently in DB but the on-chain hash doesn't match.
+6. Records marked `integrity_status = 'ok'` or `'tampered'` in DB with `db_fields_match` and `chain_match` diagnostics
+7. Tampered records returned to UI; public verify page shows red "TAMPERED" badge
 
 ### Abuse Reporting (Independent Workshops)
 1. Owner, manufacturer, or SC reports a workshop via `POST /service/report`
@@ -281,7 +294,7 @@ SC can only see disputes for records they submitted.
 |---|---|
 | User | All roles; has role, brand, status, blockchain_address, ssm_number |
 | VehicleVINMapping | Bridges VIN to owner address, registered_by, make/model/year, warranty_expiry, registration_status |
-| ServiceMetadata | Full service record fields; metadata_hash, integrity_status, integrity_checked_at, sc_brand, disputed |
+| ServiceMetadata | Full service record fields; metadata_hash, ecu_modules (JSON), integrity_status, integrity_checked_at, sc_brand, disputed |
 | WarrantyClaimMetadata | Warranty claim records linked to VIN |
 | DisputeMessage | Threaded messages for a dispute (sender_id, sender_role, message, vin, record_index) |
 | EthFundRequest | SC ETH requests; status: pending/fulfilled/dismissed |
@@ -304,31 +317,50 @@ SC can only see disputes for records they submitted.
 All contracts deployed to a private Hardhat Ethereum node.
 Interactions go through web3.py adapters in `backend/blockchain/adapters/`.
 
-**VehicleRegistry:**
-- `registerVehicle(vinHash, ownerAddress, warrantyExpiry)` — called by deployer
-- `transferOwnership(vinHash, newOwner)` — called by current owner
-- `getVehicle(vinHash)` — read
-- `getOwnedVehicles(ownerAddress)` — returns array of vin hashes
+### Role-Based Access Control (6 roles total)
 
-**ServiceLog:**
-- `submitService(vinHash, metadataHash)` — called by SC's blockchain address
-- `verifyService(vinHash, recordIndex)` — called by owner
-- `disputeService(vinHash, recordIndex, reasonHash)` — called by owner
-- `resolveDispute(vinHash, recordIndex, decision, resolutionHash)` — called by manufacturer
-- `getPendingServices(vinHash)` — read
+| Role | Contract | Holder | Purpose |
+|---|---|---|---|
+| `DEFAULT_ADMIN_ROLE` | All 3 | Deployer EOA | Grant/revoke roles — system admin only |
+| `MANUFACTURER_ROLE` | VehicleRegistry | Each manufacturer wallet | Register vehicles |
+| `MANUFACTURER_ADMIN_ROLE` | ServiceLog + WarrantyTracker | Each manufacturer wallet | Resolve disputes, approve/deny claims, void warranties |
+| `SERVICE_CENTER_ROLE` | ServiceLog | Each SC wallet | Submit service records; revoked on account suspension |
+| `OWNER_ROLE` | VehicleRegistry | Each owner wallet | Verify/dispute services, submit claims |
+| `SERVICE_LOG_ROLE` | VehicleRegistry | ServiceLog contract | Internal: write finalized service hashes |
+
+`MANUFACTURER_ADMIN_ROLE` = `keccak256("MANUFACTURER_ADMIN_ROLE")` — intentionally NOT `DEFAULT_ADMIN_ROLE`. This prevents manufacturers from calling `grantRole()` to escalate privileges on either contract.
+
+### VehicleRegistry
+- `registerVehicle(vinHash, ownerAddress, warrantyExpiry)` — `MANUFACTURER_ROLE`
+- `transferOwnership(vinHash, newOwner)` — owner or `OWNER_ROLE`
+- `addServiceHash(vinHash, serviceHash)` — `SERVICE_LOG_ROLE` (called by ServiceLog only)
+- `getVehicle(vinHash)` — read
+- `getOwnedVehicles(ownerAddress)` — read
+
+### ServiceLog
+Key design: records are looked up by `metadataHash`, not array index. This eliminates the index-shifting race condition that swap-and-pop array removal would otherwise cause.
+
+- `submitService(vinHash, metadataHash)` — `SERVICE_CENTER_ROLE`; includes duplicate hash check
+- `verifyService(vinHash, metadataHash)` — owner; finds record by hash, finalizes, calls `addServiceHash`
+- `disputeService(vinHash, metadataHash, reason)` — owner; finds record by hash, marks disputed
+- `resolveDispute(vinHash, metadataHash, decision, resolutionHash)` — `MANUFACTURER_ADMIN_ROLE`; decision: APPROVE (finalize) / REJECT (remove) / MODIFY (keep disputed for further action)
+- `getPendingServices(vinHash)` — read; returns array with `record_index` for display only
 - `getFinalizedServices(vinHash)` — read
 
-**WarrantyTracker:**
-- `submitClaim(vinHash, issueHash)` — called by owner
-- `approveClaim(vinHash, claimIndex)` — called by manufacturer
-- `denyClaim(vinHash, claimIndex, reasonHash)` — called by manufacturer
+`disputeResolutions` mapping keyed by `(vin, metadataHash)` — stable even after array reordering.
+
+### WarrantyTracker
+- `isWarrantyValid(vinHash)` — checks expiry timestamp AND `voidedWarranties[vin]` mapping
+- `voidWarranty(vinHash)` — `MANUFACTURER_ADMIN_ROLE`; permanently marks warranty void on-chain; called when manufacturer approves a void request. After this, `submitClaim` will revert.
+- `submitClaim(vinHash, claimHash)` — owner; checks `isWarrantyValid` before accepting
+- `approveClaim(vinHash, claimIndex)` — `MANUFACTURER_ADMIN_ROLE`
+- `denyClaim(vinHash, claimIndex, reasonHash)` — `MANUFACTURER_ADMIN_ROLE`
 - `getClaims(vinHash)` — read
 
-**Hash computation (reproducible):**
+### Hash computation (reproducible)
 SHA-256 of the metadata dict with keys sorted alphabetically, then hex-encoded with `0x` prefix.
-All fields (service_type, service_date, mileage, parts_replaced, technician_name, service_notes,
-ecu_modules, photos) are included in the hash. The same function is used at submission time and
-at integrity-check time — so any post-hoc DB modification produces a mismatch.
+All 8 fields are included: `service_type`, `service_date`, `mileage`, `parts_replaced`, `technician_name`, `service_notes`, `ecu_modules`, `photos`.
+`ecu_modules` is stored in the `ServiceMetadata` DB table so the reconcile can faithfully reproduce the original hash. The same function runs at submission time and at integrity-check time — any post-hoc DB modification produces a mismatch.
 
 ---
 
@@ -454,6 +486,7 @@ column additions without a dedicated migration tool.
 | warranty_expiry_reminders | Daily 08:00 UTC | Emails owners whose warranty expires in ~30 days |
 | audit_log_purge | Daily 03:00 UTC | Deletes audit logs older than 365 days (PDPA retention) |
 | service_overdue_reminders | Weekly Monday 09:00 UTC | FCM push + email to owners of vehicles with no service in 180+ days |
+| notification_purge | Daily 04:00 UTC | Deletes notification inbox entries older than 90 days (prevents unbounded growth) |
 
 **Operational monitoring:**
 - Watch for `DB sync permanently failed` in logs — means service record is on-chain but not in DB
@@ -559,24 +592,69 @@ Future work: 3-month pilot with a real workshop, measuring time savings vs. pape
 Decentralised push is an unsolved production problem — even Uniswap and OpenSea use centralised notifications.
 PDPA implication: disclosed in Privacy Policy under Data Sharing and Disclosure.
 
-**ecu_modules field is a stub:**
-The ecu_modules array field exists in submission and is hashed, but no OBD-II tool integration exists.
-Future work: ELM327 Bluetooth adapter integration in the Flutter app.
+**ecu_modules field has no hardware integration:**
+The ecu_modules array is accepted in service submission, stored in DB, and included in the integrity hash. However, no OBD-II tool reads it automatically — a technician would have to type ECU module names manually.
+Future work: ELM327 Bluetooth adapter integration in the Flutter app for automatic ECU module reading.
 
 ---
 
-## 15. System Strengths (for positive framing)
+## 15. Security Evaluation — Complete Findings
 
-- Tamper detection is real and demonstrable live — integrity check detects any DB modification
+This section is for the security evaluation chapter. All findings from a systematic penetration test of the system.
+
+| # | Attack Vector | Severity | Status |
+|---|---|---|---|
+| 1 | X-Forwarded-For spoofing bypasses all rate limits | Critical | Fixed — XFF only trusted from known proxy IPs (`TRUSTED_PROXY_IPS`) |
+| 2 | Recall endpoint had no rate limit — manufacturer could flood all owners with FCM | Medium | Fixed — 10/hour limit |
+| 3 | Uploaded files served without authentication — unauthenticated enumeration | Medium | Fixed — `@token_required` on file serve endpoint |
+| 4 | Email verification not enforced at login — unverified accounts fully functional | Medium | Fixed — login rejects unverified accounts |
+| 5 | Warranty claim submission had no rate limit — spam manufacturer inbox | Medium | Fixed — 5/hour limit |
+| 6 | Dispute message endpoint had no rate limit — flood dispute threads | Low | Fixed — 30/minute limit |
+| 7 | Photos array in service submission accepted arbitrary strings (injection) | Medium | Fixed — validated as list of strings, max 20, 255 chars each |
+| 8 | DB-only integrity check defeated by consistent metadata+hash tampering | Medium | Fixed — reconcile now also compares against on-chain hashes |
+| 9 | SC suspension only revoked JWT — SC could still call contract directly | Critical | Fixed — suspension now revokes `SERVICE_CENTER_ROLE` on-chain |
+| 10 | `ecu_modules` hashed at submission but not stored — integrity check produced false positives | High (Bug) | Fixed — `ecu_modules` column added, stored, included in reconcile |
+| 11 | `WarrantyTracker.MANUFACTURER_ADMIN_ROLE = DEFAULT_ADMIN_ROLE` — manufacturers could call `grantRole()` | Medium | Fixed — contracts redeployed with distinct role hash |
+| 12 | Swap-and-pop index shifting could cause wrong record to be verified/disputed | Medium | Fixed — contracts redeployed using `metadataHash` lookup instead of index |
+| 13 | Admin secret compared with `!=` — timing attack enables brute-force | Low | Fixed — `hmac.compare_digest()` used |
+| 14 | Notification inbox grew unbounded — no TTL | Low | Fixed — daily purge of entries older than 90 days |
+| 15 | Warranty void only in DB — owner could still submit on-chain warranty claim after voiding | Medium | Fixed — `voidWarranty()` added to WarrantyTracker, called on approval |
+| 16 | Keystore encryption key and data on same filesystem | High (Ops) | Acknowledged — production fix: AWS KMS or Railway secrets |
+| 17 | JWT secret brute-forceable if weak | High (Ops) | Acknowledged — use 256-bit random secret; documented in deployment guide |
+| 18 | Login timing oracle (bcrypt only runs if user exists — timing reveals email registration) | Low/Info | Acknowledged — inherent bcrypt limitation |
+| 19 | SC suspension has 15-minute window (valid access token) | Low | Acknowledged — inherent short-lived JWT limitation |
+| 20 | Multiple independent SC registrations bypass daily submission limits | Low | Acknowledged — needs phone/identity verification |
+| 21 | SSM number squatting before legitimate SC registers | Low | Acknowledged — needs real SSM API integration |
+| 22 | No certificate pinning in Flutter app | Medium | Acknowledged — 15-min token limits exposure window |
+| 23 | Admin `/reset-db` destroys all data if ADMIN_SECRET leaks | Critical (Ops) | Acknowledged — Railway secret management is mitigation |
+| 24 | `fix-ownership` temporarily grants OWNER_ROLE to deployer — dirty state if revoke fails | Low | Acknowledged — low probability edge case |
+| 25 | Technician names and service notes publicly exposed via `/vehicle/public/<vin>` | Low (Privacy) | Acknowledged — disclosed in Privacy Policy; intentional for used car verification |
+| 26 | IDOR on authorized licenses | Tested — NOT present | Already scoped by `manufacturer_user_id` in query |
+| 27 | File path traversal in uploads | Tested — NOT present | `secure_filename()` + `send_from_directory()` |
+| 28 | SQL injection | Tested — NOT present | ORM parameterised queries throughout |
+
+**15 code-level vulnerabilities fixed. 13 acknowledged with documented mitigations. 3 tested and confirmed not present.**
+
+---
+
+## 16. System Strengths (for positive framing)
+
+- Two-layer integrity check: DB field consistency AND on-chain hash verification — catches both naive and sophisticated DB tampering
+- Warranty void is enforced on-chain: `voidWarranty()` in the smart contract prevents further warranty claims at the contract level, not just the API level
+- SC suspension is complete: revokes JWT sessions AND `SERVICE_CENTER_ROLE` on-chain — suspended SC cannot bypass Flask by calling the contract directly
+- Metadata-hash-based record lookup: eliminates the swap-and-pop index-shifting race condition entirely — a real correctness improvement over array-index-based contracts
+- `MANUFACTURER_ADMIN_ROLE` is distinct from `DEFAULT_ADMIN_ROLE`: manufacturers cannot escalate privileges via `grantRole()`
+- ecu_modules stored and hashed correctly: no false positives in integrity check
+- Tamper detection is real and demonstrable live — two-layer check catches even a sophisticated DB attacker
 - Full PDPA compliance: data export and account deletion are implemented, not just mentioned
 - Persistent notification inbox: every notification stored in DB — survives FCM downtime, reviewable in both web panel and Flutter screen
-- Proactive service reminders: APScheduler sends warranty expiry emails 30 days before expiry and weekly service-overdue push/email for vehicles idle 180+ days
+- Proactive service reminders: APScheduler sends warranty expiry emails 30 days before expiry and weekly service-overdue push/email for vehicles idle 180+ days; notification inbox auto-purged after 90 days
 - Static analysis completed: Slither 0.11.5 run on all contracts, no high/critical issues found
 - Multi-channel notifications: FCM push (mobile), email (web), persistent DB inbox, in-app badge — four distinct delivery paths
 - Graceful degradation: service history falls back to PostgreSQL if blockchain is unreachable
 - Brand-scoped access control: every query is scoped to the requesting user's brand
 - Dispute resolution is three-party: owner disputes, SC rebuts, manufacturer resolves — all on-chain with off-chain message thread
-- Independent workshop lifecycle is complete: registration, ETH funding, submission, abuse reporting, auto-suspension
+- Independent workshop lifecycle is complete: registration, ETH funding, submission, abuse reporting, auto-suspension (blockchain role also revoked)
 - VIN barcode scan in Flutter: no manual 17-character entry; camera scans door-jamb barcode or QR code
 - Public API is genuinely useful: warranty status + full service history with integrity badges + recall history
 - PDF reports: per-vehicle and fleet-level exports with professional ReportLab layout
