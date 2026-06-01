@@ -1,11 +1,12 @@
 import logging
+import time as _time
 from datetime import datetime
 from blockchain.adapters.service_log import service_log
 from blockchain.adapters.vehicle_registry import vehicle_registry
 from blockchain.utils import compute_metadata_hash, compute_string_hash
 from db.models import db
 from db.repositories import services as service_repo, vehicles as vehicle_repo
-from db.models import User as _User
+from db.models import User as _User, ServiceMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -29,27 +30,39 @@ def submit_service(vin: str, service_type: str, service_date: str, mileage: int,
     # Blockchain first — DB is the read cache, not the source of truth
     result = service_log.submit_service(vin, metadata_hash, from_address)
 
-    try:
-        service_repo.create(
-            vin=vin,
-            metadata_hash=metadata_hash,
-            service_type=service_type,
-            service_date=datetime.fromisoformat(service_date.replace('Z', '+00:00')),
-            mileage=mileage,
-            parts_replaced=parts_replaced,
-            technician_name=technician_name,
-            service_notes=service_notes,
-            photos=photos or [],
-            service_center_address=from_address,
-            sc_brand=sc_brand or None,
-        )
-    except Exception as exc:
-        db.session.rollback()
-        logger.error('DB sync failed after on-chain service submission for VIN %s: %s', vin, exc)
+    # Retry the PostgreSQL write up to 3 times — on-chain write already succeeded so we
+    # must persist the metadata or the record becomes unreadable from the API.
+    last_exc = None
+    for attempt in range(3):
+        try:
+            service_repo.create(
+                vin=vin,
+                metadata_hash=metadata_hash,
+                service_type=service_type,
+                service_date=datetime.fromisoformat(service_date.replace('Z', '+00:00')),
+                mileage=mileage,
+                parts_replaced=parts_replaced,
+                technician_name=technician_name,
+                service_notes=service_notes,
+                photos=photos or [],
+                service_center_address=from_address,
+                sc_brand=sc_brand or None,
+            )
+            last_exc = None
+            break
+        except Exception as exc:
+            db.session.rollback()
+            last_exc = exc
+            logger.warning('DB sync attempt %d/3 failed for VIN %s: %s', attempt + 1, vin, exc)
+            if attempt < 2:
+                _time.sleep(0.15 * (attempt + 1))  # 0.15 s, 0.30 s
+
+    if last_exc is not None:
+        logger.error('DB sync permanently failed for VIN %s after 3 attempts: %s', vin, last_exc)
         raise RuntimeError(
-            'Service was submitted on-chain but the database record could not be saved. '
-            'Contact support and quote VIN: ' + vin
-        ) from exc
+            'Service was recorded on the blockchain but metadata could not be saved to the database. '
+            'The on-chain record is safe. Contact support and quote VIN: ' + vin
+        ) from last_exc
 
     return {
         'message': 'Service submitted successfully',
@@ -187,7 +200,48 @@ def get_sc_pending_services(sc_address: str) -> list:
 
 
 def get_finalized_services(vin: str) -> list:
-    return _enrich_records(service_log.get_finalized_services(vin))
+    try:
+        return _enrich_records(service_log.get_finalized_services(vin))
+    except Exception as exc:
+        logger.warning('Blockchain unavailable for get_finalized_services(%s): %s — falling back to DB', vin, exc)
+        return _finalized_from_db(vin)
+
+
+def _finalized_from_db(vin: str) -> list:
+    """Return service records from PostgreSQL when blockchain is unreachable.
+    Status is set to 'cached' to indicate the verification state is unknown."""
+    records = ServiceMetadata.query.filter_by(vin=vin).order_by(ServiceMetadata.service_date).all()
+    result = []
+    for i, m in enumerate(records):
+        sc_user = _User.query.filter(
+            _User.blockchain_address.ilike(m.service_center_address)
+        ).first() if m.service_center_address else None
+        mapping = vehicle_repo.find_by_vin(vin)
+        result.append({
+            'vin': vin,
+            'record_index': i,
+            'service_type': m.service_type or '',
+            'service_date': m.service_date.isoformat() if m.service_date else '',
+            'mileage': m.mileage,
+            'parts_replaced': m.parts_replaced,
+            'technician_name': m.technician_name,
+            'service_notes': m.service_notes,
+            'photos': m.photos or [],
+            'status': 'cached',  # blockchain verification unavailable
+            'dispute_reason': None,
+            'submitted_by': m.service_center_address or '',
+            'service_center_name': sc_user.name if sc_user else m.service_center_address,
+            'service_center_id': sc_user.id if sc_user else None,
+            'sc_brand': m.sc_brand,
+            'make': mapping.make if mapping else '',
+            'model': mapping.model if mapping else '',
+            'year': mapping.year if mapping else None,
+            'metadata_hash': m.metadata_hash,
+            'rebuttal_notes': m.rebuttal_notes,
+            'rebuttal_submitted_at': m.rebuttal_submitted_at.isoformat() if m.rebuttal_submitted_at else None,
+            '_blockchain_unavailable': True,
+        })
+    return result
 
 
 def _load_sc_user_cache(raw_records: list) -> dict:
@@ -241,7 +295,17 @@ def _flatten_owner_record(record, index: int, mapping, sc_user_cache=None) -> di
 
 
 def get_owner_finalized_services(owner_address: str, filters: dict = None) -> list:
-    vin_hashes = vehicle_registry.get_owned_vehicles(owner_address)
+    try:
+        vin_hashes = vehicle_registry.get_owned_vehicles(owner_address)
+    except Exception as exc:
+        logger.warning('Blockchain unavailable for get_owner_finalized_services: %s — falling back to DB', exc)
+        # Fall back to all VINs owned by this address from DB
+        mappings = vehicle_repo.find_by_owner(owner_address)
+        result = []
+        for m in mappings:
+            result.extend(_finalized_from_db(m.vin))
+        return result
+
     collected = []
     for vin_hash in vin_hashes:
         mapping = vehicle_repo.find_by_vin_hash(vin_hash)

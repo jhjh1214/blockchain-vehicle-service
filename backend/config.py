@@ -60,6 +60,19 @@ class Config:
     # Upload storage — override with an absolute path (e.g. /data/uploads) when using a Railway Volume
     UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', 'uploads/')
 
+    # Mileage gap (km) that triggers a warranty-void warning on service submission
+    MILEAGE_GAP_THRESHOLD = int(os.getenv('MILEAGE_GAP_THRESHOLD', '50000'))
+
+    # Abuse report thresholds
+    ABUSE_AUTO_SUSPEND_THRESHOLD = int(os.getenv('ABUSE_AUTO_SUSPEND_THRESHOLD', '3'))
+
+    # Daily service submission limits per SC (prevents spam)
+    SC_DAILY_SUBMISSION_LIMIT = int(os.getenv('SC_DAILY_SUBMISSION_LIMIT', '100'))
+    INDEP_SC_DAILY_LIMIT      = int(os.getenv('INDEP_SC_DAILY_LIMIT', '20'))
+
+    # Platform admin contact — receives auto-suspension alerts
+    ADMIN_CONTACT_EMAIL = os.getenv('ADMIN_CONTACT_EMAIL', 'yyingdorothy@gmail.com')
+
     @classmethod
     def validate(cls):
         """Check for insecure defaults.

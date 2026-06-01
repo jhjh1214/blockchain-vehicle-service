@@ -165,3 +165,98 @@ def fix_ownership():
         'vin': vin,
         'new_owner': new_owner.email,
     }), 200
+
+
+# ─── Blockchain–DB Reconciliation ────────────────────────────────────────────
+
+@admin_bp.route('/reconcile', methods=['GET'])
+@limiter.limit('5 per minute')
+def reconcile():
+    """
+    Verify that every ServiceMetadata row's stored hash matches a re-computation
+    from its own fields. Optionally also checks the on-chain record exists.
+
+    Query params:
+      ?vin=<VIN>     — restrict to one vehicle (recommended for large datasets)
+      ?on_chain=1    — also verify the hash appears on-chain (slower)
+
+    Returns a list of mismatches. An empty list means all records are consistent.
+    """
+    import hashlib, hmac as _hmac, json as _json, time as _t
+
+    secret = request.headers.get('X-Admin-Secret', '')
+    if not Config.ADMIN_SECRET or secret != Config.ADMIN_SECRET:
+        return jsonify({'error': 'Unauthorized'}), 401
+    ts_str = request.headers.get('X-Admin-Timestamp', '')
+    sig    = request.headers.get('X-Admin-Signature', '')
+    try:
+        if abs(_t.time() - float(ts_str)) > 30:
+            return jsonify({'error': 'Timestamp expired'}), 401
+    except (TypeError, ValueError):
+        return jsonify({'error': 'X-Admin-Timestamp required'}), 401
+    expected = _hmac.new(Config.ADMIN_SECRET.encode(), ts_str.encode(), hashlib.sha256).hexdigest()
+    if not _hmac.compare_digest(expected, sig):
+        return jsonify({'error': 'Invalid signature'}), 401
+
+    from db.models import ServiceMetadata as _SM
+
+    vin_filter = request.args.get('vin', '').strip().upper()
+    check_chain = request.args.get('on_chain', '') == '1'
+
+    query = _SM.query
+    if vin_filter:
+        query = query.filter_by(vin=vin_filter)
+
+    mismatches = []
+    checked = 0
+
+    for row in query.all():
+        checked += 1
+        # Reconstruct the metadata dict exactly as submit_service() built it
+        recomputed_meta = {
+            'service_type':    row.service_type or '',
+            'service_date':    row.service_date.isoformat() if row.service_date else '',
+            'mileage':         row.mileage,
+            'parts_replaced':  row.parts_replaced or '',
+            'technician_name': row.technician_name or '',
+            'service_notes':   row.service_notes or '',
+            'ecu_modules':     [],   # not persisted in ServiceMetadata; always empty at rest
+            'photos':          row.photos or [],
+        }
+        recomputed_hash = '0x' + hashlib.sha256(
+            _json.dumps(recomputed_meta, sort_keys=True).encode()
+        ).hexdigest()
+
+        db_hash = row.metadata_hash or ''
+        hash_ok = recomputed_hash == db_hash
+
+        chain_ok = None
+        if check_chain and hash_ok:
+            try:
+                from blockchain.adapters.service_log import service_log as _sl
+                pending   = _sl.get_pending_services(row.vin)
+                finalized = _sl.get_finalized_services(row.vin)
+                all_hashes = [r.get('metadata_hash') for r in pending + finalized]
+                chain_ok = db_hash in all_hashes
+            except Exception:
+                chain_ok = None  # blockchain unreachable — skip chain check
+
+        if not hash_ok or chain_ok is False:
+            mismatches.append({
+                'id':             row.id,
+                'vin':            row.vin,
+                'metadata_hash':  db_hash,
+                'recomputed':     recomputed_hash,
+                'hash_match':     hash_ok,
+                'chain_match':    chain_ok,
+                'service_date':   row.service_date.isoformat() if row.service_date else None,
+                'service_type':   row.service_type,
+            })
+
+    return jsonify({
+        'checked':    checked,
+        'mismatches': len(mismatches),
+        'results':    mismatches,
+    }), 200
+
+

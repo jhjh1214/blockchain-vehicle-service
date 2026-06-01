@@ -1,10 +1,11 @@
 import logging
-from datetime import datetime
+from datetime import datetime, date as _date
 from flask import Blueprint, request, jsonify
 from api.middleware import token_required, role_required
 from api.utils import sanitize, validate_vin, validate_mileage, paginate
 from core import service_log_service
 from core.audit import log_event
+from config import Config
 
 logger = logging.getLogger(__name__)
 service_bp = Blueprint('service', __name__)
@@ -86,10 +87,21 @@ def submit_service():
     if max_mileage is not None and mileage < max_mileage:
         return jsonify({'error': f'Mileage cannot decrease: last recorded mileage is {max_mileage} km'}), 400
 
-    # Detect suspicious mileage gap (> 50 000 km jump suggests unauthorized service elsewhere)
-    _MILEAGE_GAP_THRESHOLD = 50_000
+    # Daily submission limit — prevents SC accounts from spamming the blockchain
+    from db.models import ServiceMetadata as _SM
+    sc_addr = request.user['blockchain_address']
+    today_start = datetime.combine(_date.today(), datetime.min.time())
+    today_count = _SM.query.filter(
+        _SM.service_center_address.ilike(sc_addr),
+        _SM.created_at >= today_start,
+    ).count()
+    daily_limit = Config.SC_DAILY_SUBMISSION_LIMIT if sc_brand else Config.INDEP_SC_DAILY_LIMIT
+    if today_count >= daily_limit:
+        return jsonify({'error': f'Daily submission limit of {daily_limit} records reached. Try again tomorrow.'}), 429
+
+    # Detect suspicious mileage gap — configurable threshold
     mileage_gap_warning = None
-    if max_mileage is not None and (mileage - max_mileage) > _MILEAGE_GAP_THRESHOLD:
+    if max_mileage is not None and (mileage - max_mileage) > Config.MILEAGE_GAP_THRESHOLD:
         mileage_gap_warning = {
             'gap': mileage - max_mileage,
             'last_authorized_mileage': max_mileage,
@@ -762,10 +774,6 @@ def dispute_void_request(req_id):
 
 # ─── Abuse Reporting ──────────────────────────────────────────────────────────
 
-_AUTO_SUSPEND_THRESHOLD = 3  # reports against an independent SC before auto-suspension
-_ADMIN_EMAIL = 'yyingdorothy@gmail.com'
-
-
 @service_bp.route('/report', methods=['POST'])
 @role_required('OWNER', 'MANUFACTURER', 'SERVICE_CENTER')
 def report_abuse():
@@ -780,17 +788,35 @@ def report_abuse():
     if category not in ('spam', 'fake_service', 'harassment', 'other'):
         category = 'other'
 
+    # Non-owner reporters must supply a VIN as evidence (prevents groundless mass reporting)
+    reporter_role = request.user['role']
+    if reporter_role in ('MANUFACTURER', 'SERVICE_CENTER') and not vin:
+        return jsonify({'error': 'VIN is required for manufacturer and service centre reports'}), 400
+
     from db.models import AbuseReport, db as _db
     from db.repositories import users as user_repo
+    from datetime import timedelta
 
     target = user_repo.find_by_id(reported_id)
     if not target:
         return jsonify({'error': 'User not found'}), 404
 
+    reporter_id = request.user['id']
+
+    # Rate-limit: one report per reporter per target per 24 hours
+    cutoff = datetime.utcnow() - timedelta(hours=24)
+    existing = AbuseReport.query.filter(
+        AbuseReport.reporter_user_id == reporter_id,
+        AbuseReport.reported_user_id == reported_id,
+        AbuseReport.created_at >= cutoff,
+    ).first()
+    if existing:
+        return jsonify({'error': 'You have already submitted a report for this user in the last 24 hours'}), 429
+
     report = AbuseReport(
         reported_user_id=reported_id,
-        reporter_user_id=request.user['id'],
-        reporter_role=request.user['role'],
+        reporter_user_id=reporter_id,
+        reporter_role=reporter_role,
         reason=reason,
         category=category,
         vin=vin,
@@ -798,17 +824,22 @@ def report_abuse():
     _db.session.add(report)
     _db.session.commit()
 
-    # Auto-suspend independent SCs that accumulate reports
+    # Auto-suspend independent SCs — but only if at least one report comes from an owner
+    # (prevents manufacturers coordinating to eliminate independent competition)
     if target.role == 'SERVICE_CENTER' and not target.brand:
-        report_count = AbuseReport.query.filter_by(reported_user_id=reported_id).count()
-        if report_count >= _AUTO_SUSPEND_THRESHOLD and target.status != 'suspended':
+        all_reports = AbuseReport.query.filter_by(reported_user_id=reported_id).all()
+        report_count = len(all_reports)
+        has_owner_report = any(r.reporter_role == 'OWNER' for r in all_reports)
+        if (report_count >= Config.ABUSE_AUTO_SUSPEND_THRESHOLD
+                and has_owner_report
+                and target.status != 'suspended'):
             target.status = 'suspended'
             _db.session.commit()
             # Notify admin by email
             try:
                 from core.email import send_email
                 send_email(
-                    to=_ADMIN_EMAIL,
+                    to=Config.ADMIN_CONTACT_EMAIL,
                     subject=f'[Auto-Suspend] Independent Workshop {target.email}',
                     text=(
                         f'Independent workshop account {target.name or target.email} '
