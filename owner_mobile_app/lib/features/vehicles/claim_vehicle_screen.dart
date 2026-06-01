@@ -133,7 +133,20 @@ class _QrScannerScreenState extends State<_QrScannerScreen> {
     final raw = barcode?.rawValue;
     if (raw == null || raw.isEmpty) return;
     _scanned = true;
-    Navigator.pop(context, raw);
+    // Accept raw VIN, verify-page URL (/verify/<VIN>), or any string ending in a 17-char VIN
+    final vin = _extractVin(raw);
+    Navigator.pop(context, vin ?? raw);
+  }
+
+  static String? _extractVin(String raw) {
+    // Raw VIN (17 alphanumeric chars, no I/O/Q)
+    final vinRe = RegExp(r'^[A-HJ-NPR-Z0-9]{17}$', caseSensitive: false);
+    if (vinRe.hasMatch(raw.trim())) return raw.trim().toUpperCase();
+    // URL containing VIN: .../verify/VINSTRING or .../vehicles/VINSTRING
+    final urlMatch = RegExp(r'[/=]([A-HJ-NPR-Z0-9]{17})(?:[/?#]|$)', caseSensitive: false)
+        .firstMatch(raw);
+    if (urlMatch != null) return urlMatch.group(1)!.toUpperCase();
+    return null;
   }
 
   @override

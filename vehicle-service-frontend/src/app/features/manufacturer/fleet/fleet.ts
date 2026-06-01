@@ -1,7 +1,8 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, ElementRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { VehicleService } from '../../../core/services/vehicle';
+import QRCode from 'qrcode';
 
 @Component({
   selector: 'app-fleet',
@@ -11,12 +12,16 @@ import { VehicleService } from '../../../core/services/vehicle';
   styleUrls: ['./fleet.css'],
 })
 export class FleetComponent implements OnInit {
+  @ViewChild('handoverQrCanvas') handoverQrCanvas?: ElementRef<HTMLCanvasElement>;
+
   vehicles: any[] = [];
   pagination: any = null;
   loading = true;
   error = '';
   page = 1;
   readonly limit = 20;
+
+  qrVin: string | null = null;  // non-null = modal open
 
   constructor(private vehicleService: VehicleService, private cdr: ChangeDetectorRef) {}
 
@@ -56,6 +61,19 @@ export class FleetComponent implements OnInit {
     if (days > 90)  return 'service-due-warn';
     return 'service-due-alert';
   }
+
+  showHandoverQr(vin: string): void {
+    this.qrVin = vin;
+    // Render QR on next tick after modal appears in DOM
+    setTimeout(() => {
+      const canvas = this.handoverQrCanvas?.nativeElement;
+      if (canvas) {
+        QRCode.toCanvas(canvas, vin, { width: 220, margin: 2 });
+      }
+    }, 50);
+  }
+
+  closeHandoverQr(): void { this.qrVin = null; }
 
   serviceDueLabel(days: number | null, count: number): string {
     if (days === null) return count === 0 ? 'No service yet' : '—';
