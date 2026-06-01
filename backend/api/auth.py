@@ -12,18 +12,24 @@ _ACCESS_MAX_AGE  = 15 * 60        # 15 min in seconds
 _REFRESH_MAX_AGE = 30 * 24 * 3600  # 30 days
 
 
-def _set_auth_cookies(resp, access_token: str, refresh_token: str):
-    """Attach HttpOnly auth cookies to a response. Secure flag set in non-debug mode."""
+def _set_auth_cookies(resp, access_token: str, refresh_token: str, remember: bool = True):
+    """
+    Attach HttpOnly auth cookies.
+    remember=True  → persistent cookies (survive browser restart)
+    remember=False → session cookies (cleared when browser closes, no max_age)
+    """
     secure = not current_app.debug
     resp.set_cookie(
         'access_token', access_token,
         httponly=True, secure=secure, samesite='Lax',
-        max_age=_ACCESS_MAX_AGE, path='/',
+        max_age=_ACCESS_MAX_AGE if remember else None,
+        path='/',
     )
     resp.set_cookie(
         'refresh_token', refresh_token,
         httponly=True, secure=secure, samesite='Lax',
-        max_age=_REFRESH_MAX_AGE, path='/api/auth',
+        max_age=_REFRESH_MAX_AGE if remember else None,
+        path='/api/auth',
     )
 
 
@@ -85,6 +91,7 @@ def login():
         user, access_token, refresh_token = auth_service.login_user(
             data['email'], data['password']
         )
+        remember_me = bool(data.get('remember_me', True))
         log_event('login_success', user_id=user.id, detail={'email': data['email']})
         resp = make_response(jsonify({
             'message': 'Login successful',
@@ -92,7 +99,7 @@ def login():
             'refresh_token': refresh_token,
             'user': user.to_dict()
         }), 200)
-        _set_auth_cookies(resp, access_token, refresh_token)
+        _set_auth_cookies(resp, access_token, refresh_token, remember=remember_me)
         return resp
     except ValueError as e:
         msg = str(e)

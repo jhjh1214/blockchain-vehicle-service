@@ -28,7 +28,11 @@ export class AuthService {
   }
 
   login(credentials: LoginRequest, rememberMe = true): Observable<AuthResponse> {
-    return this.http.post<AuthResponse>(`${environment.apiUrl}/auth/login`, credentials, { withCredentials: true }).pipe(
+    return this.http.post<AuthResponse>(
+      `${environment.apiUrl}/auth/login`,
+      { ...credentials, remember_me: rememberMe },
+      { withCredentials: true }
+    ).pipe(
       tap(r => this._storeSession(r, rememberMe))
     );
   }
