@@ -962,7 +962,29 @@ def reconcile_records():
             _json.dumps(meta, sort_keys=True).encode()
         ).hexdigest()
 
-        status = 'ok' if recomputed == (row.metadata_hash or '') else 'tampered'
+        db_hash = row.metadata_hash or ''
+        db_fields_match = recomputed == db_hash
+
+        # Second layer: confirm the DB hash also appears on-chain.
+        # A sophisticated attacker who has DB write access could update both
+        # the metadata fields AND metadata_hash to be consistent with each other,
+        # defeating a DB-only check. The on-chain hash is immutable and catches this.
+        chain_match = None
+        if db_fields_match and db_hash:
+            try:
+                from blockchain.adapters.service_log import service_log as _sl
+                pending   = _sl.get_pending_services(row.vin)
+                finalized = _sl.get_finalized_services(row.vin)
+                on_chain_hashes = {r.get('metadata_hash') for r in pending + finalized}
+                chain_match = db_hash in on_chain_hashes
+            except Exception:
+                chain_match = None  # blockchain unreachable — skip on-chain check
+
+        if db_fields_match and chain_match is not False:
+            status = 'ok'
+        else:
+            status = 'tampered'
+
         row.integrity_status     = status
         row.integrity_checked_at = _dt.utcnow()
 
@@ -971,11 +993,13 @@ def reconcile_records():
         else:
             tampered_count += 1
             records_out.append({
-                'vin':            row.vin,
-                'metadata_hash':  row.metadata_hash,
-                'service_date':   row.service_date.isoformat() if row.service_date else None,
-                'service_type':   row.service_type,
-                'integrity':      status,
+                'vin':              row.vin,
+                'metadata_hash':    db_hash,
+                'service_date':     row.service_date.isoformat() if row.service_date else None,
+                'service_type':     row.service_type,
+                'integrity':        status,
+                'db_fields_match':  db_fields_match,
+                'chain_match':      chain_match,
             })
 
     _db.session.commit()

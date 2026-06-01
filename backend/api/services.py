@@ -55,6 +55,14 @@ def submit_service():
         return jsonify({'error': 'ecu_modules cannot contain more than 20 entries'}), 400
     ecu_modules = [str(m)[:100] for m in ecu_modules]
 
+    # Validate photos — must be a list of strings (uploaded filenames), max 20
+    photos_raw = data.get('photos', [])
+    if not isinstance(photos_raw, list):
+        return jsonify({'error': 'photos must be a list'}), 400
+    if len(photos_raw) > 20:
+        return jsonify({'error': 'photos cannot contain more than 20 entries'}), 400
+    photos_clean = [str(p)[:255] for p in photos_raw if isinstance(p, str) and p.strip()]
+
     service_type = sanitize(data.get('service_type', ''), 100)
     service_date = sanitize(data.get('service_date', ''), 35)
     if not service_type or not service_date:
@@ -117,7 +125,7 @@ def submit_service():
             technician_name=sanitize(data.get('technician_name', ''), 100),
             service_notes=sanitize(data.get('service_notes', ''), 1000),
             ecu_modules=ecu_modules,
-            photos=data.get('photos', []),
+            photos=photos_clean,
             from_address=request.user['blockchain_address'],
             sc_brand=sc_brand,
         )
