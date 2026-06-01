@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'services_provider.dart';
+import '../../core/api/api_client.dart';
 import '../../core/models/service_record.dart';
 import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/error_view.dart';
@@ -390,7 +391,13 @@ class _DetailsPanel extends StatelessWidget {
           if (record.vin.isNotEmpty)
             _row('VIN', record.vin),
           if (record.serviceCenterName != null)
-            _row('Service centre', record.serviceCenterName!),
+            _row(
+              'Service centre',
+              record.isIndependentSC
+                  ? '${record.serviceCenterName!} (Independent Workshop)'
+                  : record.serviceCenterName!,
+              valueColor: record.isIndependentSC ? Colors.orange.shade700 : null,
+            ),
           if (record.technicianName != null)
             _row('Technician', record.technicianName!),
           if (record.partsReplaced != null && record.partsReplaced!.isNotEmpty)
@@ -400,6 +407,18 @@ class _DetailsPanel extends StatelessWidget {
           if (record.disputeReason != null)
             _row('Dispute reason', record.disputeReason!,
                 valueColor: Colors.red.shade700),
+          if (record.isIndependentSC && record.serviceCenterId != null) ...[
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: () => _reportWorkshop(context, record),
+              icon: const Icon(Icons.flag_outlined, size: 16, color: Colors.red),
+              label: const Text('Report this Workshop', style: TextStyle(color: Colors.red)),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Colors.red),
+                minimumSize: const Size(double.infinity, 36),
+              ),
+            ),
+          ],
           if (record.isDisputed) ...[
             const SizedBox(height: 8),
             OutlinedButton.icon(
@@ -431,6 +450,64 @@ class _DetailsPanel extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _reportWorkshop(BuildContext context, ServiceRecord record) async {
+    final reasons = ['spam', 'fake_service', 'harassment', 'other'];
+    String selectedCategory = 'spam';
+    final controller = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Report Independent Workshop'),
+        content: StatefulBuilder(
+          builder: (ctx2, setState) => Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Category:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+              const SizedBox(height: 6),
+              DropdownButton<String>(
+                value: selectedCategory,
+                isExpanded: true,
+                items: reasons.map((r) => DropdownMenuItem(value: r, child: Text(r.replaceAll('_', ' ')))).toList(),
+                onChanged: (v) => setState(() => selectedCategory = v!),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: controller,
+                maxLines: 3,
+                decoration: const InputDecoration(hintText: 'Describe the issue…', border: OutlineInputBorder()),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Submit Report')),
+        ],
+      ),
+    );
+    if (confirmed != true || controller.text.trim().isEmpty || !context.mounted) return;
+    try {
+      await ApiClient.instance.dio.post('/service/report', data: {
+        'reported_user_id': record.serviceCenterId,
+        'reason': controller.text.trim(),
+        'category': selectedCategory,
+        'vin': record.vin,
+      });
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Report submitted. Our team will review it.'), backgroundColor: Colors.green),
+        );
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to submit report'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   Widget _row(String label, String value, {Color? valueColor}) => Padding(

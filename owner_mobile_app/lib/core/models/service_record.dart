@@ -13,6 +13,8 @@ class ServiceRecord {
   final String? serviceCenterName;
   final String? metadataHash;
   final List<String> photos;
+  final int? serviceCenterId;
+  final String? scBrand;
 
   const ServiceRecord({
     required this.vin,
@@ -29,6 +31,8 @@ class ServiceRecord {
     this.serviceCenterName,
     this.metadataHash,
     this.photos = const [],
+    this.serviceCenterId,
+    this.scBrand,
   });
 
   factory ServiceRecord.fromJson(Map<String, dynamic> j) => ServiceRecord(
@@ -46,9 +50,12 @@ class ServiceRecord {
         serviceCenterName: j['service_center_name'],
         metadataHash: j['metadata_hash'],
         photos: (j['photos'] as List?)?.map((e) => e.toString()).toList() ?? [],
+        serviceCenterId: j['service_center_id'] as int?,
+        scBrand: j['sc_brand'],
       );
 
   bool get isPending => status == 'pending';
   bool get isVerified => status == 'verified';
   bool get isDisputed => status == 'disputed';
+  bool get isIndependentSC => scBrand == null;
 }
