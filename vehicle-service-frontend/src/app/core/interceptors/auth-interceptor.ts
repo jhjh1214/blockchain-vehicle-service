@@ -1,4 +1,4 @@
-import { HttpInterceptorFn, HttpErrorResponse, HttpRequest, HttpHandlerFn } from '@angular/common/http';
+import { HttpInterceptorFn, HttpErrorResponse } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { catchError, switchMap, throwError } from 'rxjs';
@@ -8,18 +8,19 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const auth   = inject(AuthService);
   const router = inject(Router);
 
-  const authedReq = addToken(req, auth.getToken());
+  // Always send credentials (HttpOnly cookies) and JSON content type hint
+  const authedReq = req.clone({ withCredentials: true });
 
   return next(authedReq).pipe(
     catchError((err: HttpErrorResponse) => {
-      // On 401 from any endpoint except the auth endpoints themselves, try refresh
       const isAuthRoute = req.url.includes('/auth/login') ||
                           req.url.includes('/auth/register') ||
                           req.url.includes('/auth/refresh');
 
       if (err.status === 401 && !isAuthRoute) {
+        // Refresh — cookie is sent automatically; no need to pass token in body
         return auth.refreshTokens().pipe(
-          switchMap(r => next(addToken(req, r.access_token))),
+          switchMap(() => next(authedReq)),
           catchError(() => {
             auth.logout();
             router.navigate(['/login']);
@@ -32,8 +33,3 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
     })
   );
 };
-
-function addToken(req: HttpRequest<unknown>, token: string | null): HttpRequest<unknown> {
-  if (!token) return req;
-  return req.clone({ setHeaders: { Authorization: `Bearer ${token}` } });
-}

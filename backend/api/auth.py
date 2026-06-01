@@ -1,5 +1,5 @@
 from datetime import datetime
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, make_response, current_app
 from api.middleware import token_required
 from core import auth_service
 from core.audit import log_event
@@ -7,6 +7,29 @@ from db.repositories import users as user_repo
 from extensions import limiter
 
 auth_bp = Blueprint('auth', __name__)
+
+_ACCESS_MAX_AGE  = 15 * 60        # 15 min in seconds
+_REFRESH_MAX_AGE = 30 * 24 * 3600  # 30 days
+
+
+def _set_auth_cookies(resp, access_token: str, refresh_token: str):
+    """Attach HttpOnly auth cookies to a response. Secure flag set in non-debug mode."""
+    secure = not current_app.debug
+    resp.set_cookie(
+        'access_token', access_token,
+        httponly=True, secure=secure, samesite='Lax',
+        max_age=_ACCESS_MAX_AGE, path='/',
+    )
+    resp.set_cookie(
+        'refresh_token', refresh_token,
+        httponly=True, secure=secure, samesite='Lax',
+        max_age=_REFRESH_MAX_AGE, path='/api/auth',
+    )
+
+
+def _clear_auth_cookies(resp):
+    resp.set_cookie('access_token',  '', max_age=0, path='/')
+    resp.set_cookie('refresh_token', '', max_age=0, path='/api/auth')
 
 
 @auth_bp.route('/register', methods=['POST'])
@@ -40,12 +63,14 @@ def register():
                 args=(_app, user.id, user.email, user.name or user.email),
                 daemon=True,
             ).start()
-        return jsonify({
+        resp = make_response(jsonify({
             'message': 'User registered successfully',
             'access_token': access_token,
             'refresh_token': refresh_token,
             'user': user.to_dict()
-        }), 200
+        }), 200)
+        _set_auth_cookies(resp, access_token, refresh_token)
+        return resp
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
 
@@ -61,12 +86,14 @@ def login():
             data['email'], data['password']
         )
         log_event('login_success', user_id=user.id, detail={'email': data['email']})
-        return jsonify({
+        resp = make_response(jsonify({
             'message': 'Login successful',
             'access_token': access_token,
             'refresh_token': refresh_token,
             'user': user.to_dict()
-        }), 200
+        }), 200)
+        _set_auth_cookies(resp, access_token, refresh_token)
+        return resp
     except ValueError as e:
         msg = str(e)
         log_event('login_failure', detail={'email': data.get('email'), 'reason': msg})
@@ -77,28 +104,35 @@ def login():
 @auth_bp.route('/refresh', methods=['POST'])
 @limiter.limit('30 per minute')
 def refresh():
-    data = request.get_json() or {}
-    raw = data.get('refresh_token')
+    # Cookie first (web), then JSON body (Flutter/mobile)
+    data = request.get_json(silent=True) or {}
+    raw = request.cookies.get('refresh_token') or data.get('refresh_token')
     if not raw:
         return jsonify({'error': 'refresh_token required'}), 400
     try:
         user, access_token, new_refresh = auth_service.refresh_access_token(raw)
-        return jsonify({
+        resp = make_response(jsonify({
             'access_token': access_token,
             'refresh_token': new_refresh,
             'user': user.to_dict()
-        }), 200
+        }), 200)
+        _set_auth_cookies(resp, access_token, new_refresh)
+        return resp
     except ValueError as e:
-        return jsonify({'error': str(e)}), 401
+        resp = make_response(jsonify({'error': str(e)}), 401)
+        _clear_auth_cookies(resp)
+        return resp
 
 
 @auth_bp.route('/logout', methods=['POST'])
 def logout():
-    data = request.get_json() or {}
-    raw = data.get('refresh_token')
+    data = request.get_json(silent=True) or {}
+    raw = request.cookies.get('refresh_token') or data.get('refresh_token')
     if raw:
         auth_service.logout_user(raw)
-    return jsonify({'message': 'Logged out'}), 200
+    resp = make_response(jsonify({'message': 'Logged out'}), 200)
+    _clear_auth_cookies(resp)
+    return resp
 
 
 @auth_bp.route('/logout-all', methods=['POST'])

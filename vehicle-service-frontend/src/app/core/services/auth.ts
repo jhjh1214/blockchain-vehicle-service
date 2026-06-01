@@ -7,13 +7,16 @@ import { User, LoginRequest, AuthResponse, RegisterRequest } from '../models/use
 import { jwtDecode } from 'jwt-decode';
 import { ThemeService } from './theme.service';
 
+const USER_KEY = 'currentUser';
+
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private currentUserSubject: BehaviorSubject<User | null>;
   currentUser: Observable<User | null>;
 
   constructor(private http: HttpClient, private theme: ThemeService) {
-    const stored = sessionStorage.getItem('currentUser') || localStorage.getItem('currentUser');
+    // Restore user profile from storage for UI state (role, name, email — not a token)
+    const stored = sessionStorage.getItem(USER_KEY) || localStorage.getItem(USER_KEY);
     this.currentUserSubject = new BehaviorSubject<User | null>(
       stored ? JSON.parse(stored) : null
     );
@@ -25,50 +28,52 @@ export class AuthService {
   }
 
   login(credentials: LoginRequest, rememberMe = true): Observable<AuthResponse> {
-    return this.http.post<AuthResponse>(`${environment.apiUrl}/auth/login`, credentials).pipe(
+    return this.http.post<AuthResponse>(`${environment.apiUrl}/auth/login`, credentials, { withCredentials: true }).pipe(
       tap(r => this._storeSession(r, rememberMe))
     );
   }
 
   register(data: RegisterRequest): Observable<AuthResponse> {
-    return this.http.post<AuthResponse>(`${environment.apiUrl}/auth/register`, data).pipe(
+    return this.http.post<AuthResponse>(`${environment.apiUrl}/auth/register`, data, { withCredentials: true }).pipe(
       tap(r => this._storeSession(r, true))
     );
   }
 
   refreshTokens(): Observable<AuthResponse> {
-    const refreshToken = sessionStorage.getItem('refresh_token') || localStorage.getItem('refresh_token');
-    const remember = !!localStorage.getItem('refresh_token');
-    return this.http.post<AuthResponse>(`${environment.apiUrl}/auth/refresh`, { refresh_token: refreshToken }).pipe(
+    // Cookie is sent automatically — no body needed
+    const remember = !!localStorage.getItem(USER_KEY);
+    return this.http.post<AuthResponse>(`${environment.apiUrl}/auth/refresh`, {}, { withCredentials: true }).pipe(
       tap(r => this._storeSession(r, remember))
     );
   }
 
   logout(): void {
-    const refreshToken = sessionStorage.getItem('refresh_token') || localStorage.getItem('refresh_token');
-    if (refreshToken) {
-      this.http.post(`${environment.apiUrl}/auth/logout`, { refresh_token: refreshToken }).subscribe();
-    }
-    ['access_token', 'refresh_token', 'currentUser'].forEach(k => {
+    // Backend clears cookies; we clear local user state
+    this.http.post(`${environment.apiUrl}/auth/logout`, {}, { withCredentials: true }).subscribe();
+    [USER_KEY].forEach(k => {
+      localStorage.removeItem(k);
+      sessionStorage.removeItem(k);
+    });
+    // Also clear any legacy token keys from old storage format
+    ['access_token', 'refresh_token'].forEach(k => {
       localStorage.removeItem(k);
       sessionStorage.removeItem(k);
     });
     this.currentUserSubject.next(null);
   }
 
+  /**
+   * Returns the access token from the JWT cookie indirectly — only available
+   * via the response body on login/refresh. Returns null for web (cookie-based);
+   * Flutter uses its own token storage and never calls this.
+   */
   getToken(): string | null {
-    return sessionStorage.getItem('access_token') || localStorage.getItem('access_token');
+    return null; // Web uses HttpOnly cookies — no JS access to token
   }
 
   isAuthenticated(): boolean {
-    const token = this.getToken();
-    if (!token) return false;
-    try {
-      const decoded: any = jwtDecode(token);
-      return decoded.exp > Date.now() / 1000;
-    } catch {
-      return false;
-    }
+    // Auth is proven by the HttpOnly cookie; UI reflects login state via stored user profile
+    return this.currentUserSubject.value !== null;
   }
 
   hasRole(role: string): boolean {
@@ -76,11 +81,11 @@ export class AuthService {
   }
 
   updateProfile(data: { name?: string; phone?: string; city?: string; state?: string; theme_preference?: string }): Observable<{ user: User; message: string }> {
-    const remember = !!localStorage.getItem('access_token');
-    return this.http.put<{ user: User; message: string }>(`${environment.apiUrl}/auth/profile`, data).pipe(
+    const remember = !!localStorage.getItem(USER_KEY);
+    return this.http.put<{ user: User; message: string }>(`${environment.apiUrl}/auth/profile`, data, { withCredentials: true }).pipe(
       tap(r => {
         const store = remember ? localStorage : sessionStorage;
-        store.setItem('currentUser', JSON.stringify(r.user));
+        store.setItem(USER_KEY, JSON.stringify(r.user));
         this.currentUserSubject.next(r.user);
       })
     );
@@ -90,27 +95,26 @@ export class AuthService {
     return this.http.post<{ message: string }>(`${environment.apiUrl}/auth/change-password`, {
       current_password: currentPassword,
       new_password: newPassword,
-    });
+    }, { withCredentials: true });
   }
 
   resendVerification(): Observable<{ message: string }> {
-    return this.http.post<{ message: string }>(`${environment.apiUrl}/auth/resend-verification`, {});
+    return this.http.post<{ message: string }>(`${environment.apiUrl}/auth/resend-verification`, {}, { withCredentials: true });
   }
 
   deleteAccount(): Observable<{ message: string }> {
-    return this.http.delete<{ message: string }>(`${environment.apiUrl}/auth/account`);
+    return this.http.delete<{ message: string }>(`${environment.apiUrl}/auth/account`, { withCredentials: true });
   }
 
   private _storeSession(r: AuthResponse, remember: boolean): void {
-    // Clear both storages to avoid stale tokens in the other one
-    ['access_token', 'refresh_token', 'currentUser'].forEach(k => {
+    // Only store the user profile (role, name, email) — NOT tokens
+    // Tokens live in HttpOnly cookies set by the backend
+    [USER_KEY].forEach(k => {
       localStorage.removeItem(k);
       sessionStorage.removeItem(k);
     });
     const store = remember ? localStorage : sessionStorage;
-    store.setItem('access_token', r.access_token);
-    store.setItem('refresh_token', r.refresh_token);
-    store.setItem('currentUser', JSON.stringify(r.user));
+    store.setItem(USER_KEY, JSON.stringify(r.user));
     this.currentUserSubject.next(r.user);
     if (r.user?.theme_preference) {
       this.theme.applyUserPreference(r.user.theme_preference);

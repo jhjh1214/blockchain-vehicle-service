@@ -4,16 +4,21 @@ from flask import request, jsonify
 from config import Config
 
 
+def _extract_token() -> str | None:
+    """Cookie first (web, HttpOnly), then Authorization header (Flutter/mobile)."""
+    token = request.cookies.get('access_token')
+    if not token:
+        auth_header = request.headers.get('Authorization', '')
+        if auth_header.startswith('Bearer '):
+            token = auth_header[7:]
+    return token or None
+
+
 def token_required(f):
     """Validates JWT and populates request.user. Use alone when no role check is needed."""
     @wraps(f)
     def decorated(*args, **kwargs):
-        token = None
-        if 'Authorization' in request.headers:
-            try:
-                token = request.headers['Authorization'].split(' ')[1]
-            except IndexError:
-                return jsonify({'error': 'Invalid authorization header'}), 401
+        token = _extract_token()
         if not token:
             return jsonify({'error': 'Token is missing'}), 401
         try:

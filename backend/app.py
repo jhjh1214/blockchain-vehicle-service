@@ -78,6 +78,20 @@ def create_app():
                         "ALTER TABLE users ADD COLUMN theme_preference VARCHAR(10) NOT NULL DEFAULT 'light'"
                     ))
                     conn.commit()
+
+            if 'ssm_number' not in user_cols:
+                with db.engine.connect() as conn:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN ssm_number VARCHAR(50)"))
+                    conn.commit()
+
+            if 'sc_brand' not in svc_cols:
+                with db.engine.connect() as conn:
+                    conn.execute(text("ALTER TABLE service_metadata ADD COLUMN sc_brand VARCHAR(100)"))
+                    conn.commit()
+
+            # ensure new tables created by SQLAlchemy models exist
+            db.create_all()
+
         except Exception:
             pass
 

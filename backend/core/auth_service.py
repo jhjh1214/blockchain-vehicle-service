@@ -28,7 +28,7 @@ COMMON_PASSWORDS = {
     'Qwerty123!', 'Letmein1!', 'Monkey123!', 'Dragon123!', 'Master1!',
 }
 
-ACCESS_TOKEN_MINUTES = 60       # 1 hour
+ACCESS_TOKEN_MINUTES = 15       # short-lived — refresh handles long sessions
 REFRESH_TOKEN_DAYS   = 30
 
 
