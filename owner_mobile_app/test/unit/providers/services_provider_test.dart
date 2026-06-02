@@ -10,9 +10,14 @@ void main() {
   late MockDio mockDio;
   late ServicesProvider provider;
 
+  // Service records now identified by metadata_hash (not record_index)
+  const testHash = '0xaabbccddeeff00112233445566778899aabbccddeeff00112233445566778899';
+  const testVin = '1HGBH41JXMN109186';
+
   final pendingServiceJson = {
-    'vin': '1HGBH41JXMN109186',
+    'vin': testVin,
     'record_index': 0,
+    'metadata_hash': testHash,
     'service_type': 'Oil Change',
     'service_date': '2024-01-15',
     'status': 'pending',
@@ -25,6 +30,7 @@ void main() {
     ...pendingServiceJson,
     'status': 'verified',
     'record_index': 1,
+    'metadata_hash': '0xbbccddeeffffffffffffffffffffffffffffffffffffffffffffffffffff',
   };
 
   setUp(() {
@@ -91,64 +97,98 @@ void main() {
   });
 
   group('verifyService', () {
-    test('returns null on success and reloads pending', () async {
-      when(mockDio.post(ApiEndpoints.ownerVerifyService, data: anyNamed('data')))
-          .thenAnswer((_) async => mockResponse({'message': 'Verified'}));
+    test('succeeds and reloads pending', () async {
+      when(mockDio.post(ApiEndpoints.ownerVerifyService,
+              data: anyNamed('data')))
+          .thenAnswer((_) async => mockResponse({
+                'message': 'Verified',
+                'transaction': {'tx_hash': '0xdeadbeef'}
+              }));
       when(mockDio.get(ApiEndpoints.ownerPendingServices))
           .thenAnswer((_) async => mockResponse({'pending_services': []}));
 
-      final error = await provider.verifyService('1HGBH41JXMN109186', 0);
+      final result = await provider.verifyService(testVin, testHash);
 
-      expect(error, isNull);
+      expect(result.isSuccess, isTrue);
+      expect(result.error, isNull);
       expect(provider.pending, isEmpty);
     });
 
-    test('returns error message on failure', () async {
-      when(mockDio.post(ApiEndpoints.ownerVerifyService, data: anyNamed('data')))
-          .thenThrow(mockDioError({'error': 'Record not found'}, statusCode: 404));
-
-      final error = await provider.verifyService('1HGBH41JXMN109186', 99);
-
-      expect(error, 'Record not found');
-    });
-  });
-
-  group('disputeService', () {
-    test('returns null on success and reloads pending', () async {
-      when(mockDio.post(ApiEndpoints.ownerDisputeService, data: anyNamed('data')))
-          .thenAnswer((_) async => mockResponse({'message': 'Disputed'}));
-      when(mockDio.get(ApiEndpoints.ownerPendingServices))
-          .thenAnswer((_) async => mockResponse({'pending_services': []}));
-
-      final error = await provider.disputeService(
-          '1HGBH41JXMN109186', 0, 'Service was not performed');
-
-      expect(error, isNull);
-    });
-
-    test('passes reason in request body', () async {
+    test('sends metadata_hash in request body', () async {
       final capturedData = <String, dynamic>{};
-      when(mockDio.post(ApiEndpoints.ownerDisputeService, data: anyNamed('data')))
+      when(mockDio.post(ApiEndpoints.ownerVerifyService,
+              data: anyNamed('data')))
           .thenAnswer((inv) async {
-        capturedData.addAll(inv.namedArguments[#data] as Map<String, dynamic>);
-        return mockResponse({'message': 'Disputed'});
+        capturedData
+            .addAll(inv.namedArguments[#data] as Map<String, dynamic>);
+        return mockResponse({'message': 'Verified', 'transaction': {}});
       });
       when(mockDio.get(ApiEndpoints.ownerPendingServices))
           .thenAnswer((_) async => mockResponse({'pending_services': []}));
 
-      await provider.disputeService('VIN123', 1, 'Incorrect mileage logged');
+      await provider.verifyService(testVin, testHash);
 
-      expect(capturedData['reason'], 'Incorrect mileage logged');
-      expect(capturedData['vin'], 'VIN123');
-      expect(capturedData['record_index'], 1);
+      expect(capturedData['vin'], testVin);
+      expect(capturedData['metadata_hash'], testHash);
+      expect(capturedData.containsKey('record_index'), isFalse);
     });
 
-    test('returns error message on failure', () async {
-      when(mockDio.post(ApiEndpoints.ownerDisputeService, data: anyNamed('data')))
+    test('returns error on failure', () async {
+      when(mockDio.post(ApiEndpoints.ownerVerifyService,
+              data: anyNamed('data')))
+          .thenThrow(
+              mockDioError({'error': 'Record not found'}, statusCode: 404));
+
+      final result = await provider.verifyService(testVin, testHash);
+
+      expect(result.isSuccess, isFalse);
+      expect(result.error, 'Record not found');
+    });
+  });
+
+  group('disputeService', () {
+    test('succeeds and reloads pending', () async {
+      when(mockDio.post(ApiEndpoints.ownerDisputeService,
+              data: anyNamed('data')))
+          .thenAnswer(
+              (_) async => mockResponse({'message': 'Disputed', 'transaction': {}}));
+      when(mockDio.get(ApiEndpoints.ownerPendingServices))
+          .thenAnswer((_) async => mockResponse({'pending_services': []}));
+
+      final result = await provider.disputeService(
+          testVin, testHash, 'Service was not performed');
+
+      expect(result.isSuccess, isTrue);
+    });
+
+    test('sends metadata_hash and reason in request body', () async {
+      final capturedData = <String, dynamic>{};
+      when(mockDio.post(ApiEndpoints.ownerDisputeService,
+              data: anyNamed('data')))
+          .thenAnswer((inv) async {
+        capturedData
+            .addAll(inv.namedArguments[#data] as Map<String, dynamic>);
+        return mockResponse({'message': 'Disputed', 'transaction': {}});
+      });
+      when(mockDio.get(ApiEndpoints.ownerPendingServices))
+          .thenAnswer((_) async => mockResponse({'pending_services': []}));
+
+      await provider.disputeService(testVin, testHash, 'Incorrect mileage logged');
+
+      expect(capturedData['reason'], 'Incorrect mileage logged');
+      expect(capturedData['vin'], testVin);
+      expect(capturedData['metadata_hash'], testHash);
+      expect(capturedData.containsKey('record_index'), isFalse);
+    });
+
+    test('returns error on failure', () async {
+      when(mockDio.post(ApiEndpoints.ownerDisputeService,
+              data: anyNamed('data')))
           .thenThrow(mockDioError({'error': 'Cannot dispute verified record'}));
 
-      final error = await provider.disputeService('VIN', 0, 'reason');
-      expect(error, 'Cannot dispute verified record');
+      final result = await provider.disputeService(testVin, testHash, 'reason');
+      expect(result.isSuccess, isFalse);
+      expect(result.error, 'Cannot dispute verified record');
     });
   });
 }

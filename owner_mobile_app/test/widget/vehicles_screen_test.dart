@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:owner_mobile_app/core/models/service_record.dart';
 import 'package:owner_mobile_app/core/models/vehicle.dart';
 import 'package:owner_mobile_app/features/services/services_provider.dart';
+import 'package:owner_mobile_app/features/vehicles/recalls_provider.dart';
 import 'package:owner_mobile_app/features/vehicles/vehicles_provider.dart';
 import 'package:owner_mobile_app/features/vehicles/vehicles_screen.dart';
 import 'package:owner_mobile_app/shared/theme/app_theme.dart';
@@ -42,6 +43,36 @@ class MockVehiclesProvider extends Mock implements VehiclesProvider {
       ) as Future<void>;
 }
 
+class MockRecallsProvider extends Mock implements RecallsProvider {
+  @override
+  List<dynamic> get recalls => super.noSuchMethod(
+        Invocation.getter(#recalls),
+        returnValue: <dynamic>[],
+        returnValueForMissingStub: <dynamic>[],
+      ) as List<dynamic>;
+
+  @override
+  bool get loading => super.noSuchMethod(
+        Invocation.getter(#loading),
+        returnValue: false,
+        returnValueForMissingStub: false,
+      ) as bool;
+
+  @override
+  int get unservicedCount => super.noSuchMethod(
+        Invocation.getter(#unservicedCount),
+        returnValue: 0,
+        returnValueForMissingStub: 0,
+      ) as int;
+
+  @override
+  Future<void> load() => super.noSuchMethod(
+        Invocation.method(#load, []),
+        returnValue: Future<void>.value(),
+        returnValueForMissingStub: Future<void>.value(),
+      ) as Future<void>;
+}
+
 class MockServicesProvider extends Mock implements ServicesProvider {
   @override
   List<ServiceRecord> get pending => super.noSuchMethod(
@@ -66,12 +97,15 @@ class MockServicesProvider extends Mock implements ServicesProvider {
 }
 
 Widget _buildTestApp(VehiclesProvider vehiclesProvider,
-    {ServicesProvider? servicesProvider}) =>
+    {ServicesProvider? servicesProvider,
+    RecallsProvider? recallsProvider}) =>
     MultiProvider(
       providers: [
         ChangeNotifierProvider<VehiclesProvider>.value(value: vehiclesProvider),
         ChangeNotifierProvider<ServicesProvider>.value(
             value: servicesProvider ?? MockServicesProvider()),
+        ChangeNotifierProvider<RecallsProvider>.value(
+            value: recallsProvider ?? MockRecallsProvider()),
       ],
       child: MaterialApp.router(
         theme: AppTheme.light,
