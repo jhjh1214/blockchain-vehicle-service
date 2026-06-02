@@ -5,7 +5,7 @@ import { switchMap, catchError, startWith } from 'rxjs/operators';
 import { of } from 'rxjs';
 import { VehicleService } from './vehicle';
 import { ServiceService } from './service';
-import { environment } from '../../../../environments/environment';
+import { environment } from '../../../environments/environment';
 
 const POLL_MS = 30_000;
 

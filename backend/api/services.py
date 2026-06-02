@@ -6,6 +6,7 @@ from api.utils import sanitize, validate_vin, validate_mileage, paginate
 from core import service_log_service
 from core.audit import log_event
 from config import Config
+from extensions import limiter
 
 logger = logging.getLogger(__name__)
 service_bp = Blueprint('service', __name__)
