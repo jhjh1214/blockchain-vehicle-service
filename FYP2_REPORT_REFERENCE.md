@@ -14,17 +14,22 @@ and give manufacturers transparent oversight of their service centre network.
 
 **Stack:**
 - Backend: Python / Flask (Blueprint architecture), PostgreSQL (SQLAlchemy ORM), deployed on Railway
-- Blockchain: Hardhat private Ethereum node, Solidity smart contracts, web3.py
+- Blockchain node: **Ganache** (Truffle Ganache 7.x) — the actual running EVM that processes transactions; hosted on Railway in production, runs locally via Docker for development
+- Smart contract toolchain: **Hardhat** — used only for compilation (`npx hardhat compile`), testing (`npx hardhat test`), and deployment scripts (`npx hardhat run scripts/deploy.js --network ganache`). Hardhat is NOT the node; Ganache is the node. The `hardhat.config.js` defines `ganache` and `railway` networks pointing to Ganache instances.
+- Blockchain client (Python): web3.py connecting to Ganache via `GANACHE_URL` env var (JSON-RPC)
+- Solidity: OpenZeppelin AccessControl, compiled with Hardhat, deployed to Ganache
 - Web frontend: Angular (standalone components, SSR-disabled, HttpOnly cookie auth)
 - Mobile app: Flutter (GoRouter, Provider, FCM, flutter_secure_storage)
 - Email: Resend API
 - Push: Firebase Cloud Messaging (FCM)
 - PDF export: ReportLab
 
+**IMPORTANT for report writing:** Always say "Ganache" when referring to the blockchain node/network. "Hardhat" refers only to the development toolchain. The Flask backend config variable is called `GANACHE_URL`. Do not say "Hardhat node" or "Hardhat Network".
+
 **Three smart contracts:**
 1. `VehicleRegistry` — registers vehicles, sets owners, stores warranty expiry as Unix timestamp
 2. `ServiceLog` — records service metadata hashes, handles pending/verified/disputed state machine
-3. `WarrantyTracker` — handles warranty claim submission, approval, and denial on-chain
+3. `WarrantyTracker` — handles warranty claim submission, approval, denial, and warranty voiding on-chain
 
 **Pattern:** hash-on-chain, metadata-off-chain. SHA-256 of sorted JSON metadata is stored on-chain;
 full metadata is in PostgreSQL. This is the industry-standard hybrid approach (cost vs. verifiability trade-off).
@@ -423,9 +428,9 @@ ETH balance fetch in SC detail view has a 2-second timeout in a daemon thread �
 ## 10. Deployment
 
 **Current:** Railway (PaaS)
-- Backend: Python Flask app
+- Backend: Python Flask app (Gunicorn)
 - Database: PostgreSQL on Railway (managed)
-- Blockchain node: private Hardhat node hosted on Railway
+- Blockchain node: **Ganache** hosted as a Railway service (not Hardhat Network — Ganache is the EVM; Hardhat is only the toolchain used to compile and deploy contracts)
 - Frontend: Angular SPA (separate Railway service or any static host / CDN)
 
 **Environment variables required:**
@@ -469,9 +474,9 @@ column additions without a dedicated migration tool.
 - Add DB indexes on ServiceMetadata.vin, ServiceMetadata.service_center_address, VehicleVINMapping.registered_by
 
 **Blockchain scaling:**
-- Move from single Hardhat node to multi-node consortium chain (Hyperledger Besu IBFT 2.0 or Polygon Edge)
+- Move from single Ganache node to multi-node consortium chain (Hyperledger Besu IBFT 2.0 or Polygon Edge)
 - Minimum 4 nodes for Byzantine fault tolerance
-- Flask adapters call the same JSON-RPC interface — no application code changes
+- Flask adapters call the same JSON-RPC interface — no application code changes needed
 
 **Push notifications:**
 - FCM scales natively — no changes needed at current volume
@@ -551,12 +556,10 @@ Storing full JSON on Ethereum costs 20,000 gas per 32 bytes — prohibitive at s
 This is the industry standard (IPFS-anchored NFT metadata, IBM Food Trust, Walmart Food Safety).
 The integrity check re-derives hashes and detects any DB modification, demonstrating the blockchain value proposition.
 
-**Private/permissioned chain:**
-Single Hardhat node rather than public Ethereum.
-Mainnet ETH costs make it commercially unviable for a per-record use case.
-Integrity-guarantee properties are identical on a private chain.
-Production migration path: consortium chain (Hyperledger Besu IBFT 2.0 or Polygon Edge).
-This mirrors how BMW, Volkswagen, Ford operate through the MOBI consortium.
+**Private/permissioned chain (Ganache):**
+A single Ganache node rather than public Ethereum. Ganache is a deterministic EVM simulator — chain state is predictable and gas is free. Contracts are compiled and deployed using the Hardhat toolchain targeting the Ganache network.
+Mainnet ETH costs are prohibitive for per-record use (each service submission would cost real money). The integrity-guarantee properties — immutable hash anchoring, tamper detection — are identical on a private chain.
+Production migration path: consortium chain (Hyperledger Besu IBFT 2.0 or Polygon Edge) with multiple nodes and real consensus. This mirrors how BMW, Volkswagen, Ford operate through the MOBI consortium.
 
 **SSM regex-only validation:**
 SSM number format validated by regex; no call to SSM Malaysia's official API.
