@@ -477,6 +477,11 @@ a:hover {
 .stat-icon.red   { background: var(--color-danger-light);  color: var(--color-danger);  }
 .stat-icon.slate { background: #f1f5f9; color: #64748b; }
 
+.stat-card > div:not(.stat-icon) {
+  flex: 1;
+  min-width: 0;
+}
+
 .stat-label {
   font-size: 11px;
   font-weight: 700;
@@ -1986,15 +1991,19 @@ tbody tr:hover {
   border-radius: var(--radius);
   padding: 18px 20px;
   box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
 }
 
 .kpi-label {
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.06em;
+  line-height: 1.4;
   text-transform: uppercase;
   color: var(--text-muted);
   margin-bottom: 8px;
+  min-height: 2.8em;
 }
 
 .kpi-value {
