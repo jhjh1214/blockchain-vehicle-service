@@ -319,7 +319,7 @@ SC can only see disputes for records they submitted.
 
 ## 7. Smart Contracts
 
-All contracts deployed to a private Hardhat Ethereum node.
+All contracts deployed to **Ganache** (private EVM node).
 Interactions go through web3.py adapters in `backend/blockchain/adapters/`.
 
 ### Role-Based Access Control (6 roles total)
@@ -436,9 +436,13 @@ ETH balance fetch in SC detail view has a 2-second timeout in a daemon thread �
 **Environment variables required:**
 ```
 DATABASE_URL          PostgreSQL connection string
-BLOCKCHAIN_URL        Hardhat/Geth RPC URL
+GANACHE_URL           Ganache JSON-RPC endpoint (e.g. http://ganache.railway.internal:8545)
+CHAIN_ID              EVM chain ID (default 1337 for Ganache)
 DEPLOYER_ADDRESS      Ethereum address that deployed the contracts
 DEPLOYER_PRIVATE_KEY  Private key of deployer (contract admin)
+VEHICLE_REGISTRY_ADDRESS  Deployed VehicleRegistry contract address
+SERVICE_LOG_ADDRESS       Deployed ServiceLog contract address
+WARRANTY_TRACKER_ADDRESS  Deployed WarrantyTracker contract address
 SECRET_KEY            Flask session secret
 JWT_SECRET_KEY        JWT signing secret
 RESEND_API_KEY        Resend email API key
@@ -446,6 +450,7 @@ MAIL_DEFAULT_SENDER   From address for emails
 FRONTEND_URL          Frontend base URL (for password reset links)
 FIREBASE_CREDENTIALS  Firebase service account JSON (for FCM)
 ADMIN_CONTACT_EMAIL   Email address to receive auto-suspend alerts
+TRUSTED_PROXY_IPS     Comma-separated IPs to trust X-Forwarded-For from (Railway proxy)
 ```
 
 **Configurable thresholds (no code change needed):**
@@ -526,6 +531,8 @@ Demo password for all seed accounts: `Demo@1234`
 - Mileage history line chart on public verify page
 - QR code on public verify page linking back to the URL
 - Tamper badge (red, "TAMPERED") and verified checkmark (green) on service records
+- Handover QR on fleet page: for vehicles in `pending` registration status, manufacturer generates a VIN QR code to print on the delivery document; owner scans it in Flutter to claim without typing the 17-character VIN
+- Dashboard KPI row uses flex-column layout with min-height on labels so numbers always align horizontally across cards regardless of label wrap
 
 ### Mobile App (Flutter)
 - GoRouter with ShellRoute — persistent bottom nav bar
@@ -583,12 +590,12 @@ Slither 0.11.5 was run against all contracts. 9 contracts analysed (3 applicatio
 - unused-return: intentional tuple destructuring (only needed fields captured)
 - reentrancy-events: event emitted after external call, but no ETH transfer and no exploitable state — false positive for this pattern
 - timestamp: block.timestamp used for warranty expiry; miner manipulation is at most a few seconds, irrelevant for warranties measured in years
-The remaining findings are in OpenZeppelin library files and the Hardhat boilerplate Lock.sol — not application code.
+The remaining findings are in OpenZeppelin library files and the Hardhat sample Lock.sol (not deployed) — not application code.
 Report phrasing: "Static analysis was performed using Slither 0.11.5. No high or critical severity vulnerabilities were identified in the application contracts."
 
 **No longitudinal user study:**
 System tested by developer; no pilot with real mechanics over time.
-348 backend tests + 63 frontend tests; functional prototype demonstrates all workflows.
+348 backend tests + 63 Angular frontend tests + 95 Flutter mobile app tests (506 total); functional prototype demonstrates all workflows end-to-end.
 Future work: 3-month pilot with a real workshop, measuring time savings vs. paper-based processes.
 
 **FCM and email are centralised:**
@@ -598,6 +605,10 @@ PDPA implication: disclosed in Privacy Policy under Data Sharing and Disclosure.
 **ecu_modules field has no hardware integration:**
 The ecu_modules array is accepted in service submission, stored in DB, and included in the integrity hash. However, no OBD-II tool reads it automatically — a technician would have to type ECU module names manually.
 Future work: ELM327 Bluetooth adapter integration in the Flutter app for automatic ECU module reading.
+
+**No ABAC (Attribute-Based Access Control) layer:**
+The system implements RBAC (six on-chain roles + Flask role decorators). ABAC would add policy evaluation based on subject, resource, action, and environment attributes — for example, restricting the web portal login page to organisational entities only (manufacturers and service centres) while blocking public/owner access entirely at the application layer, before credentials are even checked.
+Future work: an ABAC policy engine (ABACRequest with subject/resource/action/environment attributes) with a `/api/auth/preflight` endpoint that validates an organisation access code before exposing the login form. The organisation code would be distributed to registered entities on onboarding, ensuring the portal is inaccessible to the general public even if the URL is known.
 
 ---
 
@@ -655,7 +666,8 @@ This section is for the security evaluation chapter. All findings from a systema
 - Static analysis completed: Slither 0.11.5 run on all contracts, no high/critical issues found
 - Multi-channel notifications: FCM push (mobile), email (web), persistent DB inbox, in-app badge — four distinct delivery paths
 - Graceful degradation: service history falls back to PostgreSQL if blockchain is unreachable
-- Brand-scoped access control: every query is scoped to the requesting user's brand
+- Multi-manufacturer support: each manufacturer account has its own blockchain address and receives an independent `MANUFACTURER_ADMIN_ROLE` grant on registration. Fleet, service centre network, warranty claims, recalls, and dispute resolution are all scoped to the logged-in manufacturer's brand — multiple manufacturers coexist on the same platform with complete data isolation
+- Brand-scoped access control: every DB query is filtered by the requesting user's brand or blockchain address — no cross-tenant data leakage
 - Dispute resolution is three-party: owner disputes, SC rebuts, manufacturer resolves — all on-chain with off-chain message thread
 - Independent workshop lifecycle is complete: registration, ETH funding, submission, abuse reporting, auto-suspension (blockchain role also revoked)
 - VIN barcode scan in Flutter: no manual 17-character entry; camera scans door-jamb barcode or QR code

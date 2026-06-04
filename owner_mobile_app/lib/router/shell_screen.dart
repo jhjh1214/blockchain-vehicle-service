@@ -121,17 +121,27 @@ class _ShellScreenState extends State<ShellScreen> {
           Expanded(child: widget.child),
         ],
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: index < 0 ? 0 : index,
-        onDestinationSelected: (i) => context.go(_tabs[i].path),
-        destinations: [
-          for (final t in _tabs)
-            NavigationDestination(
-              icon: _buildTabIcon(t.path, t.icon, pendingCount, unreadNotifs),
-              selectedIcon: _buildTabIcon(t.path, t.activeIcon, pendingCount, unreadNotifs),
-              label: t.label,
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          border: Border(
+            top: BorderSide(
+              color: Theme.of(context).dividerColor,
+              width: 1,
             ),
-        ],
+          ),
+        ),
+        child: NavigationBar(
+          selectedIndex: index < 0 ? 0 : index,
+          onDestinationSelected: (i) => context.go(_tabs[i].path),
+          destinations: [
+            for (final t in _tabs)
+              NavigationDestination(
+                icon: _buildTabIcon(t.path, t.icon, pendingCount, unreadNotifs),
+                selectedIcon: _buildTabIcon(t.path, t.activeIcon, pendingCount, unreadNotifs),
+                label: t.label,
+              ),
+          ],
+        ),
       ),
     );
   }

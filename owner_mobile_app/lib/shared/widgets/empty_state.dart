@@ -16,24 +16,43 @@ class EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(40),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 64, color: Colors.grey[400]),
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: colorScheme.outline),
+              ),
+              child: Icon(icon, size: 32, color: colorScheme.outline),
+            ),
             const SizedBox(height: 16),
-            Text(title,
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(color: Colors.grey[600])),
+            Text(
+              title,
+              style: textTheme.titleMedium?.copyWith(
+                color: colorScheme.onSurface.withValues(alpha: 0.75),
+                fontWeight: FontWeight.w600,
+              ),
+              textAlign: TextAlign.center,
+            ),
             if (subtitle != null) ...[
-              const SizedBox(height: 8),
-              Text(subtitle!,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey[500], fontSize: 14)),
+              const SizedBox(height: 6),
+              Text(
+                subtitle!,
+                textAlign: TextAlign.center,
+                style: textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurface.withValues(alpha: 0.5),
+                  height: 1.6,
+                ),
+              ),
             ],
             if (action != null) ...[
               const SizedBox(height: 24),

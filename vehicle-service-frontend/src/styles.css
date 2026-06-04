@@ -141,19 +141,20 @@ a:hover {
 }
 
 .sidebar-brand-icon {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   background: var(--color-primary);
-  border-radius: 8px;
+  border-radius: 9px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(3, 105, 161, 0.35);
 }
 
 .sidebar-brand-icon svg {
-  width: 17px;
-  height: 17px;
+  width: 18px;
+  height: 18px;
   color: #fff;
 }
 
@@ -199,6 +200,7 @@ a:hover {
   font-weight: 500;
   transition: background var(--transition), color var(--transition);
   cursor: pointer;
+  border-left: 2px solid transparent;
 }
 
 .sidebar-nav a:hover {
@@ -211,6 +213,7 @@ a:hover {
   background: var(--sidebar-active-bg);
   color: var(--sidebar-text-active);
   font-weight: 600;
+  border-left-color: var(--color-primary);
 }
 
 .sidebar-nav a:focus-visible {
@@ -222,7 +225,7 @@ a:hover {
   width: 16px;
   height: 16px;
   flex-shrink: 0;
-  opacity: 0.5;
+  opacity: 0.55;
   transition: opacity var(--transition);
 }
 
@@ -343,7 +346,7 @@ a:hover {
 /* ─── Page Layout ────────────────────────────────────────── */
 .page {
   padding: 36px 40px;
-  max-width: 1180px;
+  max-width: 1280px;
 }
 
 .page-header {
@@ -355,12 +358,12 @@ a:hover {
 }
 
 .page-title {
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 800;
   color: var(--text);
   margin: 0 0 4px;
   line-height: 1.2;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.04em;
 }
 
 .page-subtitle {
@@ -432,14 +435,21 @@ a:hover {
   transition: box-shadow var(--transition-md), border-color var(--transition-md),
               transform var(--transition-md);
   text-decoration: none;
+  border-top: 3px solid transparent;
 }
 
 .stat-card:hover {
   box-shadow: var(--shadow-md);
-  border-color: #93c5fd;
-  transform: translateY(-1px);
+  transform: translateY(-2px);
   text-decoration: none;
 }
+
+/* Color-coded top border accent on stat cards */
+.stat-card:has(.stat-icon.blue)  { border-top-color: var(--color-primary); }
+.stat-card:has(.stat-icon.green) { border-top-color: var(--color-success); }
+.stat-card:has(.stat-icon.amber) { border-top-color: var(--color-warning); }
+.stat-card:has(.stat-icon.red)   { border-top-color: var(--color-danger);  }
+.stat-card:has(.stat-icon.slate) { border-top-color: #94a3b8; }
 
 .stat-card:focus-visible {
   outline: 2px solid var(--color-primary);
@@ -842,10 +852,13 @@ th {
   font-weight: 700;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.08em;
   background: var(--surface-2);
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 td {
@@ -1094,6 +1107,9 @@ tbody tr:hover {
   align-items: center;
   justify-content: center;
   background: var(--bg);
+  background-image:
+    radial-gradient(circle at 20% 50%, rgba(3, 105, 161, 0.05) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(3, 105, 161, 0.04) 0%, transparent 40%);
   padding: 24px;
 }
 
@@ -1103,13 +1119,14 @@ tbody tr:hover {
   background: var(--surface);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.10), 0 0 0 1px rgba(15, 23, 42, 0.04);
   overflow: hidden;
 }
 
 .auth-card-header {
   padding: 36px 32px 24px;
   text-align: center;
+  border-top: 3px solid var(--color-primary);
 }
 
 .auth-logo {
@@ -1551,8 +1568,8 @@ tbody tr:hover {
   --sidebar-border: #1e293b;
   --sidebar-text: #94a3b8;
   --sidebar-text-active: #38bdf8;
-  --sidebar-active-bg: rgba(56, 189, 248, 0.1);
-  --sidebar-hover-bg: rgba(255, 255, 255, 0.05);
+  --sidebar-active-bg: rgba(56, 189, 248, 0.08);
+  --sidebar-hover-bg: rgba(255, 255, 255, 0.04);
 
   --bg: #090e1a;
   --surface: #0f172a;
@@ -1591,6 +1608,14 @@ tbody tr:hover {
   --shadow-lg: 0 16px 48px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.06);
 }
 
+[data-theme="dark"] .sidebar-nav a.active {
+  border-left-color: #38bdf8;
+}
+
+[data-theme="dark"] .sidebar-brand-icon {
+  box-shadow: 0 2px 8px rgba(56, 189, 248, 0.25);
+}
+
 [data-theme="dark"] .btn-logout:hover {
   background: rgba(248, 113, 113, 0.1);
 }
@@ -1620,7 +1645,7 @@ tbody tr:hover {
 }
 
 [data-theme="dark"] .stat-card:hover {
-  border-color: rgba(56, 189, 248, 0.25);
+  box-shadow: var(--shadow-md);
 }
 
 [data-theme="dark"] select.form-control {
@@ -2404,6 +2429,11 @@ tbody tr:hover {
   --shadow-lg: 0 16px 48px rgba(15,23,42,0.14), 0 0 0 1px rgba(15,23,42,0.06);
   background: #f8fafc;
   color: #0f172a;
+}
+
+/* Auth page always renders light — top-border and gradient reset */
+[data-theme="dark"] .auth-page .auth-card-header {
+  border-top-color: #0369a1;
 }
 
 /* Restore light-mode colours for elements that have hardcoded dark overrides */
