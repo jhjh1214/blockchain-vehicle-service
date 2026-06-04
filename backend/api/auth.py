@@ -19,23 +19,29 @@ def _set_auth_cookies(resp, access_token: str, refresh_token: str, remember: boo
     remember=False → session cookies (cleared when browser closes, no max_age)
     """
     secure = not current_app.debug
+    # SameSite=None required for cross-origin cookie sending (frontend/backend on
+    # different Railway URLs). Only valid with Secure=True (HTTPS), so fall back
+    # to Lax in local dev where Secure is False.
+    samesite = 'None' if secure else 'Lax'
     resp.set_cookie(
         'access_token', access_token,
-        httponly=True, secure=secure, samesite='Lax',
+        httponly=True, secure=secure, samesite=samesite,
         max_age=_ACCESS_MAX_AGE if remember else None,
         path='/',
     )
     resp.set_cookie(
         'refresh_token', refresh_token,
-        httponly=True, secure=secure, samesite='Lax',
+        httponly=True, secure=secure, samesite=samesite,
         max_age=_REFRESH_MAX_AGE if remember else None,
         path='/api/auth',
     )
 
 
 def _clear_auth_cookies(resp):
-    resp.set_cookie('access_token',  '', max_age=0, path='/')
-    resp.set_cookie('refresh_token', '', max_age=0, path='/api/auth')
+    secure = not current_app.debug
+    samesite = 'None' if secure else 'Lax'
+    resp.set_cookie('access_token',  '', max_age=0, path='/',         secure=secure, samesite=samesite, httponly=True)
+    resp.set_cookie('refresh_token', '', max_age=0, path='/api/auth', secure=secure, samesite=samesite, httponly=True)
 
 
 @auth_bp.route('/register', methods=['POST'])
