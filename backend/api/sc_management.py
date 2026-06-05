@@ -227,7 +227,7 @@ def fund_all_service_centers():
 @sc_bp.route('/eth-request', methods=['POST'])
 @role_required('SERVICE_CENTER')
 def create_eth_request():
-    sc_user_id = request.user['id']
+    sc_user_id = request.user['user_id']
     brand = request.user.get('brand', '')
     if not brand:
         return jsonify({'error': 'No brand associated with your account'}), 400
@@ -280,7 +280,7 @@ def dismiss_eth_request(req_id):
 @sc_bp.route('/authorized-licenses', methods=['GET'])
 @role_required('MANUFACTURER')
 def list_authorized_licenses():
-    mfr_id = request.user['id']
+    mfr_id = request.user['user_id']
     entries = AuthorizedSCLicense.query.filter_by(manufacturer_user_id=mfr_id).order_by(
         AuthorizedSCLicense.created_at.desc()
     ).all()
@@ -305,7 +305,7 @@ def add_authorized_license():
         return jsonify({'error': 'This SSM number is already registered'}), 409
 
     entry = AuthorizedSCLicense(
-        manufacturer_user_id=request.user['id'],
+        manufacturer_user_id=request.user['user_id'],
         ssm_number=ssm_number,
         sc_name=sc_name,
         brand=brand,
@@ -318,7 +318,7 @@ def add_authorized_license():
 @sc_bp.route('/authorized-licenses/<int:license_id>', methods=['DELETE'])
 @role_required('MANUFACTURER')
 def delete_authorized_license(license_id):
-    mfr_id = request.user['id']
+    mfr_id = request.user['user_id']
     entry = AuthorizedSCLicense.query.filter_by(id=license_id, manufacturer_user_id=mfr_id).first()
     if not entry:
         return jsonify({'error': 'License not found'}), 404

@@ -611,7 +611,7 @@ def create_void_request():
 
     req = WarrantyVoidRequest(
         vin=vin,
-        sc_user_id=request.user['id'],
+        sc_user_id=request.user['user_id'],
         reason=reason,
         mileage_submitted=mileage_submitted,
         last_authorized_mileage=last_authorized_mileage,
@@ -666,7 +666,7 @@ def list_void_requests_manufacturer():
         mapping = vehicle_repo.find_by_vin(r.vin)
         if mapping and mapping.registered_by:
             mfr = user_repo.find_by_blockchain_address(mapping.registered_by)
-            if mfr and (not mfr_brand or mfr.brand == mfr_brand) and mfr.id == request.user['id']:
+            if mfr and (not mfr_brand or mfr.brand == mfr_brand) and mfr.id == request.user['user_id']:
                 result.append(r.to_dict())
 
     return jsonify({'requests': result}), 200
@@ -799,7 +799,7 @@ def report_abuse():
     if not target:
         return jsonify({'error': 'User not found'}), 404
 
-    reporter_id = request.user['id']
+    reporter_id = request.user['user_id']
 
     # Rate-limit: one report per reporter per target per 24 hours
     cutoff = datetime.utcnow() - timedelta(hours=24)

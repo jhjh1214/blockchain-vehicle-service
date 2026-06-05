@@ -749,7 +749,7 @@ def send_recall():
     # Persist recall to DB
     recall = VehicleRecall(
         brand=brand,
-        issued_by_user_id=request.user['id'],
+        issued_by_user_id=request.user['user_id'],
         title=title,
         description=description,
         affected_models=affected_models,
@@ -852,7 +852,7 @@ def mark_recall_serviced(recall_id):
     svc = RecallVINService(
         recall_id=recall_id,
         vin=vin,
-        sc_user_id=request.user['id'],
+        sc_user_id=request.user['user_id'],
         notes=notes or None,
     )
     _db.session.add(svc)
