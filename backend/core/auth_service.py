@@ -217,9 +217,6 @@ def login_user(email: str, password: str):
 
     user_repo.reset_failed_login(user)
 
-    if not user.email_verified:
-        raise ValueError('Please verify your email address before logging in. Check your inbox for a verification link.')
-
     if user.role == 'SERVICE_CENTER' and user.status == 'suspended':
         raise ValueError('Your account has been suspended. Please contact your manufacturer.')
 

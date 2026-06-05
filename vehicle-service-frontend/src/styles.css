@@ -2396,6 +2396,13 @@ tbody tr:hover {
 .inactivity-banner { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 20px; background:#b45309; color:#fff; font-size:14px; font-weight:500; z-index:1000; }
 .inactivity-banner button { padding:5px 14px; background:#fff; color:#b45309; border:none; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap; }
 
+.verification-banner { display:flex; align-items:center; gap:10px; padding:10px 20px; background:#fffbeb; border-bottom:1px solid #fcd34d; color:#92400e; font-size:13px; font-weight:500; z-index:999; }
+.verification-banner svg { width:16px; height:16px; flex-shrink:0; color:#d97706; }
+.verification-banner span { flex:1; }
+.verification-banner .resend-btn { padding:4px 12px; background:#d97706; color:#fff; border:none; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap; transition:background 0.15s; }
+.verification-banner .resend-btn:hover:not(:disabled) { background:#b45309; }
+.verification-banner .resend-btn:disabled { opacity:0.65; cursor:default; }
+
 /* ─── Auth & legal pages always render light (industry standard) ─ */
 /* Login, register, forgot/reset password, verify email, and legal  */
 /* pages are always light regardless of the user's dark preference.  */
