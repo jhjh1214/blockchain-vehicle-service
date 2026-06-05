@@ -68,7 +68,9 @@
                 <td>{{ v.make || '—' }} {{ v.model || '' }}</td>
                 <td>{{ v.year || '—' }}</td>
                 <td>
-                  @if (v.registration_status === 'pending') {
+                  @if (v.registration_status === 'owner_deleted') {
+                    <span class="badge" style="background:#fef3c7;color:#92400e;border:1px solid #f59e0b;">Owner Deleted</span>
+                  } @else if (v.registration_status === 'pending') {
                     <span class="badge badge-pending">Pending</span>
                   } @else {
                     <span class="badge badge-valid">Active</span>

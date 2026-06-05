@@ -3,7 +3,7 @@ export interface Vehicle {
   make?: string;
   model?: string;
   year?: number;
-  registration_status?: 'active' | 'pending';
+  registration_status?: 'active' | 'pending' | 'owner_deleted';
   owner: {
     address: string;
     name: string;

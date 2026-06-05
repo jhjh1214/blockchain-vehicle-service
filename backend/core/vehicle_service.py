@@ -74,6 +74,8 @@ def claim_vehicle(vin: str, owner_address: str) -> dict:
         raise LookupError('Vehicle not found')
     if mapping.registration_status == 'active':
         raise ValueError('Vehicle already claimed by an owner')
+    if mapping.registration_status == 'owner_deleted':
+        raise ValueError('The previous owner of this vehicle deleted their account. Contact the manufacturer for assistance.')
 
     if mapping.intended_owner_email:
         claimant = user_repo.find_by_blockchain_address(owner_address)

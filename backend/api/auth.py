@@ -451,6 +451,13 @@ def delete_account():
         intended_owner_email=user.email
     ).update({'intended_owner_email': None}, synchronize_session=False)
 
+    # Mark all vehicles owned by this address as owner_deleted so SC and manufacturer
+    # can see that the ownership record has gone cold.
+    if user.blockchain_address:
+        VehicleVINMapping.query.filter_by(
+            owner_address=user.blockchain_address
+        ).update({'registration_status': 'owner_deleted'}, synchronize_session=False)
+
     # Delete the user — RefreshToken, DeviceToken, PasswordResetToken all CASCADE
     db.session.delete(user)
     db.session.commit()

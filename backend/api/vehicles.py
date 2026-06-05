@@ -548,6 +548,21 @@ def export_vehicle_pdf(vin):
         story.append(Paragraph('Blockchain-Verified Vehicle History Report', sub_style))
         story.append(HRFlowable(width='100%', thickness=1, color=colors.HexColor('#e2e8f0'), spaceAfter=16))
 
+        if mapping.registration_status == 'owner_deleted':
+            notice_style = ParagraphStyle(
+                'Notice', parent=styles['Normal'], fontSize=10,
+                textColor=colors.HexColor('#92400e'),
+                backColor=colors.HexColor('#fef3c7'),
+                borderColor=colors.HexColor('#f59e0b'),
+                borderWidth=1, borderPadding=8, spaceAfter=12,
+            )
+            story.append(Paragraph(
+                '<b>Owner Account Deleted</b> — The registered owner\'s account was permanently deleted. '
+                'All on-chain service and ownership records remain intact and are displayed below, '
+                'but the owner\'s personal data has been erased in accordance with data protection policy.',
+                notice_style
+            ))
+
         # Vehicle identity
         story.append(Paragraph('Vehicle Information', section_style))
         info_data = [
