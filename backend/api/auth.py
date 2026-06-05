@@ -451,12 +451,56 @@ def delete_account():
         intended_owner_email=user.email
     ).update({'intended_owner_email': None}, synchronize_session=False)
 
-    # Mark all vehicles owned by this address as owner_deleted so SC and manufacturer
-    # can see that the ownership record has gone cold.
-    if user.blockchain_address:
-        VehicleVINMapping.query.filter_by(
-            owner_address=user.blockchain_address
-        ).update({'registration_status': 'owner_deleted'}, synchronize_session=False)
+    role = user.role
+
+    if role == 'OWNER':
+        # Mark all vehicles owned by this address as owner_deleted so SC and manufacturer
+        # can see that the ownership record has gone cold.
+        if user.blockchain_address:
+            VehicleVINMapping.query.filter_by(
+                owner_address=user.blockchain_address
+            ).update({'registration_status': 'owner_deleted'}, synchronize_session=False)
+
+    elif role == 'SERVICE_CENTER':
+        from db.models import ServiceMetadata, WarrantyVoidRequest
+        # Auto-escalate any disputed service records so they reach the manufacturer
+        # even without the SC's involvement going forward.
+        if user.blockchain_address:
+            ServiceMetadata.query.filter_by(
+                service_center_address=user.blockchain_address,
+                disputed=True,
+                escalated=False,
+            ).update({'escalated': True, 'escalated_at': datetime.utcnow()}, synchronize_session=False)
+        # Auto-deny pending warranty void requests so they don't sit unresolved.
+        WarrantyVoidRequest.query.filter_by(
+            sc_user_id=user.id, status='pending'
+        ).update({
+            'status': 'denied',
+            'manufacturer_notes': 'Automatically denied — service centre account was deleted.',
+            'resolved_at': datetime.utcnow(),
+        }, synchronize_session=False)
+
+    elif role == 'MANUFACTURER':
+        from db.models import VehicleRecall, VehicleReclaimRequest
+        # Close all active recalls so owners aren't left waiting on a ghost manufacturer.
+        if user.blockchain_address:
+            VehicleRecall.query.filter_by(
+                issued_by_user_id=user.id, status='active'
+            ).update({'status': 'closed'}, synchronize_session=False)
+            # Reject all pending reclaim requests for vehicles this manufacturer registered.
+            pending_vins = [
+                m.vin for m in VehicleVINMapping.query.filter_by(
+                    registered_by=user.blockchain_address
+                ).all()
+            ]
+            if pending_vins:
+                VehicleReclaimRequest.query.filter(
+                    VehicleReclaimRequest.vin.in_(pending_vins),
+                    VehicleReclaimRequest.status == 'pending',
+                ).update(
+                    {'status': 'rejected', 'reviewed_at': datetime.utcnow()},
+                    synchronize_session=False,
+                )
 
     # Delete the user — RefreshToken, DeviceToken, PasswordResetToken all CASCADE
     db.session.delete(user)

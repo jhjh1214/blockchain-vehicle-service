@@ -181,6 +181,13 @@ def transfer_vehicle(vin: str, new_owner_email: str, from_address: str) -> dict:
     if mapping.owner_address.lower() != from_address.lower():
         raise ValueError('You do not own this vehicle')
 
+    from db.models import ServiceMetadata
+    open_disputes = ServiceMetadata.query.filter_by(vin=vin, disputed=True).count()
+    if open_disputes:
+        raise ValueError(
+            'This vehicle has open disputes that must be resolved before ownership can be transferred.'
+        )
+
     new_owner = user_repo.find_by_email(new_owner_email)
     if not new_owner:
         raise LookupError('New owner not found')

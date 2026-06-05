@@ -202,6 +202,11 @@ def dispute_service():
 @role_required('SERVICE_CENTER')
 def submit_dispute_response():
     """Service centre submits a rebuttal to an owner's dispute before manufacturer resolves."""
+    from db.models import User as _UserModel
+    _sc = _UserModel.query.filter_by(blockchain_address=request.user['blockchain_address']).first()
+    if _sc and _sc.status != 'active':
+        return jsonify({'error': 'Your service centre account is suspended and cannot submit rebuttals'}), 403
+
     data = request.get_json() or {}
     try:
         vin = validate_vin(data.get('vin', ''))
@@ -239,6 +244,12 @@ def submit_dispute_response():
 @role_required('SERVICE_CENTER', 'OWNER')
 def escalate_dispute():
     """Escalates a disputed record to manufacturer priority review. Both the SC and vehicle owner may escalate."""
+    if request.user.get('role') == 'SERVICE_CENTER':
+        from db.models import User as _UserModel
+        _sc = _UserModel.query.filter_by(blockchain_address=request.user['blockchain_address']).first()
+        if _sc and _sc.status != 'active':
+            return jsonify({'error': 'Your service centre account is suspended and cannot escalate disputes'}), 403
+
     data = request.get_json() or {}
     try:
         vin = validate_vin(data.get('vin', ''))

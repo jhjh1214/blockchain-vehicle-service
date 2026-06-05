@@ -197,6 +197,16 @@ def approve_reclaim_request(req_id):
         req.status = 'approved'
         req.reviewer_address = request.user['blockchain_address']
         req.reviewed_at = _dt.utcnow()
+        # Reject all other pending reclaim requests for the same VIN so they don't dangle.
+        VehicleReclaimRequest.query.filter(
+            VehicleReclaimRequest.vin == req.vin,
+            VehicleReclaimRequest.id != req.id,
+            VehicleReclaimRequest.status == 'pending',
+        ).update(
+            {'status': 'rejected', 'reviewed_at': _dt.utcnow(),
+             'reviewer_address': request.user['blockchain_address']},
+            synchronize_session=False,
+        )
         _db.session.commit()
     except Exception as e:
         _db.session.rollback()

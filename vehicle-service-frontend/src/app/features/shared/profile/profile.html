@@ -187,18 +187,44 @@
         <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">
           Permanently delete your account and all associated personal data. This action is <strong>immediate and irreversible</strong>.
         </p>
-        <div class="form-group mb-16">
+        @if (isManufacturer) {
+          <div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:#92400e;line-height:1.6;">
+            <strong>Manufacturer account consequences:</strong>
+            <ul style="margin:6px 0 0 16px;padding:0;">
+              <li>All active recalls will be <strong>closed</strong> immediately.</li>
+              <li>All pending ownership reclaim requests for your vehicles will be <strong>rejected</strong>.</li>
+              <li>Your registered vehicles remain on-chain but will have no authorized service centre validation going forward.</li>
+              <li>Service centres you authorized cannot receive new licenses from your account.</li>
+            </ul>
+          </div>
+        }
+        @if (isServiceCenter) {
+          <div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:#92400e;line-height:1.6;">
+            <strong>Service centre account consequences:</strong>
+            <ul style="margin:6px 0 0 16px;padding:0;">
+              <li>All open disputes on your submitted records will be <strong>escalated to the manufacturer</strong> automatically.</li>
+              <li>All pending warranty void requests you submitted will be <strong>automatically denied</strong>.</li>
+              <li>Your submitted on-chain service records remain permanently on the blockchain.</li>
+            </ul>
+          </div>
+        }
+        <div class="form-group mb-12">
           <label class="form-label" style="color:var(--color-danger,#ef4444);">
             Type <strong>DELETE</strong> to confirm
           </label>
           <input type="text" class="form-control" [(ngModel)]="deleteConfirmText"
                  placeholder="DELETE" style="border-color:var(--color-danger,#ef4444);" />
         </div>
+        <div class="form-group mb-16">
+          <label class="form-label" style="color:var(--color-danger,#ef4444);">Current password</label>
+          <input type="password" class="form-control" [(ngModel)]="deletePassword"
+                 placeholder="Enter your password" style="border-color:var(--color-danger,#ef4444);" />
+        </div>
         @if (deleteError) {
           <div class="alert alert-danger mb-16">{{ deleteError }}</div>
         }
         <button class="btn btn-danger" (click)="deleteAccount()"
-                [disabled]="deleteConfirmText !== 'DELETE' || deleteLoading">
+                [disabled]="deleteConfirmText !== 'DELETE' || !deletePassword || deleteLoading">
           @if (deleteLoading) { <span class="spinner"></span> } @else { Delete My Account Permanently }
         </button>
       </div>

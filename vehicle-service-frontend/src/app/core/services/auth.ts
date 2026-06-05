@@ -106,8 +106,11 @@ export class AuthService {
     return this.http.post<{ message: string }>(`${environment.apiUrl}/auth/resend-verification`, {}, { withCredentials: true });
   }
 
-  deleteAccount(): Observable<{ message: string }> {
-    return this.http.delete<{ message: string }>(`${environment.apiUrl}/auth/account`, { withCredentials: true });
+  deleteAccount(password: string): Observable<{ message: string }> {
+    return this.http.delete<{ message: string }>(`${environment.apiUrl}/auth/account`, {
+      body: { password },
+      withCredentials: true,
+    });
   }
 
   private _storeSession(r: AuthResponse, remember: boolean): void {

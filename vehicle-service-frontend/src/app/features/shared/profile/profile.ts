@@ -47,6 +47,7 @@ export class ProfileComponent implements OnInit {
   showConfirmPw = false;
 
   deleteConfirmText = '';
+  deletePassword = '';
   deleteLoading = false;
   deleteError = '';
   showDeleteZone = false;
@@ -60,6 +61,10 @@ export class ProfileComponent implements OnInit {
 
   get isServiceCenter(): boolean {
     return this.currentUser?.role === 'SERVICE_CENTER';
+  }
+
+  get isManufacturer(): boolean {
+    return this.currentUser?.role === 'MANUFACTURER';
   }
 
   constructor(private fb: FormBuilder, private authService: AuthService, private router: Router) {
@@ -144,10 +149,10 @@ export class ProfileComponent implements OnInit {
   ];
 
   deleteAccount(): void {
-    if (this.deleteConfirmText !== 'DELETE' || this.deleteLoading) return;
+    if (this.deleteConfirmText !== 'DELETE' || !this.deletePassword || this.deleteLoading) return;
     this.deleteLoading = true;
     this.deleteError = '';
-    this.authService.deleteAccount().subscribe({
+    this.authService.deleteAccount(this.deletePassword).subscribe({
       next: () => {
         this.authService.logout();
         this.router.navigate(['/login']);
