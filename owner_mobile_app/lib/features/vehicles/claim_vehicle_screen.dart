@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'vehicles_provider.dart';
 
@@ -45,8 +46,32 @@ class _ClaimVehicleScreenState extends State<ClaimVehicleScreen> {
   }
 
   Future<void> _scanQr() async {
-    final result = await Navigator.push<String>(
-      context,
+    // Request permission before opening the scanner screen
+    final status = await Permission.camera.request();
+    if (!mounted) return;
+
+    if (status.isPermanentlyDenied) {
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Camera Permission Required'),
+          content: const Text(
+              'Camera access was permanently denied. Please enable it in App Settings to scan barcodes.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () { Navigator.pop(context); openAppSettings(); },
+              child: const Text('Open Settings'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    if (!status.isGranted) return;
+
+    final result = await Navigator.of(context, rootNavigator: true).push<String>(
       MaterialPageRoute(builder: (_) => const _QrScannerScreen()),
     );
     if (result != null && mounted) {
@@ -125,21 +150,28 @@ class _QrScannerScreen extends StatefulWidget {
 }
 
 class _QrScannerScreenState extends State<_QrScannerScreen> {
-  late final MobileScannerController _controller;
+  MobileScannerController? _controller;
   bool _scanned = false;
+  int _restartKey = 0;
 
   @override
   void initState() {
     super.initState();
+    _startController();
+  }
+
+  void _startController() {
+    _controller?.dispose();
     _controller = MobileScannerController(
       facing: CameraFacing.back,
       detectionSpeed: DetectionSpeed.normal,
     );
+    _scanned = false;
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controller?.dispose();
     super.dispose();
   }
 
@@ -149,9 +181,16 @@ class _QrScannerScreenState extends State<_QrScannerScreen> {
     final raw = barcode?.rawValue;
     if (raw == null || raw.isEmpty) return;
     _scanned = true;
-    _controller.stop();
+    _controller?.stop();
     final vin = _extractVin(raw);
-    Navigator.pop(context, vin ?? raw);
+    Navigator.of(context, rootNavigator: true).pop(vin ?? raw);
+  }
+
+  void _retry() {
+    setState(() {
+      _startController();
+      _restartKey++;
+    });
   }
 
   static String? _extractVin(String raw) {
@@ -170,7 +209,8 @@ class _QrScannerScreenState extends State<_QrScannerScreen> {
       body: Stack(
         children: [
           MobileScanner(
-            controller: _controller,
+            key: ValueKey(_restartKey),
+            controller: _controller!,
             onDetect: _onDetect,
             errorBuilder: (context, error, child) {
               final isPermission =
@@ -193,21 +233,30 @@ class _QrScannerScreenState extends State<_QrScannerScreen> {
                         const SizedBox(height: 16),
                         Text(
                           isPermission
-                              ? 'Camera permission required.\n\nTap Retry, then allow camera access when prompted.'
+                              ? 'Camera permission required.\n\nGo to App Settings and allow camera access, then tap Retry.'
                               : 'Camera could not start.\nTap Retry to try again.',
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                               color: Colors.white70, fontSize: 14, height: 1.5),
                         ),
                         const SizedBox(height: 24),
-                        ElevatedButton.icon(
-                          onPressed: () => Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) => const _QrScannerScreen()),
-                          ),
-                          icon: const Icon(Icons.refresh),
-                          label: const Text('Retry'),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            ElevatedButton.icon(
+                              onPressed: _retry,
+                              icon: const Icon(Icons.refresh),
+                              label: const Text('Retry'),
+                            ),
+                            if (isPermission) ...[
+                              const SizedBox(width: 12),
+                              ElevatedButton.icon(
+                                onPressed: openAppSettings,
+                                icon: const Icon(Icons.settings),
+                                label: const Text('Settings'),
+                              ),
+                            ],
+                          ],
                         ),
                       ],
                     ),
