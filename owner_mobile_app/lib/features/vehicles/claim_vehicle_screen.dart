@@ -201,7 +201,11 @@ class _QrScannerScreenState extends State<_QrScannerScreen> {
                         ),
                         const SizedBox(height: 24),
                         ElevatedButton.icon(
-                          onPressed: () => _controller.start(),
+                          onPressed: () => Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const _QrScannerScreen()),
+                          ),
                           icon: const Icon(Icons.refresh),
                           label: const Text('Retry'),
                         ),
