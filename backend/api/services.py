@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, date as _date
 from flask import Blueprint, request, jsonify
 from api.middleware import token_required, role_required
-from api.utils import sanitize, validate_vin, validate_mileage, paginate
+from api.utils import sanitize, validate_vin, validate_mileage, paginate, ensure_owner_eth
 from core import service_log_service
 from core.audit import log_event
 from config import Config
@@ -160,6 +160,7 @@ def verify_service():
     mapping = vehicle_repo.find_by_vin(vin)
     if not mapping or mapping.owner_address.lower() != request.user['blockchain_address'].lower():
         return jsonify({'error': 'You do not own this vehicle'}), 403
+    ensure_owner_eth(request.user['blockchain_address'])
     try:
         result = service_log_service.verify_service(vin, metadata_hash, request.user['blockchain_address'])
         log_event('service_verified', user_id=request.user.get('user_id'),
@@ -187,6 +188,7 @@ def dispute_service():
     mapping = vehicle_repo.find_by_vin(vin)
     if not mapping or mapping.owner_address.lower() != request.user['blockchain_address'].lower():
         return jsonify({'error': 'You do not own this vehicle'}), 403
+    ensure_owner_eth(request.user['blockchain_address'])
     try:
         result = service_log_service.dispute_service(vin, metadata_hash, reason, request.user['blockchain_address'])
         log_event('service_disputed', user_id=request.user.get('user_id'),
@@ -424,6 +426,7 @@ def owner_verify_service():
     mapping = vehicle_repo.find_by_vin(vin)
     if not mapping or mapping.owner_address.lower() != request.user['blockchain_address'].lower():
         return jsonify({'error': 'You do not own this vehicle'}), 403
+    ensure_owner_eth(request.user['blockchain_address'])
     try:
         result = service_log_service.verify_service(vin, metadata_hash, request.user['blockchain_address'])
         return jsonify(result), 200
@@ -449,6 +452,7 @@ def owner_dispute_service():
     mapping = vehicle_repo.find_by_vin(vin)
     if not mapping or mapping.owner_address.lower() != request.user['blockchain_address'].lower():
         return jsonify({'error': 'You do not own this vehicle'}), 403
+    ensure_owner_eth(request.user['blockchain_address'])
     try:
         result = service_log_service.dispute_service(vin, metadata_hash, reason, request.user['blockchain_address'])
 

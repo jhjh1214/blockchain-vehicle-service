@@ -137,12 +137,13 @@ def register_user(email: str, password: str, role: str, name: str, phone: str,
 
     deployer = Config.DEPLOYER_ADDRESS
     if deployer and keystore.has_key(deployer):
-        # Manufacturers, owners, and independent SCs get 10k ETH; brand SCs top up via manufacturer
-        if role == 'SERVICE_CENTER' and not is_independent:
-            initial_eth = Web3.to_wei(0.01, 'ether')
-        else:
-            initial_eth = Web3.to_wei(10_000, 'ether')
-        web3_client.transfer_eth(deployer, account['address'], initial_eth)
+        # Manufacturers and independent SCs get 10k ETH up-front (many write txs)
+        # Brand SCs top up via manufacturer ETH panel
+        # Owners get 0 on registration — subsidised per-feature via ensure_owner_eth()
+        if role == 'MANUFACTURER' or (role == 'SERVICE_CENTER' and is_independent):
+            web3_client.transfer_eth(deployer, account['address'], Web3.to_wei(10_000, 'ether'))
+        elif role == 'SERVICE_CENTER' and not is_independent:
+            web3_client.transfer_eth(deployer, account['address'], Web3.to_wei(0.01, 'ether'))
 
         if role == 'MANUFACTURER':
             from blockchain.adapters.vehicle_registry import vehicle_registry

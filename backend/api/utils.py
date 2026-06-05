@@ -30,6 +30,28 @@ def validate_mileage(value) -> int:
     return m
 
 
+_OWNER_TOPUP_THRESHOLD = 5_000_000_000_000_000    # 0.005 ETH
+_OWNER_TOPUP_TARGET    = 50_000_000_000_000_000   # 0.05 ETH
+
+
+def ensure_owner_eth(address: str) -> None:
+    """Top up an owner's ETH balance to cover gas costs if running low.
+    Silently skips if deployer key is unavailable or balance check fails."""
+    try:
+        from blockchain.client import web3_client
+        from web3 import Web3
+        from config import Config
+        checksum = Web3.to_checksum_address(address)
+        bal = web3_client.w3.eth.get_balance(checksum)
+        if bal < _OWNER_TOPUP_THRESHOLD:
+            deployer = Config.DEPLOYER_ADDRESS
+            if deployer:
+                needed = _OWNER_TOPUP_TARGET - bal
+                web3_client.transfer_eth(deployer, address, needed)
+    except Exception:
+        pass
+
+
 def paginate(query_list: list, request_args) -> dict:
     """Slice a list with ?page=1&limit=20 query params."""
     try:

@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from api.middleware import token_required, role_required
-from api.utils import sanitize, validate_vin, paginate
+from api.utils import sanitize, validate_vin, paginate, ensure_owner_eth
 from core import warranty_service
 from core.audit import log_event
 from extensions import limiter
@@ -74,6 +74,7 @@ def submit_claim():
     issue_description = sanitize(data.get('issue_description', ''), 1000)
     if not issue_description:
         return jsonify({'error': 'issue_description required'}), 400
+    ensure_owner_eth(request.user['blockchain_address'])
     try:
         result = warranty_service.submit_claim(
             vin=vin,
