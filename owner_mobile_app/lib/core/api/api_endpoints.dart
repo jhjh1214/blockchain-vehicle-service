@@ -42,4 +42,11 @@ class ApiEndpoints {
 
   // Recalls
   static const ownerRecalls = '/vehicle/recalls/owner';
+
+  // Void requests
+  static const ownerVoidRequests = '/service/void-requests/owner';
+  static String voidRequestDispute(int id) => '/service/void-requests/$id/dispute';
+
+  // Abuse reporting
+  static const reportUser = '/service/report';
 }

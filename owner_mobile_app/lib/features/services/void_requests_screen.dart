@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import '../../core/api/api_client.dart';
+import '../../core/api/api_endpoints.dart';
 
 class VoidRequestsScreen extends StatefulWidget {
   const VoidRequestsScreen({super.key});
@@ -23,7 +24,7 @@ class _VoidRequestsScreenState extends State<VoidRequestsScreen> {
   Future<void> _load() async {
     setState(() { _loading = true; _error = null; });
     try {
-      final res = await ApiClient.instance.dio.get('/service/void-requests/owner');
+      final res = await ApiClient.instance.dio.get(ApiEndpoints.ownerVoidRequests);
       setState(() {
         _requests = (res.data['requests'] as List?) ?? [];
         _loading = false;
@@ -71,7 +72,7 @@ class _VoidRequestsScreenState extends State<VoidRequestsScreen> {
     );
     if (confirmed != true || controller.text.trim().isEmpty || !mounted) return;
     try {
-      await ApiClient.instance.dio.post('/service/void-requests/$id/dispute', data: {
+      await ApiClient.instance.dio.post(ApiEndpoints.voidRequestDispute(id), data: {
         'reason': controller.text.trim(),
       });
       if (mounted) {

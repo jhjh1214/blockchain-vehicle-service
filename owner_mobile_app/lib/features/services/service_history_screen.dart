@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'services_provider.dart';
 import '../../core/api/api_client.dart';
+import '../../core/api/api_endpoints.dart';
 import '../../core/models/service_record.dart';
 import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/error_view.dart';
@@ -490,7 +491,7 @@ class _DetailsPanel extends StatelessWidget {
     );
     if (confirmed != true || controller.text.trim().isEmpty || !context.mounted) return;
     try {
-      await ApiClient.instance.dio.post('/service/report', data: {
+      await ApiClient.instance.dio.post(ApiEndpoints.reportUser, data: {
         'reported_user_id': record.serviceCenterId,
         'reason': controller.text.trim(),
         'category': selectedCategory,
