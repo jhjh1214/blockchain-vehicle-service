@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { VehicleService } from '../../../core/services/vehicle';
+import { AuthService } from '../../../core/services/auth';
 
 @Component({
   selector: 'app-register-vehicle',
@@ -18,13 +19,20 @@ export class RegisterVehicleComponent {
   success = '';
 
   readonly currentMaxYear = new Date().getFullYear() + 1;
+  readonly brand: string;
 
-  constructor(private fb: FormBuilder, private vehicleService: VehicleService) {
+  constructor(
+    private fb: FormBuilder,
+    private vehicleService: VehicleService,
+    private authService: AuthService,
+  ) {
+    this.brand = this.authService.currentUserValue?.brand ?? '';
+
     this.registerForm = this.fb.group({
       vin: ['', [Validators.required, Validators.pattern(/^[A-HJ-NPR-Z0-9]{17}$/i)]],
       owner_email: ['', [Validators.email]],
       warranty_years: ['', [Validators.required, Validators.min(1), Validators.max(10)]],
-      make: [''],
+      make: [{ value: this.brand, disabled: true }],
       model: [''],
       year: ['', [Validators.min(1900), Validators.max(this.currentMaxYear)]]
     });
@@ -42,7 +50,7 @@ export class RegisterVehicleComponent {
     this.error = '';
     this.success = '';
 
-    const data = { ...this.registerForm.value };
+    const data = { ...this.registerForm.getRawValue() };
     data.warranty_years = parseInt(data.warranty_years, 10);
     if (data.year) data.year = parseInt(data.year, 10);
 
@@ -52,7 +60,7 @@ export class RegisterVehicleComponent {
         this.success = `Vehicle registered${statusNote}. VIN: ${response.vin} — Transaction: ${(response.transaction?.tx_hash || '').slice(0, 18)}…`;
         this.loading = false;
         setTimeout(() => {
-          this.registerForm.reset();
+          this.registerForm.reset({ make: { value: this.brand, disabled: true } });
           this.success = '';
         }, 5000);
       },
@@ -64,7 +72,7 @@ export class RegisterVehicleComponent {
   }
 
   onReset(): void {
-    this.registerForm.reset();
+    this.registerForm.reset({ make: { value: this.brand, disabled: true } });
     this.error = '';
     this.success = '';
   }
