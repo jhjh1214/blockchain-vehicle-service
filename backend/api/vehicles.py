@@ -13,7 +13,7 @@ from api.utils import sanitize, validate_vin, paginate, ensure_owner_eth
 from core import vehicle_service
 from core import service_log_service
 from db.repositories import vehicles as vehicle_repo, users as user_repo
-from db.models import VehicleVINMapping, WarrantyClaimMetadata, VehicleRecall, RecallVINService
+from db.models import VehicleVINMapping, WarrantyClaimMetadata, VehicleRecall, RecallVINService, VehicleReclaimRequest
 from db.models import db as _db
 from config import Config
 from extensions import limiter
@@ -86,6 +86,15 @@ def claim_vehicle():
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
 
+    # Intercept owner_deleted state before attempting the service call so Flutter
+    # can offer the reclaim request flow instead of a generic error.
+    mapping = vehicle_repo.find_by_vin(vin)
+    if mapping and mapping.registration_status == 'owner_deleted':
+        return jsonify({
+            'error': 'The previous owner of this vehicle deleted their account.',
+            'reclaim_available': True,
+        }), 409
+
     try:
         result = vehicle_service.claim_vehicle(
             vin=vin,
@@ -99,6 +108,124 @@ def claim_vehicle():
     except Exception as e:
         import logging; logging.getLogger(__name__).exception('claim_vehicle failed')
         return jsonify({'error': str(e)}), 500
+
+
+@vehicle_bp.route('/reclaim-request', methods=['POST'])
+@role_required('OWNER')
+def submit_reclaim_request():
+    """Owner submits a reclaim request for an owner_deleted vehicle."""
+    data = request.get_json() or {}
+    try:
+        vin = validate_vin(data.get('vin', ''))
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+
+    mapping = vehicle_repo.find_by_vin(vin)
+    if not mapping:
+        return jsonify({'error': 'Vehicle not found'}), 404
+    if mapping.registration_status != 'owner_deleted':
+        return jsonify({'error': 'Vehicle is not eligible for a reclaim request'}), 409
+
+    requester_address = request.user['blockchain_address']
+    existing = VehicleReclaimRequest.query.filter_by(
+        vin=vin, requester_address=requester_address, status='pending'
+    ).first()
+    if existing:
+        return jsonify({'error': 'You already have a pending reclaim request for this vehicle'}), 409
+
+    from db.repositories import users as user_repo_local
+    requester = user_repo_local.find_by_blockchain_address(requester_address)
+
+    req = VehicleReclaimRequest(
+        vin=vin,
+        requester_address=requester_address,
+        requester_email=requester.email if requester else None,
+    )
+    _db.session.add(req)
+    _db.session.commit()
+    return jsonify({'message': 'Reclaim request submitted. The manufacturer will review and approve.', 'id': req.id}), 201
+
+
+@vehicle_bp.route('/reclaim-requests', methods=['GET'])
+@role_required('MANUFACTURER')
+def get_reclaim_requests():
+    """Manufacturer lists all pending reclaim requests for their fleet."""
+    mfr_address = request.user['blockchain_address']
+    reqs = (
+        VehicleReclaimRequest.query
+        .join(VehicleVINMapping, VehicleVINMapping.vin == VehicleReclaimRequest.vin)
+        .filter(VehicleVINMapping.registered_by == mfr_address)
+        .order_by(VehicleReclaimRequest.created_at.desc())
+        .all()
+    )
+    result = []
+    for r in reqs:
+        d = r.to_dict()
+        vm = vehicle_repo.find_by_vin(r.vin)
+        d['make'] = vm.make if vm else None
+        d['model'] = vm.model if vm else None
+        d['year'] = vm.year if vm else None
+        result.append(d)
+    return jsonify({'requests': result}), 200
+
+
+@vehicle_bp.route('/reclaim-request/<int:req_id>/approve', methods=['POST'])
+@role_required('MANUFACTURER')
+def approve_reclaim_request(req_id):
+    """Manufacturer approves a reclaim request and transfers the vehicle to the new owner."""
+    from datetime import datetime as _dt
+    req = VehicleReclaimRequest.query.get(req_id)
+    if not req:
+        return jsonify({'error': 'Request not found'}), 404
+    if req.status != 'pending':
+        return jsonify({'error': 'Request already reviewed'}), 409
+
+    mapping = vehicle_repo.find_by_vin(req.vin)
+    if not mapping or mapping.registered_by != request.user['blockchain_address']:
+        return jsonify({'error': 'You did not register this vehicle'}), 403
+
+    from blockchain.adapters.vehicle_registry import vehicle_registry
+    try:
+        vehicle_registry.admin_transfer_ownership(req.vin, req.requester_address, Config.DEPLOYER_ADDRESS)
+    except Exception as e:
+        import logging; logging.getLogger(__name__).exception('reclaim transfer failed')
+        return jsonify({'error': f'Blockchain transfer failed: {e}'}), 500
+
+    try:
+        vehicle_repo.update_owner(req.vin, req.requester_address)
+        vehicle_repo.update_registration_status(req.vin, 'active')
+        req.status = 'approved'
+        req.reviewer_address = request.user['blockchain_address']
+        req.reviewed_at = _dt.utcnow()
+        _db.session.commit()
+    except Exception as e:
+        _db.session.rollback()
+        import logging; logging.getLogger(__name__).exception('reclaim DB update failed')
+        return jsonify({'error': 'Transfer succeeded on-chain but DB update failed. Contact support.'}), 500
+
+    return jsonify({'message': f'Vehicle {req.vin} returned to original owner.'}), 200
+
+
+@vehicle_bp.route('/reclaim-request/<int:req_id>/reject', methods=['POST'])
+@role_required('MANUFACTURER')
+def reject_reclaim_request(req_id):
+    """Manufacturer rejects a reclaim request."""
+    from datetime import datetime as _dt
+    req = VehicleReclaimRequest.query.get(req_id)
+    if not req:
+        return jsonify({'error': 'Request not found'}), 404
+    if req.status != 'pending':
+        return jsonify({'error': 'Request already reviewed'}), 409
+
+    mapping = vehicle_repo.find_by_vin(req.vin)
+    if not mapping or mapping.registered_by != request.user['blockchain_address']:
+        return jsonify({'error': 'You did not register this vehicle'}), 403
+
+    req.status = 'rejected'
+    req.reviewer_address = request.user['blockchain_address']
+    req.reviewed_at = _dt.utcnow()
+    _db.session.commit()
+    return jsonify({'message': 'Reclaim request rejected.'}), 200
 
 
 @vehicle_bp.route('/my-vehicles', methods=['GET'])

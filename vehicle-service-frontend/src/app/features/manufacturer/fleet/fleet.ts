@@ -23,9 +23,13 @@ export class FleetComponent implements OnInit {
 
   qrVin: string | null = null;  // non-null = modal open
 
+  reclaimRequests: any[] = [];
+  reclaimRequestsLoading = false;
+  reclaimActionId: number | null = null;  // which request is being approved/rejected
+
   constructor(private vehicleService: VehicleService, private cdr: ChangeDetectorRef) {}
 
-  ngOnInit(): void { this.load(); }
+  ngOnInit(): void { this.load(); this.loadReclaimRequests(); }
 
   load(): void {
     this.loading = true;
@@ -74,6 +78,34 @@ export class FleetComponent implements OnInit {
   }
 
   closeHandoverQr(): void { this.qrVin = null; }
+
+  loadReclaimRequests(): void {
+    this.reclaimRequestsLoading = true;
+    this.vehicleService.getReclaimRequests().subscribe({
+      next: r => { this.reclaimRequests = r.requests || []; this.reclaimRequestsLoading = false; this.cdr.detectChanges(); },
+      error: () => { this.reclaimRequestsLoading = false; this.cdr.detectChanges(); },
+    });
+  }
+
+  approveReclaim(id: number): void {
+    this.reclaimActionId = id;
+    this.vehicleService.approveReclaim(id).subscribe({
+      next: () => { this.reclaimActionId = null; this.load(); this.loadReclaimRequests(); },
+      error: (err) => { this.reclaimActionId = null; alert(err.error?.error || 'Approval failed'); this.cdr.detectChanges(); },
+    });
+  }
+
+  rejectReclaim(id: number): void {
+    this.reclaimActionId = id;
+    this.vehicleService.rejectReclaim(id).subscribe({
+      next: () => { this.reclaimActionId = null; this.loadReclaimRequests(); },
+      error: (err) => { this.reclaimActionId = null; alert(err.error?.error || 'Rejection failed'); this.cdr.detectChanges(); },
+    });
+  }
+
+  pendingReclaimRequests(): any[] {
+    return this.reclaimRequests.filter(r => r.status === 'pending');
+  }
 
   serviceDueLabel(days: number | null, count: number): string {
     if (days === null) return count === 0 ? 'No service yet' : '—';

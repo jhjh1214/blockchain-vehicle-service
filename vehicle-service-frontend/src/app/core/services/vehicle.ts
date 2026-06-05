@@ -76,6 +76,18 @@ export class VehicleService {
   reconcileRecords(vin?: string): Observable<{ checked: number; ok: number; tampered: number; records: any[] }> {
     return this.http.post<any>(`${environment.apiUrl}/vehicle/reconcile`, vin ? { vin } : {});
   }
+
+  getReclaimRequests(): Observable<{ requests: any[] }> {
+    return this.http.get<{ requests: any[] }>(`${environment.apiUrl}/vehicle/reclaim-requests`);
+  }
+
+  approveReclaim(id: number): Observable<any> {
+    return this.http.post(`${environment.apiUrl}/vehicle/reclaim-request/${id}/approve`, {});
+  }
+
+  rejectReclaim(id: number): Observable<any> {
+    return this.http.post(`${environment.apiUrl}/vehicle/reclaim-request/${id}/reject`, {});
+  }
 }
 
 export interface ManufacturerStats {

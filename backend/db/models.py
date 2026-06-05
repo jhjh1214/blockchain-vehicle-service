@@ -495,6 +495,31 @@ class Notification(db.Model):
         }
 
 
+class VehicleReclaimRequest(db.Model):
+    __tablename__ = 'vehicle_reclaim_requests'
+
+    id = db.Column(db.Integer, primary_key=True)
+    vin = db.Column(db.String(17), db.ForeignKey('vehicle_vin_mapping.vin', ondelete='CASCADE'), nullable=False, index=True)
+    requester_address = db.Column(db.String(42), nullable=False)
+    requester_email = db.Column(db.String(255), nullable=True)
+    # pending | approved | rejected
+    status = db.Column(db.String(20), default='pending', nullable=False)
+    reviewer_address = db.Column(db.String(42), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    reviewed_at = db.Column(db.DateTime, nullable=True)
+
+    def to_dict(self) -> dict:
+        return {
+            'id': self.id,
+            'vin': self.vin,
+            'requester_address': self.requester_address,
+            'requester_email': self.requester_email,
+            'status': self.status,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'reviewed_at': self.reviewed_at.isoformat() if self.reviewed_at else None,
+        }
+
+
 class AuditLog(db.Model):
     __tablename__ = 'audit_logs'
 

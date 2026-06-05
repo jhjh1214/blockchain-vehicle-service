@@ -16,6 +16,7 @@ class ApiEndpoints {
   // Vehicles
   static const myVehicles = '/vehicle/owner/vehicles';
   static const claimVehicle = '/vehicle/claim';
+  static const reclaimRequest = '/vehicle/reclaim-request';
   static const transferVehicle = '/vehicle/transfer';
   static String vehicleDetail(String vin) => '/vehicle/$vin';
   static String warrantyCheck(String vin) => '/warranty/check/$vin';

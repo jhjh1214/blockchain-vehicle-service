@@ -4,6 +4,13 @@ import '../../core/api/api_client.dart';
 import '../../core/api/api_endpoints.dart';
 import '../../core/models/vehicle.dart';
 
+class ClaimResult {
+  final String? error;
+  final bool reclaimAvailable;
+  const ClaimResult({this.error, this.reclaimAvailable = false});
+  bool get isSuccess => error == null;
+}
+
 class VehiclesProvider extends ChangeNotifier {
   List<Vehicle> _vehicles = [];
   bool _loading = false;
@@ -40,14 +47,27 @@ class VehiclesProvider extends ChangeNotifier {
     }
   }
 
-  Future<String?> claimVehicle(String vin) async {
+  Future<ClaimResult> claimVehicle(String vin) async {
     try {
       await ApiClient.instance.dio
           .post(ApiEndpoints.claimVehicle, data: {'vin': vin});
       await loadVehicles();
+      return const ClaimResult();
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      final error = data is Map ? (data['error'] ?? 'Failed to claim vehicle') : 'Failed to claim vehicle';
+      final reclaimAvailable = data is Map && data['reclaim_available'] == true;
+      return ClaimResult(error: error as String, reclaimAvailable: reclaimAvailable);
+    }
+  }
+
+  Future<String?> requestReclaim(String vin) async {
+    try {
+      await ApiClient.instance.dio
+          .post(ApiEndpoints.reclaimRequest, data: {'vin': vin});
       return null;
     } on DioException catch (e) {
-      return e.response?.data['error'] ?? 'Failed to claim vehicle';
+      return e.response?.data['error'] ?? 'Failed to submit reclaim request';
     }
   }
 
