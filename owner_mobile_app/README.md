@@ -11,15 +11,18 @@ Flutter mobile application for **vehicle owners**. Provides access to owned vehi
 | Authentication | Login (with Remember Me), register (PDPA consent), auto-login on app restart, logout |
 | Forgot Password | Request a password reset email; reset password with token link |
 | My Vehicles | List owned vehicles with warranty status badge |
-| Claim Vehicle | Claim ownership of a pre-registered vehicle using its VIN |
+| Claim Vehicle | Claim ownership of a pre-registered vehicle by scanning a QR/barcode or typing VIN |
 | Vehicle Detail | Warranty expiry, service count, transfer ownership |
 | Pending Services | Review unverified service records, verify or dispute each one |
 | Dispute Chat | Message thread between owner and manufacturer for disputed records |
-| Service History | Browse finalized service records with full metadata |
+| Service History | Browse finalized service records with full metadata; report abusive service centres |
 | Warranty Claims | View all claims, submit new claims with issue description |
-| Profile | Update name, phone, city, state; change password |
+| Warranty Void Requests | View void requests raised by service centres; dispute any request you believe is incorrect |
+| Active Recalls | View safety recalls issued for your vehicles |
+| Notifications | In-app notification inbox for service, warranty, and recall events |
+| Profile | Update name, phone, city, state; change password; data export; delete account |
 | Privacy Policy | PDPA privacy policy screen (linked from registration) |
-| Push Notifications | FCM-based push notifications for key events |
+| Push Notifications | FCM-based push notifications (token registered after login); routes to relevant screen on tap |
 
 ---
 
@@ -33,8 +36,12 @@ Flutter mobile application for **vehicle owners**. Provides access to owned vehi
 | Navigation | GoRouter 14.x |
 | HTTP client | Dio 5.x |
 | Secure storage | flutter_secure_storage 9.x |
-| Push notifications | firebase_messaging |
+| QR / barcode scanner | mobile_scanner 5.x |
+| Camera permissions | permission_handler 11.x |
+| Biometric auth | local_auth 2.x |
+| Push notifications | firebase_messaging 15.x + firebase_core 3.x |
 | Localisation | intl 0.19 |
+| Preferences | shared_preferences 2.x |
 
 ---
 
@@ -55,7 +62,7 @@ owner_mobile_app/
     │   │   ├── service_record.dart           # ServiceRecord.fromJson, status helpers
     │   │   └── warranty_claim.dart           # WarrantyClaim.fromJson, status helpers
     │   ├── services/
-    │   │   └── push_notification_service.dart # FCM token registration
+    │   │   └── push_notification_service.dart # FCM token registration (registered after login)
     │   └── storage/
     │       └── token_storage.dart            # flutter_secure_storage wrapper (save/get/clear)
     │
@@ -71,22 +78,29 @@ owner_mobile_app/
     │   │   ├── vehicles_provider.dart        # loadVehicles(), claimVehicle(), transferVehicle(), checkWarranty()
     │   │   ├── vehicles_screen.dart          # Vehicle list with warranty badges
     │   │   ├── vehicle_detail_screen.dart
-    │   │   ├── claim_vehicle_screen.dart
-    │   │   └── transfer_vehicle_screen.dart
+    │   │   ├── claim_vehicle_screen.dart     # QR/barcode scanner with camera permission flow
+    │   │   ├── transfer_vehicle_screen.dart
+    │   │   ├── recalls_provider.dart         # loadRecalls()
+    │   │   └── recalls_screen.dart           # Active safety recalls for owned vehicles
     │   │
     │   ├── services/
     │   │   ├── services_provider.dart        # loadPendingServices(), loadServiceHistory(), verifyService(), disputeService()
     │   │   ├── pending_services_screen.dart
-    │   │   ├── service_history_screen.dart
-    │   │   └── dispute_chat_screen.dart      # Real-time dispute message thread
+    │   │   ├── service_history_screen.dart   # Finalized history with abuse reporting
+    │   │   ├── dispute_chat_screen.dart      # Real-time dispute message thread
+    │   │   └── void_requests_screen.dart     # Warranty void requests with dispute action
     │   │
     │   ├── warranties/
     │   │   ├── warranties_provider.dart      # loadClaims(), submitClaim()
     │   │   ├── warranty_claims_screen.dart
     │   │   └── submit_claim_screen.dart
     │   │
+    │   ├── notifications/
+    │   │   ├── notifications_provider.dart   # loadNotifications(), markRead()
+    │   │   └── notifications_screen.dart     # In-app notification inbox
+    │   │
     │   └── profile/
-    │       ├── profile_screen.dart
+    │       ├── profile_screen.dart           # Profile update, data export, delete account
     │       └── change_password_screen.dart
     │
     ├── shared/
@@ -166,25 +180,30 @@ All endpoint paths are defined in [lib/core/api/api_endpoints.dart](lib/core/api
 
 ```dart
 class ApiEndpoints {
-  static const login            = '/auth/login';
-  static const register         = '/auth/register';
-  static const logout           = '/auth/logout';
-  static const me               = '/auth/me';
-  static const profile          = '/auth/profile';
-  static const changePassword   = '/auth/change-password';
-  static const forgotPassword   = '/auth/forgot-password';
-  static const resetPassword    = '/auth/reset-password';
-  static const deviceToken      = '/auth/device-token';
+  // Auth
+  static const login              = '/auth/login';
+  static const register           = '/auth/register';
+  static const logout             = '/auth/logout';
+  static const me                 = '/auth/me';
+  static const profile            = '/auth/profile';
+  static const changePassword     = '/auth/change-password';
+  static const forgotPassword     = '/auth/forgot-password';
+  static const resetPassword      = '/auth/reset-password';
+  static const deviceToken        = '/auth/device-token';
+  static const deleteAccount      = '/auth/account';
+  static const dataExport         = '/auth/data-export';
+  static const resendVerification = '/auth/resend-verification';
 
-  static const myVehicles       = '/vehicle/owner/vehicles';
-  static const claimVehicle     = '/vehicle/claim';
-  static const transferVehicle  = '/vehicle/transfer';
+  // Vehicles
+  static const myVehicles         = '/vehicle/owner/vehicles';
+  static const claimVehicle       = '/vehicle/claim';
+  static const transferVehicle    = '/vehicle/transfer';
   static String vehicleDetail(String vin) => '/vehicle/$vin';
   static String vehicleExport(String vin) => '/vehicle/export/$vin';
-
   static String warrantyCheck(String vin) => '/warranty/check/$vin';
   static String warrantyEligibilityCheck(String vin) => '/warranty/check-eligibility/$vin';
 
+  // Services
   static const ownerPendingServices = '/service/owner/pending';
   static const ownerVerifyService   = '/service/owner/verify';
   static const ownerDisputeService  = '/service/owner/dispute';
@@ -192,9 +211,20 @@ class ApiEndpoints {
   static String disputeMessages(String vin, int idx) => '/service/dispute-messages/$vin/$idx';
   static const postDisputeMessage   = '/service/dispute-messages';
 
+  // Warranties
   static const submitClaim  = '/warranty/submit-claim';
   static const ownerClaims  = '/warranty/owner/claims';
   static String vehicleClaims(String vin) => '/warranty/claims/$vin';
+
+  // Void requests
+  static const ownerVoidRequests = '/service/void-requests/owner';
+  static String voidRequestDispute(int id) => '/service/void-requests/$id/dispute';
+
+  // Recalls
+  static const ownerRecalls = '/vehicle/recalls/owner';
+
+  // Reporting
+  static const reportUser = '/service/report';
 }
 ```
 
@@ -256,7 +286,15 @@ dependencies:
   go_router: ^14.2.0               # Navigation
   dio: ^5.4.3                      # HTTP client
   flutter_secure_storage: ^9.2.2   # JWT token storage (Remember Me)
-  firebase_messaging: ...          # FCM push notifications
+  shared_preferences: ^2.3.2       # Lightweight key-value storage
+  mobile_scanner: ^5.2.3           # QR / barcode scanning (camera)
+  permission_handler: ^11.3.1      # Runtime camera permission requests
+  local_auth: ^2.3.0               # Biometric / device credential auth
+  image_picker: ^1.1.2             # Warranty claim photo attachment
+  open_file: ^3.3.2                # Open exported files
+  path_provider: ^2.1.3            # Access device file paths
+  firebase_core: ^3.6.0            # Firebase initialisation
+  firebase_messaging: ^15.1.3      # FCM push notifications
   intl: ^0.19.0                    # Date formatting
 
 dev_dependencies:
@@ -281,3 +319,9 @@ Flutter 3.44 renamed `CardTheme` to `CardThemeData`. Ensure SDK is 3.44 or later
 
 **Mockito `when()` fails with non-nullable getters**
 Plain `Mock` subclasses without explicit overrides return `null` for non-nullable types, which throws a type error in null-safe Dart. Override each non-nullable getter/method using `super.noSuchMethod(Invocation.getter(#name), returnValue: <default>, returnValueForMissingStub: <default>)`. This lets Mockito intercept the call while providing a safe default.
+
+**QR scanner does not open / camera black screen**
+`go_router` v14 intercepts `Navigator.push` by default. Open the scanner with `Navigator.of(context, rootNavigator: true).push(...)` to bypass the router. Also request camera permission explicitly via `permission_handler` before launching the scanner; if the user permanently denies, show a dialog linking to system settings.
+
+**Push notifications not arriving (token never registered)**
+The FCM token must be registered with the backend **after** a successful login, not at app startup. `PushNotificationService.init()` is called in `AuthProvider` after `login()`, `register()`, and `tryAutoLogin()` — never from `main.dart` before auth completes.

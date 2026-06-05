@@ -7,10 +7,11 @@ Angular 21 web application for the Blockchain Vehicle Service system. Provides d
 ## Features
 
 ### Manufacturer Dashboard
-- Register new vehicles on-chain (VIN, owner email, warranty period, make/model/year)
+- Register new vehicles on-chain (VIN, owner email, warranty period, make/model/year); Make is locked to the manufacturer's registered brand
 - Pre-register vehicles without an owner (owner claims via mobile app later)
 - View all vehicles registered under the manufacturer's brand
 - Manage authorised service centres (list, activate, suspend, view detail)
+- Pre-register SSM license numbers that service centres must supply during account registration
 - Review and approve or deny warranty claims submitted by owners
 - Resolve disputed service records (approve or reject with resolution notes)
 - View dashboard statistics: total vehicles, active warranties, pending claims, dispute rate
@@ -19,6 +20,7 @@ Angular 21 web application for the Blockchain Vehicle Service system. Provides d
 - Submit service records for a vehicle (metadata hashed SHA-256, hash anchored on-chain)
 - View pending (unverified) and finalized service history for any VIN
 - Look up vehicle details and warranty status by VIN
+- View and manage disputed records submitted against this service centre
 
 ### Shared (Both Roles)
 - Update profile (name, phone, city, state)
@@ -68,7 +70,7 @@ vehicle-service-frontend/
         │   │   ├── vehicle.ts                 # Register, getVehicle, getMyVehicles
         │   │   ├── service.ts                 # Submit, pending, history, verify, dispute, resolve
         │   │   ├── warranty.ts                # Check, submitClaim, approveClaim, denyClaim
-        │   │   ├── sc-management.service.ts   # Service centre listing and activation
+        │   │   ├── sc-management.service.ts   # Service centre listing, activation, SSM licenses
         │   │   ├── inactivity.service.ts      # 30-minute session inactivity timeout
         │   │   ├── blockchain.service.ts      # Public VIN lookup
         │   │   └── theme.service.ts
@@ -86,17 +88,18 @@ vehicle-service-frontend/
         │   │
         │   ├── manufacturer/
         │   │   ├── dashboard/                 # Overview cards, quick links, charts
-        │   │   ├── register-vehicle/          # New vehicle registration form
+        │   │   ├── register-vehicle/          # New vehicle registration form (Make locked to brand)
         │   │   ├── dispute-resolution/        # Search VIN, view and resolve disputes
         │   │   ├── warranty-claims/           # List and approve/deny warranty claims
         │   │   ├── fleet/                     # Vehicle fleet view
-        │   │   └── service-centers/           # Manage authorised service centres
+        │   │   └── service-centers/           # Manage authorised service centres + SSM licenses
         │   │       └── detail/                # Service centre detail view
         │   │
         │   ├── dealer/
         │   │   ├── dashboard/                 # Overview cards, quick links
         │   │   ├── vehicle-lookup/            # Search VIN, view history
         │   │   ├── pending-records/           # List pending service records
+        │   │   ├── disputes/                  # View and respond to disputed records
         │   │   └── submit-service/            # New service submission form
         │   │
         │   ├── shared/

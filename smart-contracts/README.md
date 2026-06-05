@@ -166,10 +166,10 @@ npx hardhat test
 Start Ganache in a dedicated terminal:
 
 ```bash
-ganache --port 8545 --chainId 1337 --deterministic
+ganache --port 8545 --chainId 1337 --deterministic --wallet.defaultBalance 999999999999999
 ```
 
-`--deterministic` produces the same 10 HD-wallet accounts every restart, which keeps `backend/.env` stable.
+`--deterministic` produces the same 10 HD-wallet accounts every restart, which keeps `backend/.env` stable. `--wallet.defaultBalance` gives the deployer account near-unlimited ETH so it can fund manufacturer and service centre accounts on registration and top up owner wallets on demand.
 
 Deploy all contracts:
 
