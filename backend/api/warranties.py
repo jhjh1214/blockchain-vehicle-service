@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from api.middleware import token_required, role_required
+from api.middleware import token_required, role_required, email_verified_required
 from api.utils import sanitize, validate_vin, paginate, ensure_owner_eth
 from core import warranty_service
 from core.audit import log_event
@@ -49,6 +49,7 @@ def check_warranty(vin):
 
 @warranty_bp.route('/submit-claim', methods=['POST'])
 @role_required('OWNER')
+@email_verified_required
 @limiter.limit('5 per hour')
 def submit_claim():
     ct = request.content_type or ''
@@ -74,7 +75,8 @@ def submit_claim():
     issue_description = sanitize(data.get('issue_description', ''), 1000)
     if not issue_description:
         return jsonify({'error': 'issue_description required'}), 400
-    ensure_owner_eth(request.user['blockchain_address'])
+    if not ensure_owner_eth(request.user['blockchain_address']):
+        return jsonify({'error': 'Insufficient ETH balance and top-up failed. Please try again later.'}), 503
     try:
         result = warranty_service.submit_claim(
             vin=vin,

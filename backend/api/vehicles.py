@@ -8,7 +8,7 @@ _STATS_TTL = 15  # seconds
 def invalidate_stats_cache() -> None:
     """Clear all cached dashboard stats (call after SC status changes)."""
     _stats_cache.clear()
-from api.middleware import token_required, role_required
+from api.middleware import token_required, role_required, email_verified_required
 from api.utils import sanitize, validate_vin, paginate, ensure_owner_eth
 from core import vehicle_service
 from core import service_log_service
@@ -78,6 +78,7 @@ def register_vehicle():
 
 @vehicle_bp.route('/claim', methods=['POST'])
 @role_required('OWNER')
+@email_verified_required
 def claim_vehicle():
     """Owner claims a manufacturer pre-registered (pending) vehicle."""
     data = request.get_json() or {}
@@ -251,6 +252,7 @@ def get_my_vehicles():
 
 @vehicle_bp.route('/transfer', methods=['POST'])
 @role_required('OWNER')
+@email_verified_required
 def transfer_vehicle():
     data = request.get_json() or {}
     try:
@@ -997,6 +999,10 @@ def mark_recall_serviced(recall_id):
     recall = VehicleRecall.query.filter_by(id=recall_id, status='active').first()
     if not recall:
         return jsonify({'error': 'Recall not found or already closed'}), 404
+
+    mapping = vehicle_repo.find_by_vin(vin)
+    if mapping and mapping.registration_status == 'owner_deleted':
+        return jsonify({'error': 'Cannot mark recall serviced: this vehicle\'s owner account has been deleted'}), 409
 
     existing = RecallVINService.query.filter_by(recall_id=recall_id, vin=vin).first()
     if existing:

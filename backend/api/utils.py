@@ -34,9 +34,14 @@ _OWNER_TOPUP_THRESHOLD = 5_000_000_000_000_000    # 0.005 ETH
 _OWNER_TOPUP_TARGET    = 50_000_000_000_000_000   # 0.05 ETH
 
 
-def ensure_owner_eth(address: str) -> None:
+import logging as _logging
+_eth_logger = _logging.getLogger(__name__)
+
+
+def ensure_owner_eth(address: str) -> bool:
     """Top up an owner's ETH balance to cover gas costs if running low.
-    Silently skips if deployer key is unavailable or balance check fails."""
+    Returns True if the balance is sufficient (or was topped up successfully).
+    Returns False if the top-up failed — callers should abort the transaction."""
     try:
         from blockchain.client import web3_client
         from web3 import Web3
@@ -45,11 +50,15 @@ def ensure_owner_eth(address: str) -> None:
         bal = web3_client.w3.eth.get_balance(checksum)
         if bal < _OWNER_TOPUP_THRESHOLD:
             deployer = Config.DEPLOYER_ADDRESS
-            if deployer:
-                needed = _OWNER_TOPUP_TARGET - bal
-                web3_client.transfer_eth(deployer, address, needed)
-    except Exception:
-        pass
+            if not deployer:
+                _eth_logger.warning('ETH top-up skipped for %s — no deployer address configured', address)
+                return False
+            needed = _OWNER_TOPUP_TARGET - bal
+            web3_client.transfer_eth(deployer, address, needed)
+        return True
+    except Exception as exc:
+        _eth_logger.warning('ETH top-up failed for %s: %s', address, exc)
+        return False
 
 
 def paginate(query_list: list, request_args) -> dict:

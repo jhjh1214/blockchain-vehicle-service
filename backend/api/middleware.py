@@ -33,6 +33,19 @@ def token_required(f):
     return decorated
 
 
+def email_verified_required(f):
+    """Blocks unverified accounts from state-changing operations.
+    Must be stacked AFTER role_required/token_required (those populate request.user)."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        from core import auth_service
+        user = auth_service.get_user_by_id(request.user['user_id'])
+        if user and not user.email_verified:
+            return jsonify({'error': 'Please verify your email address before using this feature'}), 403
+        return f(*args, **kwargs)
+    return decorated
+
+
 def role_required(*allowed_roles):
     """Validates JWT and enforces role. Implies token_required — do not stack both."""
     def decorator(f):

@@ -227,7 +227,10 @@ class DisputeMessage(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     vin = db.Column(db.String(17), nullable=False, index=True)
     record_index = db.Column(db.Integer, nullable=False)
-    sender_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    # SET NULL so message records survive user deletion; message content is anonymised
+    # in delete_account() to satisfy PDPA while preserving the dispute audit trail.
+    sender_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    sender_name = db.Column(db.String(255), nullable=True)   # snapshot at creation
     sender_role = db.Column(db.String(20), nullable=False)
     message = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -239,12 +242,13 @@ class DisputeMessage(db.Model):
     )
 
     def to_dict(self) -> dict:
+        name = self.sender_name or (self.sender.name if self.sender else 'Deleted User')
         return {
             'id': self.id,
             'vin': self.vin,
             'record_index': self.record_index,
             'sender_id': self.sender_id,
-            'sender_name': self.sender.name if self.sender else 'Unknown',
+            'sender_name': name,
             'sender_role': self.sender_role,
             'message': self.message,
             'created_at': self.created_at.isoformat() if self.created_at else None,

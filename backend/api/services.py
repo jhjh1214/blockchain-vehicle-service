@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime, date as _date
 from flask import Blueprint, request, jsonify
-from api.middleware import token_required, role_required
+from api.middleware import token_required, role_required, email_verified_required
 from api.utils import sanitize, validate_vin, validate_mileage, paginate, ensure_owner_eth
 from core import service_log_service
 from core.audit import log_event
@@ -14,6 +14,7 @@ service_bp = Blueprint('service', __name__)
 
 @service_bp.route('/submit', methods=['POST'])
 @role_required('SERVICE_CENTER')
+@email_verified_required
 def submit_service():
     from db.models import User as _UserModel
     _sc_user = _UserModel.query.filter_by(blockchain_address=request.user['blockchain_address']).first()
@@ -83,6 +84,8 @@ def submit_service():
     mapping = vehicle_repo.find_by_vin(vin)
     if mapping and mapping.registration_status == 'pending':
         return jsonify({'error': 'Cannot submit a service record for a vehicle with no registered owner'}), 400
+    if mapping and mapping.registration_status == 'owner_deleted':
+        return jsonify({'error': 'Cannot submit a service record: this vehicle\'s owner account has been deleted'}), 400
 
     sc_brand = request.user.get('brand', '') or ''
     if sc_brand:
@@ -147,6 +150,7 @@ def submit_service():
 
 @service_bp.route('/verify', methods=['POST'])
 @role_required('OWNER')
+@email_verified_required
 def verify_service():
     data = request.get_json() or {}
     try:
@@ -160,7 +164,8 @@ def verify_service():
     mapping = vehicle_repo.find_by_vin(vin)
     if not mapping or mapping.owner_address.lower() != request.user['blockchain_address'].lower():
         return jsonify({'error': 'You do not own this vehicle'}), 403
-    ensure_owner_eth(request.user['blockchain_address'])
+    if not ensure_owner_eth(request.user['blockchain_address']):
+        return jsonify({'error': 'Insufficient ETH balance and top-up failed. Please try again later.'}), 503
     try:
         result = service_log_service.verify_service(vin, metadata_hash, request.user['blockchain_address'])
         log_event('service_verified', user_id=request.user.get('user_id'),
@@ -172,6 +177,7 @@ def verify_service():
 
 @service_bp.route('/dispute', methods=['POST'])
 @role_required('OWNER')
+@email_verified_required
 def dispute_service():
     data = request.get_json() or {}
     try:
@@ -188,7 +194,8 @@ def dispute_service():
     mapping = vehicle_repo.find_by_vin(vin)
     if not mapping or mapping.owner_address.lower() != request.user['blockchain_address'].lower():
         return jsonify({'error': 'You do not own this vehicle'}), 403
-    ensure_owner_eth(request.user['blockchain_address'])
+    if not ensure_owner_eth(request.user['blockchain_address']):
+        return jsonify({'error': 'Insufficient ETH balance and top-up failed. Please try again later.'}), 503
     try:
         result = service_log_service.dispute_service(vin, metadata_hash, reason, request.user['blockchain_address'])
         log_event('service_disputed', user_id=request.user.get('user_id'),
@@ -555,7 +562,8 @@ def get_dispute_messages(vin, record_index):
             return jsonify({'error': 'Access denied'}), 403
     elif role == 'SERVICE_CENTER':
         from db.models import ServiceMetadata
-        if not ServiceMetadata.query.filter_by(vin=vin).filter(
+        # SC must have submitted the disputed record specifically, not just any record for the VIN
+        if not ServiceMetadata.query.filter_by(vin=vin, disputed=True).filter(
                 ServiceMetadata.service_center_address.ilike(addr)).first():
             return jsonify({'error': 'Access denied'}), 403
     elif role != 'MANUFACTURER':
@@ -599,7 +607,8 @@ def post_dispute_message():
         if not mapping or mapping.owner_address.lower() != addr:
             return jsonify({'error': 'Access denied'}), 403
     elif role == 'SERVICE_CENTER':
-        if not ServiceMetadata.query.filter_by(vin=vin).filter(
+        # SC must have submitted the disputed record, not just any record for the VIN
+        if not ServiceMetadata.query.filter_by(vin=vin, disputed=True).filter(
                 ServiceMetadata.service_center_address.ilike(addr)).first():
             return jsonify({'error': 'Access denied'}), 403
     elif role != 'MANUFACTURER':
@@ -613,6 +622,7 @@ def post_dispute_message():
         vin=vin,
         record_index=record_index,
         sender_id=user.id,
+        sender_name=user.name or user.email,  # snapshot so it survives user deletion
         sender_role=role,
         message=message,
     )

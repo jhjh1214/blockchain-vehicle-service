@@ -443,8 +443,12 @@ def delete_account():
     # Erase personal data from audit logs (ip_address, detail) before user row is gone
     AuditLog.query.filter_by(user_id=user.id).delete(synchronize_session=False)
 
-    # Erase dispute messages authored by this user
-    DisputeMessage.query.filter_by(sender_id=user.id).delete(synchronize_session=False)
+    # Anonymise dispute messages authored by this user — preserves the dispute audit trail
+    # for the manufacturer while erasing personal message content per PDPA.
+    DisputeMessage.query.filter_by(sender_id=user.id).update(
+        {'message': '[Message deleted — account removed]', 'sender_id': None},
+        synchronize_session=False,
+    )
 
     # Clear intended_owner_email on any pending vehicle pre-registrations for this email
     VehicleVINMapping.query.filter_by(
@@ -460,6 +464,23 @@ def delete_account():
             VehicleVINMapping.query.filter_by(
                 owner_address=user.blockchain_address
             ).update({'registration_status': 'owner_deleted'}, synchronize_session=False)
+        # Auto-resolve disputed warranty void requests so the manufacturer isn't left
+        # with a ghost dispute they can never close.
+        from db.models import WarrantyVoidRequest
+        owned_vins = [
+            m.vin for m in VehicleVINMapping.query.filter_by(
+                owner_address=user.blockchain_address
+            ).all()
+        ] if user.blockchain_address else []
+        if owned_vins:
+            WarrantyVoidRequest.query.filter(
+                WarrantyVoidRequest.vin.in_(owned_vins),
+                WarrantyVoidRequest.status.in_(['pending', 'disputed']),
+            ).update({
+                'status': 'denied',
+                'manufacturer_notes': 'Automatically denied — vehicle owner account was deleted.',
+                'resolved_at': datetime.utcnow(),
+            }, synchronize_session=False)
 
     elif role == 'SERVICE_CENTER':
         from db.models import ServiceMetadata, WarrantyVoidRequest
@@ -481,6 +502,24 @@ def delete_account():
         }, synchronize_session=False)
 
     elif role == 'MANUFACTURER':
+        from db.models import VehicleRecall, VehicleReclaimRequest, WarrantyClaimMetadata
+        # Auto-deny any pending warranty claims for vehicles this manufacturer registered.
+        if user.blockchain_address:
+            mfr_vins = [
+                m.vin for m in VehicleVINMapping.query.filter_by(
+                    registered_by=user.blockchain_address
+                ).all()
+            ]
+            if mfr_vins:
+                WarrantyClaimMetadata.query.filter(
+                    WarrantyClaimMetadata.vin.in_(mfr_vins),
+                    WarrantyClaimMetadata.status == 'pending',
+                ).update(
+                    {'status': 'denied',
+                     'approved_notes': 'Automatically denied — manufacturer account was deleted.',
+                     'approved_at': datetime.utcnow()},
+                    synchronize_session=False,
+                )
         from db.models import VehicleRecall, VehicleReclaimRequest
         # Close all active recalls so owners aren't left waiting on a ghost manufacturer.
         if user.blockchain_address:

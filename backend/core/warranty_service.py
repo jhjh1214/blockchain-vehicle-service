@@ -110,6 +110,9 @@ def get_owner_claims(owner_address: str) -> list:
 
 
 def approve_claim(vin: str, claim_index: int, from_address: str, notes: str = '') -> dict:
+    mapping = vehicle_repo.find_by_vin(vin)
+    if mapping and mapping.warranty_expiry and mapping.warranty_expiry < int(time.time()):
+        raise ValueError('Cannot approve: the warranty for this vehicle has since expired')
     result = warranty_tracker.approve_claim(vin, claim_index, from_address)
     # Persist status to DB: look up the claim by index
     claims = warranty_tracker.get_claims(vin)
