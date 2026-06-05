@@ -9,7 +9,7 @@ def invalidate_stats_cache() -> None:
     """Clear all cached dashboard stats (call after SC status changes)."""
     _stats_cache.clear()
 from api.middleware import token_required, role_required
-from api.utils import sanitize, validate_vin, paginate
+from api.utils import sanitize, validate_vin, paginate, ensure_owner_eth
 from core import vehicle_service
 from core import service_log_service
 from db.repositories import vehicles as vehicle_repo, users as user_repo
@@ -123,6 +123,7 @@ def transfer_vehicle():
     new_owner_email = sanitize(data.get('new_owner_email', ''), 255).lower()
     if not new_owner_email:
         return jsonify({'error': 'new_owner_email required'}), 400
+    ensure_owner_eth(request.user['blockchain_address'])
     try:
         result = vehicle_service.transfer_vehicle(
             vin=vin,
