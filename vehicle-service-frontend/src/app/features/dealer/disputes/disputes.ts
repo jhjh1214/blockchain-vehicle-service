@@ -68,8 +68,7 @@ export class DealerDisputesComponent implements OnInit {
     this.serviceService.getCenterPending().subscribe({
       next: (data) => {
         this.disputedRecords = (data.pending_services || [])
-          .map((r: any, i: number) => ({ ...r, record_index: i }))
-          .filter((r: any) => r.disputed);
+          .filter((r: any) => r.status === 'disputed');
         this.loading = false;
       },
       error: (err) => {

@@ -15,6 +15,9 @@ class ServiceRecord {
   final List<String> photos;
   final int? serviceCenterId;
   final String? scBrand;
+  final String? rebuttalNotes;
+  final String? rebuttalSubmittedAt;
+  final bool escalated;
 
   const ServiceRecord({
     required this.vin,
@@ -33,6 +36,9 @@ class ServiceRecord {
     this.photos = const [],
     this.serviceCenterId,
     this.scBrand,
+    this.rebuttalNotes,
+    this.rebuttalSubmittedAt,
+    this.escalated = false,
   });
 
   factory ServiceRecord.fromJson(Map<String, dynamic> j) => ServiceRecord(
@@ -52,6 +58,9 @@ class ServiceRecord {
         photos: (j['photos'] as List?)?.map((e) => e.toString()).toList() ?? [],
         serviceCenterId: j['service_center_id'] as int?,
         scBrand: j['sc_brand'],
+        rebuttalNotes: j['rebuttal_notes'],
+        rebuttalSubmittedAt: j['rebuttal_submitted_at'],
+        escalated: j['escalated'] == true,
       );
 
   bool get isPending => status == 'pending';

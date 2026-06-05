@@ -278,6 +278,7 @@ def _flatten_owner_record(record, index: int, mapping, sc_user_cache=None) -> di
         'service_notes': meta.get('service_notes'),
         'photos': meta.get('photos', []),
         'status': status,
+        'disputed': disputed,
         'dispute_reason': record.get('dispute_reason'),
         'submitted_by': sc_address,
         'service_center_name': sc_user.name if sc_user else sc_address,
@@ -289,6 +290,8 @@ def _flatten_owner_record(record, index: int, mapping, sc_user_cache=None) -> di
         'metadata_hash': record.get('metadata_hash', ''),
         'rebuttal_notes': meta.get('rebuttal_notes'),
         'rebuttal_submitted_at': meta.get('rebuttal_submitted_at'),
+        'escalated': meta.get('escalated', False),
+        'escalated_at': meta.get('escalated_at'),
         'integrity_status': record.get('integrity_status'),
     }
 

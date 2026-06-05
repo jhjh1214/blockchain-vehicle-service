@@ -26,6 +26,7 @@ class ApiEndpoints {
   static const ownerVerifyService = '/service/owner/verify';
   static const ownerDisputeService = '/service/owner/dispute';
   static const ownerServiceHistory = '/service/owner/history';
+  static const escalateDispute = '/service/escalate-dispute';
 
   // Warranties
   static const submitClaim = '/warranty/submit-claim';

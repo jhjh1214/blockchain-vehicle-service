@@ -86,6 +86,32 @@ class _PendingServicesScreenState extends State<PendingServicesScreen> {
     }
   }
 
+  Future<void> _escalate(ServiceRecord record) async {
+    if (record.metadataHash == null || record.metadataHash!.isEmpty) return;
+    final confirm = await _showDialog(
+      'Escalate to Manufacturer',
+      'This will flag the dispute for priority review by the manufacturer. Continue?',
+      confirmLabel: 'Escalate',
+      confirmColor: Colors.deepOrange,
+    );
+    if (!confirm || !mounted) return;
+    final result = await context
+        .read<ServicesProvider>()
+        .escalateDispute(record.vin, record.metadataHash!);
+    if (!mounted) return;
+    if (result.isSuccess) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Dispute escalated to manufacturer'),
+        backgroundColor: Colors.deepOrange,
+      ));
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(result.error!),
+        backgroundColor: Colors.red,
+      ));
+    }
+  }
+
   void _showTxSnackBar(String message, String? txHash, Color color) {
     final short = txHash != null && txHash.length > 14
         ? '${txHash.substring(0, 8)}…${txHash.substring(txHash.length - 6)}'
@@ -206,6 +232,7 @@ class _PendingServicesScreenState extends State<PendingServicesScreen> {
           record: provider.pending[i],
           onVerify: () => _verify(provider.pending[i]),
           onDispute: () => _dispute(provider.pending[i]),
+          onEscalate: () => _escalate(provider.pending[i]),
         ),
       ),
     );
@@ -216,15 +243,18 @@ class _ServiceCard extends StatelessWidget {
   final ServiceRecord record;
   final VoidCallback onVerify;
   final VoidCallback onDispute;
+  final VoidCallback onEscalate;
 
   const _ServiceCard({
     required this.record,
     required this.onVerify,
     required this.onDispute,
+    required this.onEscalate,
   });
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -240,6 +270,24 @@ class _ServiceCard extends StatelessWidget {
                       style: const TextStyle(
                           fontWeight: FontWeight.bold, fontSize: 15)),
                 ),
+                if (record.isDisputed) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade100,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      record.escalated ? 'Escalated' : 'Disputed',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: record.escalated ? Colors.deepOrange.shade800 : Colors.orange.shade800,
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
             const SizedBox(height: 8),
@@ -309,7 +357,7 @@ class _ServiceCard extends StatelessWidget {
                       width: double.infinity,
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                        color: colorScheme.surfaceContainerHighest,
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Column(
@@ -333,43 +381,142 @@ class _ServiceCard extends StatelessWidget {
                 ),
               ),
             ],
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: onDispute,
-                    icon: const Icon(Icons.flag_outlined, color: Colors.red),
-                    label: const Text('Dispute',
-                        style: TextStyle(color: Colors.red)),
-                    style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Colors.red)),
-                  ),
+            // ── Dispute state ──────────────────────────────────────────────
+            if (record.isDisputed) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  border: Border.all(color: Colors.orange.shade200),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: onVerify,
-                    icon: const Icon(Icons.check),
-                    label: const Text('Verify'),
-                    style: FilledButton.styleFrom(
-                        backgroundColor: Colors.green),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      Icon(Icons.flag_outlined, size: 14, color: Colors.orange.shade700),
+                      const SizedBox(width: 6),
+                      Text('Your dispute reason',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.orange.shade800)),
+                    ]),
+                    const SizedBox(height: 4),
+                    Text(record.disputeReason ?? '—',
+                        style: const TextStyle(fontSize: 13)),
+                  ],
+                ),
+              ),
+              if (record.rebuttalNotes != null) ...[
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    border: Border.all(color: Colors.blue.shade200),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(children: [
+                        Icon(Icons.reply_outlined, size: 14, color: Colors.blue.shade700),
+                        const SizedBox(width: 6),
+                        Text('Service centre response',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.blue.shade800)),
+                      ]),
+                      const SizedBox(height: 4),
+                      Text(record.rebuttalNotes!,
+                          style: const TextStyle(fontSize: 13)),
+                    ],
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: () => context.push(
-                '/services/dispute-chat/${record.vin}/${record.recordIndex}'
-                '?type=${Uri.encodeComponent(record.serviceType)}',
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () => context.push(
+                  '/services/dispute-chat/${record.vin}/${record.recordIndex}'
+                  '?type=${Uri.encodeComponent(record.serviceType)}',
+                ),
+                icon: const Icon(Icons.chat_bubble_outline, size: 16),
+                label: const Text('Dispute Thread'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 36),
+                ),
               ),
-              icon: const Icon(Icons.chat_bubble_outline, size: 16),
-              label: const Text('Dispute Thread'),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 36),
+              if (!record.escalated) ...[
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: onEscalate,
+                  icon: const Icon(Icons.escalator_warning, size: 16, color: Colors.deepOrange),
+                  label: const Text('Escalate to Manufacturer',
+                      style: TextStyle(color: Colors.deepOrange)),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 36),
+                    side: const BorderSide(color: Colors.deepOrange),
+                  ),
+                ),
+              ] else ...[
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.deepOrange.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.check_circle_outline, size: 16, color: Colors.deepOrange.shade600),
+                      const SizedBox(width: 6),
+                      Text('Escalated to manufacturer for review',
+                          style: TextStyle(fontSize: 13, color: Colors.deepOrange.shade700)),
+                    ],
+                  ),
+                ),
+              ],
+            ] else ...[
+              // ── Pending state actions ──────────────────────────────────
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: onDispute,
+                      icon: const Icon(Icons.flag_outlined, color: Colors.red),
+                      label: const Text('Dispute',
+                          style: TextStyle(color: Colors.red)),
+                      style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Colors.red)),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: onVerify,
+                      icon: const Icon(Icons.check),
+                      label: const Text('Verify'),
+                      style: FilledButton.styleFrom(
+                          backgroundColor: Colors.green),
+                    ),
+                  ),
+                ],
               ),
-            ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: () => context.push(
+                  '/services/dispute-chat/${record.vin}/${record.recordIndex}'
+                  '?type=${Uri.encodeComponent(record.serviceType)}',
+                ),
+                icon: const Icon(Icons.chat_bubble_outline, size: 16),
+                label: const Text('Dispute Thread'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 36),
+                ),
+              ),
+            ],
           ],
         ),
       ),

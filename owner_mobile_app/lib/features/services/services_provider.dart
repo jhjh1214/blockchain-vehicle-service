@@ -94,6 +94,21 @@ class ServicesProvider extends ChangeNotifier {
     }
   }
 
+  Future<ServiceOpResult> escalateDispute(
+      String vin, String metadataHash) async {
+    try {
+      await ApiClient.instance.dio.post(
+          ApiEndpoints.escalateDispute,
+          data: {'vin': vin, 'metadata_hash': metadataHash});
+      await loadPending();
+      return const ServiceOpResult();
+    } on DioException catch (e) {
+      return ServiceOpResult(error: _dioError(e, 'Failed to escalate dispute'));
+    } catch (_) {
+      return const ServiceOpResult(error: 'Failed to escalate dispute');
+    }
+  }
+
   static String? _extractTxHash(dynamic data) {
     try {
       return (data as Map?)?['transaction']?['tx_hash'] as String?;

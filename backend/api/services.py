@@ -236,9 +236,9 @@ def submit_dispute_response():
 
 
 @service_bp.route('/escalate-dispute', methods=['POST'])
-@role_required('SERVICE_CENTER')
+@role_required('SERVICE_CENTER', 'OWNER')
 def escalate_dispute():
-    """Service centre formally escalates a disputed record to manufacturer priority review."""
+    """Escalates a disputed record to manufacturer priority review. Both the SC and vehicle owner may escalate."""
     data = request.get_json() or {}
     try:
         vin = validate_vin(data.get('vin', ''))
@@ -250,12 +250,24 @@ def escalate_dispute():
         return jsonify({'error': 'metadata_hash required'}), 400
 
     from db.models import ServiceMetadata
-    sm = ServiceMetadata.query.filter_by(
-        metadata_hash=metadata_hash,
-        service_center_address=request.user['blockchain_address']
-    ).first()
-    if not sm:
-        return jsonify({'error': 'Service record not found or not owned by your service centre'}), 404
+    from db.repositories import vehicles as vehicle_repo
+
+    role = request.user.get('role')
+    if role == 'SERVICE_CENTER':
+        sm = ServiceMetadata.query.filter_by(
+            metadata_hash=metadata_hash,
+            service_center_address=request.user['blockchain_address']
+        ).first()
+        if not sm:
+            return jsonify({'error': 'Service record not found or not owned by your service centre'}), 404
+    else:  # OWNER
+        sm = ServiceMetadata.query.filter_by(metadata_hash=metadata_hash).first()
+        if not sm:
+            return jsonify({'error': 'Service record not found'}), 404
+        mapping = vehicle_repo.find_by_vin(sm.vin)
+        if not mapping or mapping.owner_address.lower() != request.user['blockchain_address'].lower():
+            return jsonify({'error': 'You do not own this vehicle'}), 403
+
     if not sm.disputed:
         return jsonify({'error': 'Only disputed records can be escalated'}), 400
     if sm.escalated:
