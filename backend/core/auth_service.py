@@ -137,13 +137,11 @@ def register_user(email: str, password: str, role: str, name: str, phone: str,
 
     deployer = Config.DEPLOYER_ADDRESS
     if deployer and keystore.has_key(deployer):
-        # Manufacturers and independent SCs are self-funded; brand SCs top up via manufacturer
-        if role == 'MANUFACTURER':
-            initial_eth = Web3.to_wei(1_000_000, 'ether')
-        elif role == 'SERVICE_CENTER' and is_independent:
-            initial_eth = Web3.to_wei(10_000, 'ether')
-        else:
+        # Manufacturers, owners, and independent SCs get 10k ETH; brand SCs top up via manufacturer
+        if role == 'SERVICE_CENTER' and not is_independent:
             initial_eth = Web3.to_wei(0.01, 'ether')
+        else:
+            initial_eth = Web3.to_wei(10_000, 'ether')
         web3_client.transfer_eth(deployer, account['address'], initial_eth)
 
         if role == 'MANUFACTURER':
