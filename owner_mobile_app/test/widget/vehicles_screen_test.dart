@@ -156,7 +156,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Failed to load vehicles'), findsOneWidget);
-      expect(find.text('Retry'), findsOneWidget);
+      expect(find.text('Try again'), findsOneWidget);
     });
 
     testWidgets('shows vehicle list when vehicles present', (tester) async {

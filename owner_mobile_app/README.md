@@ -265,7 +265,7 @@ Provider pattern with `ChangeNotifier`. All providers registered at root via `Mu
 flutter test
 ```
 
-**Expected: 94 passing**
+**Expected: 95 passing**
 
 | Directory | What is tested |
 |---|---|

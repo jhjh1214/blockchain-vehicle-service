@@ -595,7 +595,7 @@ Report phrasing: "Static analysis was performed using Slither 0.11.5. No high or
 
 **No longitudinal user study:**
 System tested by developer; no pilot with real mechanics over time.
-348 backend tests + 63 Angular frontend tests + 94 Flutter mobile app tests (505 total); functional prototype demonstrates all workflows end-to-end.
+348 backend tests + 63 Angular frontend tests + 95 Flutter mobile app tests (506 total); functional prototype demonstrates all workflows end-to-end.
 Future work: 3-month pilot with a real workshop, measuring time savings vs. paper-based processes.
 
 **FCM and email are centralised:**
