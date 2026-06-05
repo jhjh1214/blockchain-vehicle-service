@@ -1,1 +1,18 @@
 /* Register vehicle — all layout from global styles */
+
+.form-control-locked {
+  background: var(--surface-2);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.form-control-locked:hover {
+  border-color: var(--border);
+}
+
+.form-hint-lock {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  margin-top: 5px;
+}

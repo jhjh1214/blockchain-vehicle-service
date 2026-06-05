@@ -46,7 +46,13 @@
           <div class="form-grid cols-3">
             <div class="form-group">
               <label class="form-label" for="make">Make</label>
-              <input type="text" id="make" formControlName="make" class="form-control" style="background:var(--bg-subtle,#f8fafc);cursor:not-allowed;color:var(--text-muted);" readonly />
+              <input type="text" id="make" formControlName="make" class="form-control form-control-locked" readonly />
+              <div class="form-hint form-hint-lock">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="11" height="11" style="flex-shrink:0;margin-top:1px;">
+                  <path fill-rule="evenodd" d="M8 1a3.5 3.5 0 0 0-3.5 3.5V7A1.5 1.5 0 0 0 3 8.5v4A1.5 1.5 0 0 0 4.5 14h7a1.5 1.5 0 0 0 1.5-1.5v-4A1.5 1.5 0 0 0 11 7V4.5A3.5 3.5 0 0 0 8 1Zm2 6V4.5a2 2 0 1 0-4 0V7h4Z" clip-rule="evenodd"/>
+                </svg>
+                Locked to your registered brand
+              </div>
             </div>
             <div class="form-group">
               <label class="form-label" for="model">Model</label>
