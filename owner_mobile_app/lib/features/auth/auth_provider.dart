@@ -85,6 +85,7 @@ class AuthProvider extends ChangeNotifier {
           });
       await TokenStorage.save(res.data['access_token'], res.data['refresh_token']);
       _user = User.fromJson(res.data['user']);
+      PushNotificationService.instance.init();
       return true;
     } on DioException catch (e) {
       _error = e.response?.data['error'] ?? 'Registration failed';
