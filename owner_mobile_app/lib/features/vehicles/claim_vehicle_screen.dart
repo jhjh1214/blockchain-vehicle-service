@@ -154,6 +154,11 @@ class _QrScannerScreenState extends State<_QrScannerScreen> {
   bool _scanned = false;
   int _restartKey = 0;
 
+  // Error state lives here so the overlay renders at the top of the Stack,
+  // guaranteed visible and touchable regardless of what MobileScanner does.
+  MobileScannerException? _cameraError;
+  bool _didAutoRetry = false;
+
   @override
   void initState() {
     super.initState();
@@ -167,6 +172,7 @@ class _QrScannerScreenState extends State<_QrScannerScreen> {
       detectionSpeed: DetectionSpeed.normal,
     );
     _scanned = false;
+    _cameraError = null;
   }
 
   @override
@@ -186,10 +192,30 @@ class _QrScannerScreenState extends State<_QrScannerScreen> {
     Navigator.of(context, rootNavigator: true).pop(vin ?? raw);
   }
 
+  void _handleCameraError(MobileScannerException error) {
+    // Called once per error event via addPostFrameCallback (safe outside build).
+    if (_cameraError != null) return; // already handling an error
+
+    final isPermission = error.errorCode == MobileScannerErrorCode.permissionDenied;
+
+    // Auto-retry once for transient failures (camera not yet released after
+    // the permission dialog closes on Android).
+    if (!isPermission && !_didAutoRetry) {
+      _didAutoRetry = true;
+      Future.delayed(const Duration(milliseconds: 700), () {
+        if (mounted) _retry();
+      });
+      return;
+    }
+
+    if (mounted) setState(() => _cameraError = error);
+  }
+
   void _retry() {
     setState(() {
       _startController();
       _restartKey++;
+      _didAutoRetry = false;
     });
   }
 
@@ -204,6 +230,9 @@ class _QrScannerScreenState extends State<_QrScannerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final error = _cameraError;
+    final isPermission = error?.errorCode == MobileScannerErrorCode.permissionDenied;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Scan VIN')),
       body: Stack(
@@ -212,11 +241,48 @@ class _QrScannerScreenState extends State<_QrScannerScreen> {
             key: ValueKey(_restartKey),
             controller: _controller!,
             onDetect: _onDetect,
-            errorBuilder: (context, error, child) {
-              final isPermission =
-                  error.errorCode == MobileScannerErrorCode.permissionDenied;
-              return ColoredBox(
+            errorBuilder: (ctx, err, _) {
+              // Delegate to state-level handler outside the build phase so the
+              // error overlay renders as a top-level Stack child (always visible).
+              if (_cameraError == null) {
+                WidgetsBinding.instance.addPostFrameCallback(
+                  (_) => _handleCameraError(err),
+                );
+              }
+              return const ColoredBox(
                 color: Colors.black,
+                child: SizedBox.expand(),
+              );
+            },
+          ),
+          // Viewfinder overlay — hidden when an error is showing
+          if (error == null) ...[
+            Center(
+              child: Container(
+                width: 260,
+                height: 100,
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.white, width: 2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+            const Positioned(
+              bottom: 40,
+              left: 0,
+              right: 0,
+              child: Text(
+                'Align barcode or QR code within the frame',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white, fontSize: 14),
+              ),
+            ),
+          ],
+          // Error overlay — top-level Stack child so nothing can obscure it
+          if (error != null)
+            ColoredBox(
+              color: Colors.black,
+              child: SizedBox.expand(
                 child: Center(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -262,29 +328,8 @@ class _QrScannerScreenState extends State<_QrScannerScreen> {
                     ),
                   ),
                 ),
-              );
-            },
-          ),
-          Center(
-            child: Container(
-              width: 260,
-              height: 100,
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.white, width: 2),
-                borderRadius: BorderRadius.circular(8),
               ),
             ),
-          ),
-          const Positioned(
-            bottom: 40,
-            left: 0,
-            right: 0,
-            child: Text(
-              'Align barcode or QR code within the frame',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white, fontSize: 14),
-            ),
-          ),
         ],
       ),
     );

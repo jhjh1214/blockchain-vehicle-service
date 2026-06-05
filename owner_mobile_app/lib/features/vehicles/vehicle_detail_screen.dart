@@ -250,7 +250,7 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen>
         ],
         const SizedBox(height: 12),
         OutlinedButton.icon(
-          onPressed: () => context.push('/warranties'),
+          onPressed: () => context.go('/warranties'),
           icon: const Icon(Icons.list),
           label: const Text('View All My Claims'),
         ),
