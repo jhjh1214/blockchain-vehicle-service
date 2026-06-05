@@ -40,10 +40,10 @@ full metadata is in PostgreSQL. This is the industry-standard hybrid approach (c
 
 | Role | Description | Registration Path | Initial Status | ETH |
 |---|---|---|---|---|
-| MANUFACTURER | Registers vehicles, manages SC network, issues recalls, resolves disputes | SSM number + brand selection (37 Malaysian brands) | active | 1000 ETH |
-| SERVICE_CENTER (Authorized) | Brand-aligned SC; submits service records for that brand's vehicles | SSM number must be pre-registered by the manufacturer in the system | pending, activated by manufacturer | 0.01 ETH (manufacturer funds them) |
-| SERVICE_CENTER (Independent) | Third-party workshop, can service any vehicle | Self-registers, no manufacturer linkage | active immediately | 1000 ETH (no manufacturer to fund them) |
-| OWNER | Vehicle owner; receives FCM push notifications; uses Flutter mobile app only | Mobile app only — the web portal shows a blue banner telling owners to use the app | N/A | Has blockchain address, doesn't need ETH |
+| MANUFACTURER | Registers vehicles, manages SC network, issues recalls, resolves disputes | SSM number + brand selection (37 Malaysian brands) | active | 10,000 ETH |
+| SERVICE_CENTER (Authorized) | Brand-aligned SC; submits service records for that brand's vehicles | SSM number must be pre-registered by the manufacturer in the system | pending, activated by manufacturer | 0.01 ETH (manufacturer funds them via ETH panel) |
+| SERVICE_CENTER (Independent) | Third-party workshop, can service any vehicle | Self-registers, no manufacturer linkage | active immediately | 10,000 ETH (no manufacturer to fund them) |
+| OWNER | Vehicle owner; receives FCM push notifications; uses Flutter mobile app only | Mobile app only — the web portal shows a blue banner telling owners to use the app | N/A | 0 ETH on registration; gas is subsidised per-feature by the deployer via `ensure_owner_eth()` in `api/utils.py` — automatically tops up to 0.05 ETH before any owner blockchain write (verify, dispute, warranty claim, vehicle transfer). Transparent to the user. |
 
 ---
 
@@ -392,7 +392,7 @@ All email sends are in daemon threads — never block the API response.
 ### Mobile Push (FCM)
 Triggered for: new pending service record, dispute resolved, recall issued, warranty void request,
 warranty void resolved, service overdue reminder.
-DeviceToken table stores per-user FCM tokens (upserted on app launch).
+DeviceToken table stores per-user FCM tokens. Token is registered with the backend **after a successful login** (not at app launch) via `PushNotificationService.init()` called from `AuthProvider` — this ensures the token is always associated with the authenticated user.
 `broadcast_recall()` sends to all registered devices regardless of role.
 `send_to_user(user_id, ...)` targets a specific user's devices and also persists to the DB inbox.
 
@@ -430,7 +430,7 @@ ETH balance fetch in SC detail view has a 2-second timeout in a daemon thread �
 **Current:** Railway (PaaS)
 - Backend: Python Flask app (Gunicorn)
 - Database: PostgreSQL on Railway (managed)
-- Blockchain node: **Ganache** hosted as a Railway service (not Hardhat Network — Ganache is the EVM; Hardhat is only the toolchain used to compile and deploy contracts)
+- Blockchain node: **Ganache** hosted as a Railway service (not Hardhat Network — Ganache is the EVM; Hardhat is only the toolchain used to compile and deploy contracts). Started with `--wallet.defaultBalance 999999999999999` so the deployer has near-unlimited ETH to fund manufacturer/SC accounts on registration and top up owner wallets on demand.
 - Frontend: Angular SPA (separate Railway service or any static host / CDN)
 
 **Environment variables required:**
@@ -595,7 +595,7 @@ Report phrasing: "Static analysis was performed using Slither 0.11.5. No high or
 
 **No longitudinal user study:**
 System tested by developer; no pilot with real mechanics over time.
-348 backend tests + 63 Angular frontend tests + 95 Flutter mobile app tests (506 total); functional prototype demonstrates all workflows end-to-end.
+348 backend tests + 63 Angular frontend tests + 94 Flutter mobile app tests (505 total); functional prototype demonstrates all workflows end-to-end.
 Future work: 3-month pilot with a real workshop, measuring time savings vs. paper-based processes.
 
 **FCM and email are centralised:**
@@ -646,8 +646,11 @@ This section is for the security evaluation chapter. All findings from a systema
 | 26 | IDOR on authorized licenses | Tested — NOT present | Already scoped by `manufacturer_user_id` in query |
 | 27 | File path traversal in uploads | Tested — NOT present | `secure_filename()` + `send_from_directory()` |
 | 28 | SQL injection | Tested — NOT present | ORM parameterised queries throughout |
+| 29 | Warranty auth bypass — `if mapping and mapping.registered_by and mapping.registered_by != addr` skipped 403 when mapping was None | High | Fixed — restructured to 404 when unverifiable, then strict equality check; affects `GET /warranty/claims/<vin>`, `POST /warranty/approve-claim`, `POST /warranty/deny-claim` |
+| 30 | Missing ownership check on `GET /service/history/<vin>` for OWNER role — any authenticated owner could read another owner's service history | Medium | Fixed — OWNER callers must own the vehicle; MANUFACTURER/SC scoped to their brand |
+| 31 | `request.user['id']` KeyError — JWT payload key is `user_id` not `id`; 8 occurrences in sc_management, services, vehicles — caused HTTP 500 on SSM license management, recall issuance, and dispute tracking | Medium (DoS / information disclosure via stack trace) | Fixed — all occurrences corrected to `request.user['user_id']` |
 
-**15 code-level vulnerabilities fixed. 13 acknowledged with documented mitigations. 3 tested and confirmed not present.**
+**18 code-level vulnerabilities fixed. 13 acknowledged with documented mitigations. 3 tested and confirmed not present.**
 
 ---
 
@@ -678,3 +681,4 @@ This section is for the security evaluation chapter. All findings from a systema
 - 37-brand Malaysian dropdown: context-aware to the local market
 - PDPA Privacy Policy and Terms of Service are real legal text served from the API and shown in-app
 - Demo seed script: `python init_db.py --seed` creates a complete realistic dataset for presentations
+- Per-feature ETH subsidy for owners: owners register with 0 ETH and need no blockchain knowledge — `ensure_owner_eth()` silently tops up their wallet from the deployer before any blockchain write (verify, dispute, warranty claim, vehicle transfer); completely transparent to the user
