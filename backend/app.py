@@ -100,6 +100,13 @@ def create_app():
                     conn.execute(text("ALTER TABLE service_metadata ADD COLUMN ecu_modules JSON"))
                     conn.commit()
 
+            if inspector.has_table('dispute_messages'):
+                dm_cols = [c['name'] for c in inspector.get_columns('dispute_messages')]
+                if 'sender_name' not in dm_cols:
+                    with db.engine.connect() as conn:
+                        conn.execute(text("ALTER TABLE dispute_messages ADD COLUMN sender_name VARCHAR"))
+                        conn.commit()
+
             # ensure new tables created by SQLAlchemy models exist
             db.create_all()
 
