@@ -679,7 +679,7 @@ def post_dispute_message():
         try:
             from core.notifications import notify_dispute_message
             sender_display = user.name or user.email
-            sc_sm = ServiceMetadata.query.filter_by(vin=vin, record_index=record_index).first()
+            sc_sm = ServiceMetadata.query.filter_by(vin=vin, disputed=True).first()
             if role == 'OWNER':
                 if sc_sm:
                     sc_user = user_repo.find_by_blockchain_address(sc_sm.service_center_address)
