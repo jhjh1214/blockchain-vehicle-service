@@ -7,11 +7,25 @@ export interface ServiceRecord {
   verified: boolean;
   disputed: boolean;
   dispute_reason: string;
-  metadata?: ServiceMetadata;
-  // Owner-enriched fields (only on owner pending list)
+  // Flat service fields (returned by backend _flatten_owner_record)
+  service_type?: string;
+  service_date?: string;
+  mileage?: number;
+  technician_name?: string;
+  parts_replaced?: string;
+  service_notes?: string;
+  photos?: string[];
+  rebuttal_notes?: string;
+  rebuttal_submitted_at?: string;
+  escalated?: boolean;
+  escalated_at?: string;
+  // Owner-enriched fields
   make?: string;
   model?: string;
   year?: number;
+  status?: string;
+  // Legacy nested shape (may still appear in some endpoints)
+  metadata?: ServiceMetadata;
 }
 
 export interface ServiceMetadata {

@@ -107,13 +107,12 @@
       <div class="card dispute-card mb-16">
         <div class="dispute-card-header">
           <div class="dispute-card-title">
-            <span class="dispute-index">#{{ i + 1 }}</span>
             <div>
-              <div class="dispute-service-type">{{ record.metadata?.service_type || 'Service Record' }}</div>
+              <div class="dispute-service-type">{{ record.service_type || 'Service Record' }}</div>
               <div class="dispute-vin mono">VIN: {{ record.vin }} &nbsp;·&nbsp; Record #{{ record.record_index }}</div>
             </div>
           </div>
-          @if (record.metadata?.escalated) {
+          @if (record.escalated) {
             <span class="badge" style="background:var(--color-warning-light,#fff7ed);color:var(--color-warning,#d97706);border:1px solid var(--color-warning,#d97706);">Escalated</span>
           } @else {
             <span class="badge badge-disputed">Disputed</span>
@@ -125,15 +124,15 @@
           <div class="detail-grid">
             <div class="detail-item">
               <div class="detail-label">Service Date</div>
-              <div class="detail-value">{{ formatDate(record.metadata?.service_date || '') }}</div>
+              <div class="detail-value">{{ formatDate(record.service_date || '') }}</div>
             </div>
             <div class="detail-item">
               <div class="detail-label">Mileage</div>
-              <div class="detail-value">{{ record.metadata?.mileage ? (record.metadata?.mileage + ' km') : '—' }}</div>
+              <div class="detail-value">{{ record.mileage ? (record.mileage + ' km') : '—' }}</div>
             </div>
             <div class="detail-item">
               <div class="detail-label">Technician</div>
-              <div class="detail-value">{{ record.metadata?.technician_name || '—' }}</div>
+              <div class="detail-value">{{ record.technician_name || '—' }}</div>
             </div>
           </div>
 
@@ -145,12 +144,12 @@
           }
 
           <!-- Existing rebuttal -->
-          @if (record.metadata?.rebuttal_notes) {
+          @if (record.rebuttal_notes) {
             <div class="info-box info-box-success">
-              <strong>Your Rebuttal:</strong> {{ record.metadata?.rebuttal_notes }}
-              @if (record.metadata?.rebuttal_submitted_at) {
+              <strong>Your Rebuttal:</strong> {{ record.rebuttal_notes }}
+              @if (record.rebuttal_submitted_at) {
                 <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
-                  Submitted {{ record.metadata?.rebuttal_submitted_at | date:'d MMM y, HH:mm' }}
+                  Submitted {{ record.rebuttal_submitted_at | date:'d MMM y, HH:mm' }}
                 </div>
               }
             </div>
@@ -180,10 +179,10 @@
 
           <!-- Action row: rebuttal + escalate + thread -->
           <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px;">
-            @if (!rebuttalRecord && !record.metadata?.rebuttal_notes) {
+            @if (!rebuttalRecord && !record.rebuttal_notes) {
               <button class="btn btn-secondary btn-sm" (click)="openRebuttal(record)">Submit Rebuttal</button>
             }
-            @if (!record.metadata?.escalated) {
+            @if (!record.escalated) {
               <button
                 class="btn btn-sm"
                 style="background:var(--color-warning-light,#fff7ed);color:var(--color-warning,#d97706);border:1px solid var(--color-warning,#d97706);"
