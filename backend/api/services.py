@@ -253,7 +253,7 @@ def submit_dispute_response():
             if owner:
                 notify_rebuttal_submitted(owner.id, vin)
     except Exception:
-        logger.warning('Failed to send rebuttal notification for vin=%s', vin)
+        logger.exception('Failed to send rebuttal notification for vin=%s', vin)
 
     return jsonify({'message': 'Rebuttal submitted successfully', 'vin': vin}), 200
 
@@ -323,7 +323,7 @@ def escalate_dispute():
         for _mfr in _mfr_targets:
             notify_dispute_escalated(_mfr.id, vin)
     except Exception:
-        logger.warning('Failed to send escalation notifications for vin=%s', vin)
+        logger.exception('Failed to send escalation notifications for vin=%s', vin)
 
     return jsonify({
         'message': 'Dispute escalated successfully',
@@ -700,7 +700,7 @@ def post_dispute_message():
                     if sc_user:
                         notify_dispute_message(sc_user.id, sender_display, vin, record_index)
         except Exception:
-            logger.warning('Failed to send dispute message notification vin=%s idx=%s', vin, record_index)
+            logger.exception('Failed to send dispute message notification vin=%s idx=%s', vin, record_index)
 
         return jsonify(msg.to_dict()), 201
     except Exception as exc:
