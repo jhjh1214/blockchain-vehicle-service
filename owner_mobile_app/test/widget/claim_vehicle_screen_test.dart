@@ -11,11 +11,11 @@ import 'package:owner_mobile_app/shared/theme/app_theme.dart';
 // when() interception works. ClaimVehicleScreen only reads claimVehicle().
 class MockVehiclesProvider extends Mock implements VehiclesProvider {
   @override
-  Future<String?> claimVehicle(String vin) => super.noSuchMethod(
+  Future<ClaimResult> claimVehicle(String vin) => super.noSuchMethod(
         Invocation.method(#claimVehicle, [vin]),
-        returnValue: Future.value(null),
-        returnValueForMissingStub: Future.value(null),
-      ) as Future<String?>;
+        returnValue: Future.value(const ClaimResult()),
+        returnValueForMissingStub: Future.value(const ClaimResult()),
+      ) as Future<ClaimResult>;
 }
 
 Widget _buildTestApp(VehiclesProvider provider) =>
@@ -79,7 +79,7 @@ void main() {
 
     testWidgets('shows success snackbar on valid VIN claim', (tester) async {
       final p = MockVehiclesProvider();
-      when(p.claimVehicle(_testVin)).thenAnswer((_) async => null);
+      when(p.claimVehicle(_testVin)).thenAnswer((_) async => const ClaimResult());
 
       await tester.pumpWidget(_buildTestApp(p));
       await tester.pumpAndSettle();
@@ -94,7 +94,7 @@ void main() {
     testWidgets('shows error snackbar when claim fails', (tester) async {
       final p = MockVehiclesProvider();
       when(p.claimVehicle(_testVin))
-          .thenAnswer((_) async => 'Vehicle already claimed');
+          .thenAnswer((_) async => const ClaimResult(error: 'Vehicle already claimed'));
 
       await tester.pumpWidget(_buildTestApp(p));
       await tester.pumpAndSettle();
