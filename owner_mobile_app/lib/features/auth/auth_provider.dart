@@ -160,9 +160,12 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<String?> deleteAccount() async {
+  Future<String?> deleteAccount(String password) async {
     try {
-      await ApiClient.instance.dio.delete(ApiEndpoints.deleteAccount);
+      await ApiClient.instance.dio.delete(
+        ApiEndpoints.deleteAccount,
+        data: {'password': password},
+      );
       await TokenStorage.clear();
       await TokenStorage.clearCredentials();
       _user = null;

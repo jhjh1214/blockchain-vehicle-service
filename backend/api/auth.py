@@ -435,7 +435,7 @@ def delete_account():
 
     if not user.check_password(password):
         log_event('account_deletion_failed', user_id=user.id, detail={'reason': 'wrong_password'})
-        return jsonify({'error': 'Incorrect password'}), 401
+        return jsonify({'error': 'Incorrect password'}), 403
 
     # Record deletion before wiping the row
     log_event('account_deleted', user_id=user.id, detail={'email': user.email, 'role': user.role})
