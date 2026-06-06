@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import Blueprint, request, jsonify, make_response, current_app
 from api.middleware import token_required
 from core import auth_service
@@ -10,6 +10,30 @@ auth_bp = Blueprint('auth', __name__)
 
 _ACCESS_MAX_AGE  = 15 * 60        # 15 min in seconds
 _REFRESH_MAX_AGE = 30 * 24 * 3600  # 30 days
+
+# In-memory delete-account attempt tracking: user_id -> list of failure datetimes
+_delete_attempt_cache: dict[int, list] = {}
+_DELETE_MAX_ATTEMPTS = 5
+_DELETE_WINDOW_SECONDS = 30 * 60   # 30-min rolling window
+_DELETE_LOCKOUT_SECONDS = 60 * 60  # 1-hour lockout after threshold
+
+
+def _get_delete_attempts(user_id: int) -> list[datetime]:
+    cutoff = datetime.utcnow() - timedelta(seconds=_DELETE_LOCKOUT_SECONDS)
+    attempts = [t for t in _delete_attempt_cache.get(user_id, []) if t > cutoff]
+    _delete_attempt_cache[user_id] = attempts
+    return attempts
+
+
+def _record_delete_attempt(user_id: int) -> int:
+    attempts = _get_delete_attempts(user_id)
+    attempts.append(datetime.utcnow())
+    _delete_attempt_cache[user_id] = attempts
+    return len(attempts)
+
+
+def _reset_delete_attempts(user_id: int) -> None:
+    _delete_attempt_cache.pop(user_id, None)
 
 
 def _set_auth_cookies(resp, access_token: str, refresh_token: str, remember: bool = True):
@@ -433,9 +457,55 @@ def delete_account():
     if not user:
         return jsonify({'error': 'User not found'}), 404
 
+    # Check if already locked out from too many failed attempts
+    prior_attempts = _get_delete_attempts(user.id)
+    if len(prior_attempts) >= _DELETE_MAX_ATTEMPTS:
+        return jsonify({
+            'error': 'Too many failed attempts. Account deletion locked for 1 hour.'
+        }), 429
+
     if not user.check_password(password):
-        log_event('account_deletion_failed', user_id=user.id, detail={'reason': 'wrong_password'})
-        return jsonify({'error': 'Incorrect password'}), 403
+        attempt_count = _record_delete_attempt(user.id)
+        attempts_left = max(0, _DELETE_MAX_ATTEMPTS - attempt_count)
+        log_event('account_deletion_failed', user_id=user.id,
+                  detail={'reason': 'wrong_password', 'attempt': attempt_count})
+
+        if attempt_count == _DELETE_MAX_ATTEMPTS:
+            # Send security alert email on first lockout
+            if not current_app.config.get('TESTING'):
+                import threading
+                _app = current_app._get_current_object()
+                def _send_delete_alert(app, email, name):
+                    from core.email import send_email
+                    with app.app_context():
+                        send_email(
+                            to=email,
+                            subject='Security Alert: Multiple failed account deletion attempts',
+                            text=(
+                                f'Hi {name},\n\n'
+                                f'We detected {_DELETE_MAX_ATTEMPTS} failed attempts to delete your account '
+                                f'in the past hour. Your account deletion has been temporarily locked.\n\n'
+                                f'If this was not you, please change your password immediately.\n\n'
+                                f'The Vehicle Service Team'
+                            ),
+                        )
+                threading.Thread(
+                    target=_send_delete_alert,
+                    args=(_app, user.email, user.name or user.email),
+                    daemon=True,
+                ).start()
+
+        if attempt_count >= _DELETE_MAX_ATTEMPTS:
+            return jsonify({
+                'error': 'Too many failed attempts. Account deletion locked for 1 hour.'
+            }), 429
+
+        msg = 'Incorrect password'
+        if attempts_left > 0:
+            msg += f'. {attempts_left} attempt(s) remaining.'
+        return jsonify({'error': msg}), 403
+
+    _reset_delete_attempts(user.id)
 
     # Record deletion before wiping the row
     log_event('account_deleted', user_id=user.id, detail={'email': user.email, 'role': user.role})

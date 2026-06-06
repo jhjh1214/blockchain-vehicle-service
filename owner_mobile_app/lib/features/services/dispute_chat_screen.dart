@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:dio/dio.dart';
 import '../auth/auth_provider.dart';
 import '../../core/api/api_client.dart';
 import '../../core/api/api_endpoints.dart';
@@ -35,7 +36,7 @@ class _DisputeChatScreenState extends State<DisputeChatScreen> {
   void initState() {
     super.initState();
     _loadMessages();
-    _pollTimer = Timer.periodic(const Duration(seconds: 30), (_) => _loadMessages());
+    _pollTimer = Timer.periodic(const Duration(seconds: 30), (_) => _loadMessages(silent: true));
   }
 
   @override
@@ -46,7 +47,13 @@ class _DisputeChatScreenState extends State<DisputeChatScreen> {
     super.dispose();
   }
 
-  Future<void> _loadMessages() async {
+  Future<void> _loadMessages({bool silent = false}) async {
+    if (!silent && mounted) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final res = await ApiClient.instance.dio.get(
         ApiEndpoints.disputeMessages(widget.vin, widget.recordIndex),
@@ -61,7 +68,15 @@ class _DisputeChatScreenState extends State<DisputeChatScreen> {
         _error = null;
       });
       _scrollToBottom();
-    } catch (e) {
+    } on DioException catch (e) {
+      if (!mounted) return;
+      final msg = (e.response?.data as Map?)?['error'] as String?
+          ?? 'Failed to load messages';
+      setState(() {
+        _loading = false;
+        _error = msg;
+      });
+    } catch (_) {
       if (!mounted) return;
       setState(() {
         _loading = false;
@@ -263,7 +278,7 @@ class _MessageBubble extends StatelessWidget {
           if (!isMe) ...[
             CircleAvatar(
               radius: 14,
-              backgroundColor: roleColor.withOpacity(0.15),
+              backgroundColor: roleColor.withValues(alpha: 0.15),
               child: Text(
                 senderName.isNotEmpty ? senderName[0].toUpperCase() : '?',
                 style: TextStyle(fontSize: 12, color: roleColor),

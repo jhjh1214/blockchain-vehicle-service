@@ -224,7 +224,7 @@
           <div class="alert alert-danger mb-16">{{ deleteError }}</div>
         }
         <button class="btn btn-danger" (click)="deleteAccount()"
-                [disabled]="deleteConfirmText !== 'DELETE' || !deletePassword || deleteLoading">
+                [disabled]="deleteConfirmText !== 'DELETE' || !deletePassword || deleteLoading || deleteLockedOut">
           @if (deleteLoading) { <span class="spinner"></span> } @else { Delete My Account Permanently }
         </button>
       </div>

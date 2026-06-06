@@ -50,6 +50,7 @@ export class ProfileComponent implements OnInit {
   deletePassword = '';
   deleteLoading = false;
   deleteError = '';
+  deleteLockedOut = false;
   showDeleteZone = false;
 
   cities = MY_CITIES;
@@ -149,7 +150,7 @@ export class ProfileComponent implements OnInit {
   ];
 
   deleteAccount(): void {
-    if (this.deleteConfirmText !== 'DELETE' || !this.deletePassword || this.deleteLoading) return;
+    if (this.deleteConfirmText !== 'DELETE' || !this.deletePassword || this.deleteLoading || this.deleteLockedOut) return;
     this.deleteLoading = true;
     this.deleteError = '';
     this.authService.deleteAccount(this.deletePassword).subscribe({
@@ -158,8 +159,11 @@ export class ProfileComponent implements OnInit {
         this.router.navigate(['/login']);
       },
       error: (e) => {
-        this.deleteError = e.error?.error || 'Failed to delete account';
         this.deleteLoading = false;
+        if (e.status === 429) {
+          this.deleteLockedOut = true;
+        }
+        this.deleteError = e.error?.error || 'Failed to delete account';
       }
     });
   }

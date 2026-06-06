@@ -31,6 +31,7 @@ export class DealerDisputesComponent implements OnInit {
   threadLoading: { [key: string]: boolean } = {};
   threadInput: { [key: string]: string } = {};
   threadSending: { [key: string]: boolean } = {};
+  threadError: { [key: string]: string } = {};
 
   recalls: any[] = [];
   recallsLoading = false;
@@ -107,15 +108,17 @@ export class DealerDisputesComponent implements OnInit {
     const text = (this.threadInput[key] || '').trim();
     if (!text || this.threadSending[key]) return;
     this.threadSending[key] = true;
+    this.threadError[key] = '';
     this.threadInput[key] = '';
     this.serviceService.postDisputeMessage(vin, recordIndex, text).subscribe({
       next: () => {
         this.threadSending[key] = false;
         this.loadThread(vin, recordIndex);
       },
-      error: () => {
+      error: (e: any) => {
         this.threadSending[key] = false;
         this.threadInput[key] = text;
+        this.threadError[key] = e.error?.error || 'Failed to send message. Please try again.';
       }
     });
   }

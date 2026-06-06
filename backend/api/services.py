@@ -558,7 +558,7 @@ def get_dispute_messages(vin, record_index):
     role = request.user.get('role')
     addr = request.user['blockchain_address'].lower()
     if role == 'OWNER':
-        if not mapping or mapping.owner_address.lower() != addr:
+        if not mapping or not mapping.owner_address or mapping.owner_address.lower() != addr:
             return jsonify({'error': 'Access denied'}), 403
     elif role == 'SERVICE_CENTER':
         from db.models import ServiceMetadata
@@ -604,7 +604,7 @@ def post_dispute_message():
     mapping = vehicle_repo.find_by_vin(vin)
 
     if role == 'OWNER':
-        if not mapping or mapping.owner_address.lower() != addr:
+        if not mapping or not mapping.owner_address or mapping.owner_address.lower() != addr:
             return jsonify({'error': 'Access denied'}), 403
     elif role == 'SERVICE_CENTER':
         # SC must have submitted the disputed record, not just any record for the VIN
