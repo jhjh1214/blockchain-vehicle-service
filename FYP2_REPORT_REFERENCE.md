@@ -83,11 +83,18 @@ full metadata is in PostgreSQL. This is the industry-standard hybrid approach (c
 - Photos array in service submission validated: must be a list of strings, max 20 entries
 - X-Forwarded-For only trusted when request comes from a known proxy IP (`TRUSTED_PROXY_IPS` env var)
 
+### Email Verification Gate
+State-changing operations (claim vehicle, transfer vehicle, submit service, verify/dispute service, submit warranty claim) require email verification. Unverified accounts receive HTTP 403 with a clear message. This is enforced by the `email_verified_required` Flask decorator applied at the route level.
+
 ### PDPA Compliance (Malaysia)
 - `GET /api/auth/data-export` — returns all personal data held about the user (right of access)
-- `DELETE /api/auth/account` — permanently deletes account, personal data, audit logs, dispute messages (right to erasure)
+- `DELETE /api/auth/account` — permanently deletes account and personal data; role-specific cleanup:
+  - **OWNER:** marks all their vehicles `owner_deleted`; auto-denies all pending/disputed `WarrantyVoidRequest` records for their VINs
+  - **SERVICE_CENTER:** auto-escalates any disputed `ServiceMetadata` records they are party to; auto-denies pending `WarrantyVoidRequest` records they submitted; anonymises (does not delete) their dispute messages — content replaced with `[Message deleted — account removed]`, `sender_id` set to NULL, thread structure preserved for manufacturer audit
+  - **MANUFACTURER:** closes all active recalls they issued; rejects all pending `VehicleReclaimRequest` records for their fleet; auto-denies all pending `WarrantyClaimMetadata` records for their vehicles
 - Blockchain records cannot be deleted (only hashes stored, no PII on-chain — documented in Privacy Policy)
 - Privacy Policy and Terms of Service served from the API and displayed in the Flutter app
+- `DisputeMessage.sender_id` uses `ondelete='SET NULL'` rather than CASCADE — preserves dispute audit history while erasing the personal identifier
 
 ---
 
@@ -120,24 +127,28 @@ Base path: `/api`
 | Method | Path | Role | Description |
 |---|---|---|---|
 | POST | `/register` | MANUFACTURER | Register a new vehicle (VIN, owner email, make/model/year, warranty years) |
-| POST | `/claim` | OWNER | Owner claims a manufacturer pre-registered vehicle |
+| POST | `/claim` | OWNER | Owner claims a manufacturer pre-registered vehicle; returns `reclaim_available: true` with 409 if vehicle is `owner_deleted` |
 | GET | `/owner/vehicles` | OWNER | List owner's vehicles |
-| POST | `/transfer` | OWNER | Transfer vehicle ownership to new owner email |
+| POST | `/transfer` | OWNER | Transfer vehicle ownership to new owner email; blocked if open disputes exist |
 | GET | `/<vin>` | Any auth | Get vehicle details (owner email hidden from non-owners) |
-| GET | `/fleet` | MANUFACTURER | Paginated fleet list with service stats |
+| GET | `/fleet` | MANUFACTURER | Paginated fleet list with service stats; includes `owner_deleted` badge |
 | GET | `/stats` | MANUFACTURER | Basic stats (total vehicles, SC counts, warranty claims) |
 | GET | `/dashboard-stats` | MANUFACTURER | Full dashboard: charts, fleet health score, top SCs, trends (15s cache) |
 | GET | `/activity-feed` | MANUFACTURER | Recent registrations, warranty claims, disputes (last 15 events) |
 | GET | `/public/<vin>` | Public (30/min) | Public vehicle verification — service history + recall history |
-| GET | `/export/<vin>` | Public (10/min) | Download PDF vehicle history report |
+| GET | `/export/<vin>` | Public (10/min) | Download PDF vehicle history report; amber notice box if `owner_deleted` |
 | GET | `/fleet-export` | MANUFACTURER | Download PDF fleet audit report |
 | POST | `/recall` | MANUFACTURER | Issue recall — saves to DB, FCM push to all owners, email all brand SCs |
 | GET | `/recalls` | MANUFACTURER, SC | List recalls for own brand |
 | GET | `/recalls/owner` | OWNER | List active recalls for owner's vehicles |
-| POST | `/recalls/<id>/service` | SERVICE_CENTER | Mark a VIN as recall-serviced |
+| POST | `/recalls/<id>/service` | SERVICE_CENTER | Mark a VIN as recall-serviced; blocked for `owner_deleted` vehicles |
 | POST | `/recalls/<id>/close` | MANUFACTURER | Close a recall |
 | GET | `/recalls/check/<vin>` | Any auth | Check if a VIN has active recalls |
 | POST | `/reconcile` | MANUFACTURER, SC | Blockchain integrity check — re-computes SHA-256, marks tampered records |
+| POST | `/reclaim-request` | OWNER | Submit a reclaim request for an `owner_deleted` vehicle |
+| GET | `/reclaim-requests` | MANUFACTURER | List pending reclaim requests for own brand fleet |
+| POST | `/reclaim-request/<id>/approve` | MANUFACTURER | Approve a reclaim request — re-activates vehicle and transfers ownership on-chain; auto-rejects all other pending requests for the same VIN |
+| POST | `/reclaim-request/<id>/reject` | MANUFACTURER | Reject a reclaim request |
 
 ### Services (`/api/service`)
 | Method | Path | Role | Description |
@@ -226,6 +237,27 @@ Base path: `/api`
 3. Owner receives notification, claims vehicle via Flutter app (`POST /vehicle/claim`)
 4. Ownership is transferred on-chain to the owner's blockchain address
 
+### Owner Account Deletion & Vehicle Status
+When an owner deletes their account:
+1. All their vehicles are marked `registration_status = 'owner_deleted'` in `VehicleVINMapping`
+2. Manufacturer fleet view shows an amber "Owner Deleted" badge on those vehicles
+3. Dealer/SC vehicle-lookup shows an amber warning banner for `owner_deleted` VINs
+4. PDF export includes an amber notice box when printing a report for an `owner_deleted` vehicle
+5. New service submissions, recall-serviced marks, and warranty claims are blocked for `owner_deleted` vehicles
+6. On-chain ownership record is preserved — the vehicle still exists on the blockchain
+
+### Owner Reclaim Request Flow
+When an owner creates a new account and wants to reclaim their former vehicle:
+1. Owner attempts `POST /vehicle/claim` with the original VIN
+2. API intercepts `owner_deleted` status and returns HTTP 409 with `reclaim_available: true`
+3. Flutter app detects this flag and shows a reclaim dialog
+4. Owner submits a reclaim request: `POST /vehicle/reclaim-request` with VIN and statement
+5. `VehicleReclaimRequest` record created in DB (status: pending)
+6. Manufacturer sees pending requests in fleet page and via `GET /vehicle/reclaim-requests`
+7. Manufacturer approves: vehicle `registration_status` reset to `active`, ownership transferred on-chain to new account address; all other pending reclaim requests for the same VIN are auto-rejected
+8. Manufacturer rejects: request marked rejected, owner notified
+9. Owner can resubmit a new request if rejected
+
 ### Service Record Lifecycle (Full State Machine)
 ```
 SC submits → PENDING (on-chain)
@@ -298,10 +330,10 @@ SC can only see disputes for records they submitted.
 | Model | Purpose |
 |---|---|
 | User | All roles; has role, brand, status, blockchain_address, ssm_number |
-| VehicleVINMapping | Bridges VIN to owner address, registered_by, make/model/year, warranty_expiry, registration_status |
+| VehicleVINMapping | Bridges VIN to owner address, registered_by, make/model/year, warranty_expiry, registration_status (`active` / `pending` / `owner_deleted`) |
 | ServiceMetadata | Full service record fields; metadata_hash, ecu_modules (JSON), integrity_status, integrity_checked_at, sc_brand, disputed |
 | WarrantyClaimMetadata | Warranty claim records linked to VIN |
-| DisputeMessage | Threaded messages for a dispute (sender_id, sender_role, message, vin, record_index) |
+| DisputeMessage | Threaded messages for a dispute; `sender_id` FK is `SET NULL` on user delete (preserves thread structure); `sender_name` column stores name snapshot at post time so the thread remains readable after account deletion; message content is anonymised to `[Message deleted — account removed]` on deletion |
 | EthFundRequest | SC ETH requests; status: pending/fulfilled/dismissed |
 | VehicleRecall | Recall records; brand, title, description, status (active/closed) |
 | RecallVINService | Junction: which VINs have been serviced under which recall |
@@ -314,6 +346,7 @@ SC can only see disputes for records they submitted.
 | AuditLog | Security events (login, logout, password change, etc.) — auto-deleted after 365 days |
 | PasswordResetToken | Password reset tokens; expires 60 minutes |
 | EmailVerificationToken | Email verification tokens; expires 24 hours |
+| VehicleReclaimRequest | Owner reclaim requests for `owner_deleted` vehicles; keyed by VIN + requester_address; status: pending/approved/rejected |
 
 ---
 
@@ -541,7 +574,7 @@ Demo password for all seed accounts: `Demo@1234`
 - Recalls screen: card list, green (serviced) / orange (pending) status
 - Void requests screen: lists requests, "Dispute" button with reason dialog
 - Notifications screen: full history with type-specific icons, mark-all-read, clear-all
-- VIN claim screen: camera barcode/QR scanner via `mobile_scanner` package — no manual typing needed
+- VIN claim screen: camera barcode/QR scanner via `mobile_scanner` package — no manual typing needed; if the claimed VIN belongs to an `owner_deleted` vehicle, the screen detects `reclaim_available: true` in the API response and shows a reclaim request dialog instead of a generic error
 - Push notification tap navigation: recall → recalls screen, void → void requests, pending service → pending list
 - Biometric login (TouchID/FaceID) after first password login
 - All network errors show snackbar; loading states on every button
@@ -650,7 +683,15 @@ This section is for the security evaluation chapter. All findings from a systema
 | 30 | Missing ownership check on `GET /service/history/<vin>` for OWNER role — any authenticated owner could read another owner's service history | Medium | Fixed — OWNER callers must own the vehicle; MANUFACTURER/SC scoped to their brand |
 | 31 | `request.user['id']` KeyError — JWT payload key is `user_id` not `id`; 8 occurrences in sc_management, services, vehicles — caused HTTP 500 on SSM license management, recall issuance, and dispute tracking | Medium (DoS / information disclosure via stack trace) | Fixed — all occurrences corrected to `request.user['user_id']` |
 
-**18 code-level vulnerabilities fixed. 13 acknowledged with documented mitigations. 3 tested and confirmed not present.**
+| 32 | `ensure_owner_eth()` returned void — silent failure; blockchain write proceeded with insufficient gas causing contract revert | Medium | Fixed — returns `bool`; all callers abort with HTTP 503 on `false` before attempting any blockchain write |
+| 33 | SC dispute message endpoints allowed any SC to read/post to any dispute thread for a VIN they ever submitted to — not just the specific disputed record | Medium | Fixed — endpoint now requires a `ServiceMetadata` record with `disputed=True` for that specific VIN + index, scoped to the requesting SC |
+| 34 | Warranty claim `approve_claim()` did not re-validate expiry — approval could succeed for a warranty that expired during the review period | Low | Fixed — `approve_claim()` re-checks `mapping.warranty_expiry < int(time.time())` before calling blockchain; raises `ValueError` if expired |
+| 35 | Vehicle transfer allowed while open disputes existed — transferring ownership mid-dispute broke SC and manufacturer access to the dispute thread | Medium | Fixed — `transfer_vehicle()` checks `ServiceMetadata.disputed=True` count and rejects if > 0 |
+| 36 | Account deletion had no role-specific cleanup — orphaned pending records (void requests, warranty claims, recalls, reclaim requests) remained in an unresolvable state after the creating user was deleted | High | Fixed — `DELETE /api/auth/account` runs role-specific cleanup chains for OWNER, SC, and MANUFACTURER before deleting the account |
+| 37 | Dispute message `sender_id` FK used CASCADE — deleting a user destroyed the dispute thread history, removing audit trail needed by manufacturer | Medium | Fixed — `ondelete='SET NULL'`; `sender_name` snapshot stored at post time; message content anonymised to `[Message deleted — account removed]` on deletion |
+| 38 | State-changing endpoints (claim, transfer, service submit/verify/dispute, warranty claim) had no email-verification gate — unverified accounts could write to the blockchain | Medium | Fixed — `email_verified_required` decorator applied to all state-changing owner/SC routes |
+
+**25 code-level vulnerabilities fixed. 13 acknowledged with documented mitigations. 3 tested and confirmed not present.**
 
 ---
 
@@ -681,4 +722,9 @@ This section is for the security evaluation chapter. All findings from a systema
 - 37-brand Malaysian dropdown: context-aware to the local market
 - PDPA Privacy Policy and Terms of Service are real legal text served from the API and shown in-app
 - Demo seed script: `python init_db.py --seed` creates a complete realistic dataset for presentations
-- Per-feature ETH subsidy for owners: owners register with 0 ETH and need no blockchain knowledge — `ensure_owner_eth()` silently tops up their wallet from the deployer before any blockchain write (verify, dispute, warranty claim, vehicle transfer); completely transparent to the user
+- Per-feature ETH subsidy for owners: owners register with 0 ETH and need no blockchain knowledge — `ensure_owner_eth()` silently tops up their wallet from the deployer before any blockchain write (verify, dispute, warranty claim, vehicle transfer); returns `bool` so callers abort cleanly with HTTP 503 on top-up failure instead of allowing a gas-insufficient blockchain revert; completely transparent to the user
+- Owner reclaim flow: structured off-boarding and re-onboarding — when an owner deletes their account, vehicles are not orphaned but instead marked `owner_deleted` with full visibility to manufacturer and SC; a new account can request reclaim via a manufacturer-verified approval flow, maintaining chain of custody
+- `owner_deleted` status is visible across all stakeholder touchpoints: manufacturer fleet badge, SC/dealer vehicle-lookup warning banner, and PDF export notice — no actor is left unaware that the previous owner is gone
+- Role-specific account deletion cleanup: each role triggers a targeted cleanup chain on account deletion (OWNER → marks vehicles; SC → escalates disputes; MANUFACTURER → closes recalls) — no orphaned pending records left in unresolvable state
+- PDPA dispute anonymisation: `DisputeMessage.sender_id` uses `SET NULL` on user delete rather than CASCADE — dispute thread structure and audit history is preserved for manufacturer review while personal identifiers are erased and message content replaced with a deletion notice
+- Email verification gate: all state-changing operations (claim, transfer, service verification, dispute, warranty claim) are blocked for unverified accounts — prevents abuse by unverified email squatters while keeping read-only access open
