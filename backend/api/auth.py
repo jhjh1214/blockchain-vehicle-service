@@ -371,7 +371,7 @@ def _send_verification_email(to_email: str, name: str, raw_token: str) -> None:
         import resend
         resend.api_key = os.getenv('RESEND_API_KEY', '')
         if not resend.api_key:
-            logger.warning('RESEND_API_KEY not set — skipping verification email')
+            logger.warning('RESEND_API_KEY not set — skipping verification email. URL: %s', verify_url)
             return
         resend.Emails.send({
             'from': os.getenv('MAIL_DEFAULT_SENDER', 'VehicleChain <noreply@vehiclechain.my>'),

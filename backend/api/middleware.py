@@ -35,9 +35,13 @@ def token_required(f):
 
 def email_verified_required(f):
     """Blocks unverified accounts from state-changing operations.
-    Must be stacked AFTER role_required/token_required (those populate request.user)."""
+    Must be stacked AFTER role_required/token_required (those populate request.user).
+    Set SKIP_EMAIL_VERIFICATION=true env var to bypass (testing only)."""
     @wraps(f)
     def decorated(*args, **kwargs):
+        import os
+        if os.getenv('SKIP_EMAIL_VERIFICATION', '').lower() == 'true':
+            return f(*args, **kwargs)
         from core import auth_service
         user = auth_service.get_user_by_id(request.user['user_id'])
         if user and not user.email_verified:
