@@ -312,7 +312,15 @@ def escalate_dispute():
     try:
         from db.repositories import users as _user_repo
         from core.notifications import notify_dispute_escalated
-        for _mfr in _user_repo.find_all_by_role('MANUFACTURER'):
+        _esc_mapping = vehicle_repo.find_by_vin(vin)
+        _mfr_targets = []
+        if _esc_mapping and _esc_mapping.registered_by:
+            _mfr = _user_repo.find_by_blockchain_address(_esc_mapping.registered_by)
+            if _mfr:
+                _mfr_targets = [_mfr]
+        if not _mfr_targets:
+            _mfr_targets = _user_repo.find_all_by_role('MANUFACTURER')
+        for _mfr in _mfr_targets:
             notify_dispute_escalated(_mfr.id, vin)
     except Exception:
         logger.warning('Failed to send escalation notifications for vin=%s', vin)
@@ -512,7 +520,7 @@ def owner_dispute_service():
             sm.disputed = True
             _db.session.commit()
 
-        # Notify and email all manufacturers; notify the SC
+        # Notify and email the vehicle's brand manufacturer; notify the SC
         from db.repositories import users as _user_repo
         from core.email import send_email as _send_email
         from core.notifications import notify_dispute_filed_sc, notify_dispute_filed_mfr
@@ -520,7 +528,14 @@ def owner_dispute_service():
             sc_user = _user_repo.find_by_blockchain_address(sm.service_center_address)
             if sc_user:
                 notify_dispute_filed_sc(sc_user.id, vin)
-        for _mfr in _user_repo.find_all_by_role('MANUFACTURER'):
+        _mfr_targets = []
+        if mapping and mapping.registered_by:
+            _mfr = _user_repo.find_by_blockchain_address(mapping.registered_by)
+            if _mfr:
+                _mfr_targets = [_mfr]
+        if not _mfr_targets:
+            _mfr_targets = _user_repo.find_all_by_role('MANUFACTURER')
+        for _mfr in _mfr_targets:
             notify_dispute_filed_mfr(_mfr.id, vin)
             _send_email(
                 _mfr.email,
