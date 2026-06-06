@@ -75,25 +75,27 @@ void main() {
   });
 
   group('claimVehicle', () {
-    test('returns null on success and reloads vehicles', () async {
+    test('returns ClaimResult with no error on success and reloads vehicles', () async {
       when(mockDio.post(ApiEndpoints.claimVehicle, data: anyNamed('data')))
           .thenAnswer((_) async => mockResponse({'message': 'Claimed'}));
       when(mockDio.get(ApiEndpoints.myVehicles))
           .thenAnswer((_) async => mockResponse({'vehicles': [vehicleJson]}));
 
-      final error = await provider.claimVehicle('1HGBH41JXMN109186');
+      final result = await provider.claimVehicle('1HGBH41JXMN109186');
 
-      expect(error, isNull);
+      expect(result.error, isNull);
+      expect(result.reclaimAvailable, isFalse);
       expect(provider.vehicles.length, 1);
     });
 
-    test('returns error string on failure', () async {
+    test('returns ClaimResult with error string on failure', () async {
       when(mockDio.post(ApiEndpoints.claimVehicle, data: anyNamed('data')))
           .thenThrow(mockDioError({'error': 'Vehicle already claimed'}, statusCode: 409));
 
-      final error = await provider.claimVehicle('1HGBH41JXMN109186');
+      final result = await provider.claimVehicle('1HGBH41JXMN109186');
 
-      expect(error, 'Vehicle already claimed');
+      expect(result.error, 'Vehicle already claimed');
+      expect(result.reclaimAvailable, isFalse);
     });
   });
 
