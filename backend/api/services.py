@@ -679,12 +679,18 @@ def post_dispute_message():
         try:
             from core.notifications import notify_dispute_message
             sender_display = user.name or user.email
-            sc_sm = ServiceMetadata.query.filter_by(vin=vin, disputed=True).first()
+            # Find SC precisely via thread history; fall back to disputed SM for first-message case
+            sc_thread_msg = DisputeMessage.query.filter_by(
+                vin=vin, record_index=record_index, sender_role='SERVICE_CENTER'
+            ).first()
+            if sc_thread_msg and sc_thread_msg.sender_id:
+                sc_user = user_repo.find_by_id(sc_thread_msg.sender_id)
+            else:
+                sc_sm = ServiceMetadata.query.filter_by(vin=vin, disputed=True).first()
+                sc_user = user_repo.find_by_blockchain_address(sc_sm.service_center_address) if sc_sm else None
             if role == 'OWNER':
-                if sc_sm:
-                    sc_user = user_repo.find_by_blockchain_address(sc_sm.service_center_address)
-                    if sc_user:
-                        notify_dispute_message(sc_user.id, sender_display, vin, record_index)
+                if sc_user:
+                    notify_dispute_message(sc_user.id, sender_display, vin, record_index)
             elif role == 'SERVICE_CENTER':
                 if mapping:
                     owner_user = user_repo.find_by_blockchain_address(mapping.owner_address)
@@ -695,10 +701,8 @@ def post_dispute_message():
                     owner_user = user_repo.find_by_blockchain_address(mapping.owner_address)
                     if owner_user:
                         notify_dispute_message(owner_user.id, sender_display, vin, record_index)
-                if sc_sm:
-                    sc_user = user_repo.find_by_blockchain_address(sc_sm.service_center_address)
-                    if sc_user:
-                        notify_dispute_message(sc_user.id, sender_display, vin, record_index)
+                if sc_user:
+                    notify_dispute_message(sc_user.id, sender_display, vin, record_index)
         except Exception:
             logger.exception('Failed to send dispute message notification vin=%s idx=%s', vin, record_index)
 

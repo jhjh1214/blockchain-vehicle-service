@@ -93,10 +93,14 @@ def notify_warranty_claim_update(owner_user_id: int, vin: str, status: str) -> N
 
 
 def broadcast_recall(title: str, body: str, issued_by: str) -> int:
-    """Broadcast a recall notice to all owner devices. Returns number of tokens targeted."""
+    """Broadcast a recall notice to all owner devices and persist to inbox. Returns number of tokens targeted."""
+    from db.repositories import users as user_repo
+    # Persist to notification inbox for every owner so the web bell shows it
+    for owner in user_repo.find_all_by_role('OWNER'):
+        _persist(owner.id, title, body, 'recall', {'type': 'recall', 'issued_by': issued_by})
+
     if _get_app() is None:
         return 0
-    from db.repositories import users as user_repo
     tokens = user_repo.get_all_owner_device_tokens()
     if not tokens:
         return 0
