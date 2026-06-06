@@ -34,15 +34,15 @@ def _get_app():
     return _firebase_app
 
 
-def _persist(user_id: int, title: str, body: str, type: str | None, data: dict | None) -> None:
+def _persist(user_id: int, title: str, body: str, notif_type: str | None, data: dict | None) -> None:
     """Save notification to DB so users can view their inbox later."""
     try:
         from db.models import db, Notification
-        n = Notification(user_id=user_id, title=title, body=body, type=type, data=data)
+        n = Notification(user_id=user_id, title=title, body=body, type=notif_type, data=data)
         db.session.add(n)
         db.session.commit()
     except Exception:
-        logger.warning('Failed to persist notification for user %d', user_id)
+        logger.exception('Failed to persist notification for user %d', user_id)
 
 
 def send_to_user(user_id: int, title: str, body: str, data: dict | None = None) -> None:

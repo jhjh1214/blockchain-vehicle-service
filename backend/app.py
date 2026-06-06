@@ -107,6 +107,17 @@ def create_app():
                         conn.execute(text("ALTER TABLE dispute_messages ADD COLUMN sender_name VARCHAR"))
                         conn.commit()
 
+            if inspector.has_table('notifications'):
+                notif_cols = [c['name'] for c in inspector.get_columns('notifications')]
+                with db.engine.connect() as conn:
+                    if 'type' not in notif_cols:
+                        conn.execute(text("ALTER TABLE notifications ADD COLUMN type VARCHAR(50)"))
+                    if 'data' not in notif_cols:
+                        conn.execute(text("ALTER TABLE notifications ADD COLUMN data JSON"))
+                    if 'read' not in notif_cols:
+                        conn.execute(text("ALTER TABLE notifications ADD COLUMN read BOOLEAN NOT NULL DEFAULT FALSE"))
+                    conn.commit()
+
             # ensure new tables created by SQLAlchemy models exist
             db.create_all()
 
