@@ -83,6 +83,9 @@ class PushNotificationService {
     final vin = message.data['vin'] ?? '';
     switch (type) {
       case 'pending_service':
+      case 'dispute_filed':
+      case 'rebuttal_submitted':
+      case 'dispute_message':
         router.go('/services/pending');
       case 'dispute_resolved':
       case 'service_completed':

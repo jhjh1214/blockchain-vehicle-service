@@ -244,6 +244,17 @@ def submit_dispute_response():
         logger.exception('Failed to save rebuttal')
         return jsonify({'error': 'Failed to save rebuttal. Please try again.'}), 500
 
+    try:
+        from db.repositories import vehicles as vehicle_repo, users as _user_repo
+        from core.notifications import notify_rebuttal_submitted
+        mapping = vehicle_repo.find_by_vin(vin)
+        if mapping:
+            owner = _user_repo.find_by_blockchain_address(mapping.owner_address)
+            if owner:
+                notify_rebuttal_submitted(owner.id, vin)
+    except Exception:
+        logger.warning('Failed to send rebuttal notification for vin=%s', vin)
+
     return jsonify({'message': 'Rebuttal submitted successfully', 'vin': vin}), 200
 
 
@@ -297,6 +308,14 @@ def escalate_dispute():
     except Exception:
         logger.exception('Failed to escalate dispute')
         return jsonify({'error': 'Failed to escalate dispute. Please try again.'}), 500
+
+    try:
+        from db.repositories import users as _user_repo
+        from core.notifications import notify_dispute_escalated
+        for _mfr in _user_repo.find_all_by_role('MANUFACTURER'):
+            notify_dispute_escalated(_mfr.id, vin)
+    except Exception:
+        logger.warning('Failed to send escalation notifications for vin=%s', vin)
 
     return jsonify({
         'message': 'Dispute escalated successfully',
@@ -493,10 +512,16 @@ def owner_dispute_service():
             sm.disputed = True
             _db.session.commit()
 
-        # Email all manufacturers about the new dispute
+        # Notify and email all manufacturers; notify the SC
         from db.repositories import users as _user_repo
         from core.email import send_email as _send_email
+        from core.notifications import notify_dispute_filed_sc, notify_dispute_filed_mfr
+        if sm:
+            sc_user = _user_repo.find_by_blockchain_address(sm.service_center_address)
+            if sc_user:
+                notify_dispute_filed_sc(sc_user.id, vin)
         for _mfr in _user_repo.find_all_by_role('MANUFACTURER'):
+            notify_dispute_filed_mfr(_mfr.id, vin)
             _send_email(
                 _mfr.email,
                 f'Service Dispute Filed — {vin}',
@@ -635,6 +660,33 @@ def post_dispute_message():
         )
         _db.session.add(msg)
         _db.session.commit()
+
+        try:
+            from core.notifications import notify_dispute_message
+            sender_display = user.name or user.email
+            sc_sm = ServiceMetadata.query.filter_by(vin=vin, record_index=record_index).first()
+            if role == 'OWNER':
+                if sc_sm:
+                    sc_user = user_repo.find_by_blockchain_address(sc_sm.service_center_address)
+                    if sc_user:
+                        notify_dispute_message(sc_user.id, sender_display, vin, record_index)
+            elif role == 'SERVICE_CENTER':
+                if mapping:
+                    owner_user = user_repo.find_by_blockchain_address(mapping.owner_address)
+                    if owner_user:
+                        notify_dispute_message(owner_user.id, sender_display, vin, record_index)
+            else:  # MANUFACTURER
+                if mapping:
+                    owner_user = user_repo.find_by_blockchain_address(mapping.owner_address)
+                    if owner_user:
+                        notify_dispute_message(owner_user.id, sender_display, vin, record_index)
+                if sc_sm:
+                    sc_user = user_repo.find_by_blockchain_address(sc_sm.service_center_address)
+                    if sc_user:
+                        notify_dispute_message(sc_user.id, sender_display, vin, record_index)
+        except Exception:
+            logger.warning('Failed to send dispute message notification vin=%s idx=%s', vin, record_index)
+
         return jsonify(msg.to_dict()), 201
     except Exception as exc:
         logger.exception('post_dispute_message error vin=%s idx=%s', vin, record_index)

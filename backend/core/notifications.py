@@ -127,3 +127,48 @@ def notify_dispute_resolved(owner_user_id: int, vin: str, decision: int) -> None
         body=f'The disputed service record for {vin} has been {label} by the manufacturer.',
         data={'type': 'dispute_resolved', 'vin': vin, 'decision': str(decision)},
     )
+
+
+def notify_dispute_filed_sc(sc_user_id: int, vin: str) -> None:
+    send_to_user(
+        sc_user_id,
+        title='Service Record Disputed',
+        body=f'An owner has disputed a service record for {vin}. Log in to view and respond.',
+        data={'type': 'dispute_filed', 'vin': vin},
+    )
+
+
+def notify_dispute_filed_mfr(mfr_user_id: int, vin: str) -> None:
+    send_to_user(
+        mfr_user_id,
+        title='New Dispute Filed',
+        body=f'A service record dispute has been filed for vehicle {vin}.',
+        data={'type': 'dispute_filed', 'vin': vin},
+    )
+
+
+def notify_rebuttal_submitted(owner_user_id: int, vin: str) -> None:
+    send_to_user(
+        owner_user_id,
+        title='Rebuttal Received',
+        body=f'The service centre has responded to your dispute for {vin}.',
+        data={'type': 'rebuttal_submitted', 'vin': vin},
+    )
+
+
+def notify_dispute_escalated(mfr_user_id: int, vin: str) -> None:
+    send_to_user(
+        mfr_user_id,
+        title='Dispute Escalated',
+        body=f'A dispute for vehicle {vin} has been escalated for priority review.',
+        data={'type': 'dispute_escalated', 'vin': vin},
+    )
+
+
+def notify_dispute_message(recipient_user_id: int, sender_name: str, vin: str, record_index: int) -> None:
+    send_to_user(
+        recipient_user_id,
+        title='New Dispute Message',
+        body=f'{sender_name}: New message in the dispute thread for {vin}.',
+        data={'type': 'dispute_message', 'vin': vin, 'record_index': str(record_index)},
+    )
