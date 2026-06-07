@@ -94,11 +94,17 @@ class PushNotificationService {
     if (router == null) return;
     final type = message.data['type'] ?? '';
     final vin = message.data['vin'] ?? '';
+    final recordIndex = message.data['record_index'] ?? '';
     switch (type) {
+      case 'dispute_message':
+        if (vin.isNotEmpty && recordIndex.isNotEmpty) {
+          router.go('/services/dispute-chat/$vin/$recordIndex');
+        } else {
+          router.go('/services/pending');
+        }
       case 'pending_service':
       case 'dispute_filed':
       case 'rebuttal_submitted':
-      case 'dispute_message':
         router.go('/services/pending');
       case 'dispute_resolved':
       case 'service_completed':
