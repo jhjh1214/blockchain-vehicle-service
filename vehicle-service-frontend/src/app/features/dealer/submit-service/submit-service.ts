@@ -58,7 +58,7 @@ export class SubmitServiceComponent implements OnInit, OnDestroy {
       service_type: ['', Validators.required],
       service_date: ['', Validators.required],
       mileage: ['', [Validators.required, Validators.min(0)]],
-      technician_name: [''],
+      technician_name: ['', [Validators.pattern(/^[A-Za-z\s'\-.]+$/)]],
       parts_replaced: [''],
       service_notes: [''],
       ecu_modules: ['']

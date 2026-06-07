@@ -15,6 +15,7 @@ export interface ServiceRecord {
   parts_replaced?: string;
   service_notes?: string;
   photos?: string[];
+  ecu_modules?: string[];
   rebuttal_notes?: string;
   rebuttal_submitted_at?: string;
   escalated?: boolean;

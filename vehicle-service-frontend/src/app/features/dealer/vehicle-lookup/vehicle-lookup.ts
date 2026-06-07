@@ -1,7 +1,7 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
-import { RouterModule } from '@angular/router';
+import { ActivatedRoute, RouterModule } from '@angular/router';
 import { VehicleService } from '../../../core/services/vehicle';
 import { ServiceService } from '../../../core/services/service';
 import { Vehicle } from '../../../core/models/vehicle.model';
@@ -14,7 +14,7 @@ import { ServiceRecord } from '../../../core/models/service.model';
   templateUrl: './vehicle-lookup.html',
   styleUrls: ['./vehicle-lookup.css']
 })
-export class VehicleLookupComponent {
+export class VehicleLookupComponent implements OnInit {
   searchForm: FormGroup;
   loading = false;
   historyLoading = false;
@@ -25,11 +25,22 @@ export class VehicleLookupComponent {
 
   constructor(
     private fb: FormBuilder,
+    private route: ActivatedRoute,
     private vehicleService: VehicleService,
     private serviceService: ServiceService
   ) {
     this.searchForm = this.fb.group({
       vin: ['', [Validators.required, Validators.pattern(/^[A-HJ-NPR-Z0-9]{17}$/i)]]
+    });
+  }
+
+  ngOnInit(): void {
+    this.route.queryParams.subscribe(params => {
+      const vin = (params['vin'] || '').toUpperCase();
+      if (vin.length === 17) {
+        this.searchForm.patchValue({ vin });
+        this.onSearch();
+      }
     });
   }
 

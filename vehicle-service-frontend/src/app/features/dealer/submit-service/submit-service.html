@@ -174,8 +174,12 @@
                 id="technician_name"
                 formControlName="technician_name"
                 class="form-control"
-                placeholder="Technician's name"
+                [class.is-invalid]="f['technician_name'].invalid && f['technician_name'].touched"
+                placeholder="Technician's name (letters only)"
               />
+              <div *ngIf="f['technician_name'].invalid && f['technician_name'].touched" class="invalid-feedback">
+                Name must contain letters only (no numbers)
+              </div>
             </div>
 
             <div class="form-group form-col-span-2">

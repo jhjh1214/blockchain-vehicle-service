@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { ServiceService } from '../../../core/services/service';
 import { ServiceRecord } from '../../../core/models/service.model';
 import { VehicleService } from '../../../core/services/vehicle';
@@ -32,12 +33,17 @@ export class DealerDisputesComponent implements OnInit {
   threadInput: { [key: string]: string } = {};
   threadSending: { [key: string]: boolean } = {};
   threadError: { [key: string]: string } = {};
+  detailsOpen: { [key: string]: boolean } = {};
 
   recalls: any[] = [];
   recallsLoading = false;
   recallMarkLoading: { [key: number]: boolean } = {};
 
-  constructor(private serviceService: ServiceService, private vehicleService: VehicleService) {}
+  constructor(
+    private serviceService: ServiceService,
+    private vehicleService: VehicleService,
+    private router: Router,
+  ) {}
 
   ngOnInit(): void {
     this.load();
@@ -101,6 +107,15 @@ export class DealerDisputesComponent implements OnInit {
       },
       error: () => { this.threadLoading[key] = false; }
     });
+  }
+
+  toggleDetails(vin: string, recordIndex: number): void {
+    const key = this.threadKey(vin, recordIndex);
+    this.detailsOpen[key] = !this.detailsOpen[key];
+  }
+
+  openInLookup(vin: string): void {
+    this.router.navigate(['/dealer/vehicle-lookup'], { queryParams: { vin } });
   }
 
   onThreadEnter(event: Event, vin: string, recordIndex: number): void {
