@@ -1,6 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:local_auth/local_auth.dart';
 import 'package:provider/provider.dart';
 import '../../core/storage/token_storage.dart';
 import 'auth_provider.dart';
@@ -18,23 +19,77 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordCtrl = TextEditingController();
   bool _obscurePassword = true;
   bool _rememberMe = true;
+  bool _biometricAvailable = false;
+  final _localAuth = LocalAuthentication();
 
   @override
   void initState() {
     super.initState();
-    _loadSavedCredentials();
+    _initCredentials();
   }
 
-  Future<void> _loadSavedCredentials() async {
+  /// Pre-fill saved credentials and show biometric button if user opted in.
+  Future<void> _initCredentials() async {
     try {
       final creds = await TokenStorage.loadCredentials();
-      if (creds != null && mounted) {
-        setState(() {
-          _emailCtrl.text = creds.email;
-          _passwordCtrl.text = creds.password;
-          _rememberMe = true;
-        });
+      if (creds == null || !mounted) return;
+      setState(() {
+        _emailCtrl.text = creds.email;
+        _passwordCtrl.text = creds.password;
+        _rememberMe = true;
+      });
+
+      final enabled = await TokenStorage.isBiometricEnabled();
+      if (!enabled || !mounted) return;
+      final canCheck = await _localAuth.canCheckBiometrics;
+      final isSupported = await _localAuth.isDeviceSupported();
+      if (mounted && canCheck && isSupported) {
+        setState(() => _biometricAvailable = true);
       }
+    } catch (_) {}
+  }
+
+  Future<void> _biometricLogin() async {
+    try {
+      final authenticated = await _localAuth.authenticate(
+        localizedReason: 'Authenticate to sign in to VehicleChain',
+        options: const AuthenticationOptions(biometricOnly: false),
+      );
+      if (!authenticated || !mounted) return;
+      await _submit(fromBiometric: true);
+    } catch (_) {}
+  }
+
+  /// After first remembered login, ask once if the user wants biometric login.
+  Future<void> _offerBiometricSetup() async {
+    try {
+      final alreadyDecided = await TokenStorage.hasBiometricDecision();
+      if (alreadyDecided || !mounted) return;
+      final canCheck = await _localAuth.canCheckBiometrics;
+      final isSupported = await _localAuth.isDeviceSupported();
+      if (!canCheck || !isSupported || !mounted) return;
+
+      final enable = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Enable Biometric Login?'),
+          content: const Text(
+              'Sign in faster next time using your fingerprint or face ID.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Not now'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Enable'),
+            ),
+          ],
+        ),
+      );
+
+      await TokenStorage.setBiometricEnabled(enable == true);
     } catch (_) {}
   }
 
@@ -45,7 +100,7 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  Future<void> _submit() async {
+  Future<void> _submit({bool fromBiometric = false}) async {
     if (!_formKey.currentState!.validate()) return;
     final auth = context.read<AuthProvider>();
     final ok = await auth.login(
@@ -55,10 +110,15 @@ class _LoginScreenState extends State<LoginScreen> {
     );
     if (!mounted) return;
     if (ok) {
-      context.go('/home');
+      if (_rememberMe && !fromBiometric) {
+        await _offerBiometricSetup();
+      }
+      if (mounted) context.go('/home');
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(auth.error ?? 'Login failed'), backgroundColor: Colors.red),
+        SnackBar(
+            content: Text(auth.error ?? 'Login failed'),
+            backgroundColor: Colors.red),
       );
     }
   }
@@ -118,7 +178,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       v == null || v.isEmpty ? 'Password required' : null,
                 ),
                 const SizedBox(height: 8),
-                // ── Remember Me ──────────────────────────────────────────
                 Row(
                   children: [
                     Semantics(
@@ -144,11 +203,23 @@ class _LoginScreenState extends State<LoginScreen> {
                   onPressed: auth.loading ? null : _submit,
                   child: auth.loading
                       ? const SizedBox(
-                          height: 20, width: 20,
+                          height: 20,
+                          width: 20,
                           child: CircularProgressIndicator(
                               color: Colors.white, strokeWidth: 2))
                       : const Text('Sign In'),
                 ),
+                if (_biometricAvailable) ...[
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: auth.loading ? null : _biometricLogin,
+                    icon: const Icon(Icons.fingerprint),
+                    label: const Text('Sign in with Biometrics'),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(48),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -161,7 +232,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
                 const SizedBox(height: 24),
-                // ── Legal footer ─────────────────────────────────────────
                 Center(
                   child: Text.rich(
                     TextSpan(

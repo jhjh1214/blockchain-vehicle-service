@@ -3,11 +3,12 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 const _storage = FlutterSecureStorage(
   aOptions: AndroidOptions(encryptedSharedPreferences: true),
 );
-const _accessKey      = 'access_token';
-const _refreshKey     = 'refresh_token';
-const _rememberKey    = 'remember_me';
-const _credEmailKey   = 'biometric_email';
-const _credPasswordKey = 'biometric_password';
+const _accessKey          = 'access_token';
+const _refreshKey         = 'refresh_token';
+const _rememberKey        = 'remember_me';
+const _credEmailKey       = 'biometric_email';
+const _credPasswordKey    = 'biometric_password';
+const _biometricEnabledKey = 'biometric_enabled';
 
 /// In-memory fallback for session-only mode (remember me = false).
 /// Cleared when the app process is killed.
@@ -77,5 +78,22 @@ class TokenStorage {
   static Future<void> clearCredentials() async {
     await _storage.delete(key: _credEmailKey);
     await _storage.delete(key: _credPasswordKey);
+    await _storage.delete(key: _biometricEnabledKey);
+  }
+
+  /// Whether the user has enabled biometric login (explicitly opted in).
+  static Future<bool> isBiometricEnabled() async {
+    final val = await _storage.read(key: _biometricEnabledKey);
+    return val == 'true';
+  }
+
+  /// Whether the user has already been asked (yes or no). Used to avoid re-prompting.
+  static Future<bool> hasBiometricDecision() async {
+    final val = await _storage.read(key: _biometricEnabledKey);
+    return val != null;
+  }
+
+  static Future<void> setBiometricEnabled(bool enabled) async {
+    await _storage.write(key: _biometricEnabledKey, value: enabled ? 'true' : 'false');
   }
 }
