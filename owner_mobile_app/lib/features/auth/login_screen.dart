@@ -33,9 +33,9 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final creds = await TokenStorage.loadCredentials();
       if (creds == null || !mounted) return;
+      // Pre-fill email only — password must be entered or biometrics used
       setState(() {
         _emailCtrl.text = creds.email;
-        _passwordCtrl.text = creds.password;
         _rememberMe = true;
       });
 
