@@ -1,4 +1,5 @@
 import uuid
+import os
 from flask import Flask, request, jsonify, g
 from flask_cors import CORS
 from config import Config
@@ -18,6 +19,8 @@ def create_app():
     limiter.init_app(app)
 
     with app.app_context():
+        if os.getenv('RESET_DB_ON_STARTUP', '').lower() == 'true':
+            db.drop_all()
         db.create_all()
         # Inline schema migrations — idempotent, compatible with SQLite and PostgreSQL
         from sqlalchemy import inspect, text
