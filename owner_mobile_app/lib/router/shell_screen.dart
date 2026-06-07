@@ -26,6 +26,14 @@ class _ShellScreenState extends State<ShellScreen> {
   bool _resending = false;
   bool _resendSent = false;
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<ServicesProvider>().loadPending();
+    });
+  }
+
   int _currentIndex(BuildContext context) {
     final location = GoRouterState.of(context).matchedLocation;
     return _tabs.indexWhere((t) => location.startsWith(t.path));

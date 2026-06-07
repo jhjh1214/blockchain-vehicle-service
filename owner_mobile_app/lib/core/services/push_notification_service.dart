@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import '../api/api_client.dart';
 import '../api/api_endpoints.dart';
 import '../../features/notifications/notifications_provider.dart';
+import '../../features/services/services_provider.dart';
 
 /// Handles FCM token registration with the backend and stores received messages locally.
 ///
@@ -16,10 +17,15 @@ class PushNotificationService {
 
   bool _listenersSetup = false;
   NotificationsProvider? _store;
+  ServicesProvider? _services;
   GoRouter? _router;
 
   void attachStore(NotificationsProvider store) {
     _store = store;
+  }
+
+  void attachServices(ServicesProvider services) {
+    _services = services;
   }
 
   void attachRouter(GoRouter router) {
@@ -74,6 +80,13 @@ class PushNotificationService {
       body,
       Map<String, String>.from(message.data.map((k, v) => MapEntry(k, v.toString()))),
     );
+    const serviceTypes = {
+      'pending_service', 'dispute_filed', 'rebuttal_submitted',
+      'dispute_message', 'dispute_resolved', 'service_completed',
+    };
+    if (serviceTypes.contains(message.data['type'])) {
+      _services?.loadPending();
+    }
   }
 
   void _handleTap(RemoteMessage message) {

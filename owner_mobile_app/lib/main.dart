@@ -60,6 +60,7 @@ class _AppWithRouterState extends State<_AppWithRouter> {
     final notifProvider = context.read<NotificationsProvider>();
     notifProvider.load();
     PushNotificationService.instance.attachStore(notifProvider);
+    PushNotificationService.instance.attachServices(context.read<ServicesProvider>());
     PushNotificationService.instance.attachRouter(_router);
   }
 

@@ -103,6 +103,13 @@ export class DealerDisputesComponent implements OnInit {
     });
   }
 
+  onThreadEnter(event: KeyboardEvent, vin: string, recordIndex: number): void {
+    if (!event.shiftKey) {
+      event.preventDefault();
+      this.sendThreadMessage(vin, recordIndex);
+    }
+  }
+
   sendThreadMessage(vin: string, recordIndex: number): void {
     const key = this.threadKey(vin, recordIndex);
     const text = (this.threadInput[key] || '').trim();

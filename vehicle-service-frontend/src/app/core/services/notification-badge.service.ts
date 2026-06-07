@@ -7,7 +7,7 @@ import { VehicleService } from './vehicle';
 import { ServiceService } from './service';
 import { environment } from '../../../environments/environment';
 
-const POLL_MS = 30_000;
+const POLL_MS = 10_000;
 
 @Injectable({ providedIn: 'root' })
 export class NotificationBadgeService implements OnDestroy {
