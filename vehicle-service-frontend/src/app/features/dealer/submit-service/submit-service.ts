@@ -73,7 +73,8 @@ export class SubmitServiceComponent implements OnInit, OnDestroy {
         this.vinPrefilled = true;
       }
     });
-    const today = new Date().toISOString().split('T')[0];
+    const _d = new Date();
+    const today = `${_d.getFullYear()}-${String(_d.getMonth() + 1).padStart(2, '0')}-${String(_d.getDate()).padStart(2, '0')}`;
     this.serviceForm.patchValue({ service_date: today });
 
     this.subs.add(
@@ -243,7 +244,8 @@ export class SubmitServiceComponent implements OnInit, OnDestroy {
       this.serviceForm.get('vin')?.disable();
       this.serviceForm.patchValue({ vin });
     }
-    const today = new Date().toISOString().split('T')[0];
+    const _d = new Date();
+    const today = `${_d.getFullYear()}-${String(_d.getMonth() + 1).padStart(2, '0')}-${String(_d.getDate()).padStart(2, '0')}`;
     this.serviceForm.patchValue({ service_date: today });
     this.error = '';
     this.success = '';

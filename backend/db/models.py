@@ -65,8 +65,8 @@ class User(db.Model):
             'brand': self.brand,
             'status': self.status,
             'blockchain_address': self.blockchain_address,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'consent_given_at': self.consent_given_at.isoformat() if self.consent_given_at else None,
+            'created_at': (self.created_at.isoformat() + 'Z') if self.created_at else None,
+            'consent_given_at': (self.consent_given_at.isoformat() + 'Z') if self.consent_given_at else None,
             'email_verified': self.email_verified,
             'theme_preference': self.theme_preference or 'light',
             'ssm_number': self.ssm_number,
@@ -145,7 +145,7 @@ class ServiceMetadata(db.Model):
             'vin': self.vin,
             'metadata_hash': self.metadata_hash,
             'service_type': self.service_type,
-            'service_date': self.service_date.isoformat() if self.service_date else None,
+            'service_date': (self.service_date.isoformat() + 'Z') if self.service_date else None,
             'mileage': self.mileage,
             'parts_replaced': self.parts_replaced,
             'technician_name': self.technician_name,
@@ -155,10 +155,10 @@ class ServiceMetadata(db.Model):
             'integrity_status': self.integrity_status,
             'disputed': self.disputed,
             'escalated': self.escalated,
-            'escalated_at': self.escalated_at.isoformat() if self.escalated_at else None,
+            'escalated_at': (self.escalated_at.isoformat() + 'Z') if self.escalated_at else None,
             'resolution_decision': self.resolution_decision,
             'resolution_notes': self.resolution_notes,
-            'resolved_at': self.resolved_at.isoformat() if self.resolved_at else None,
+            'resolved_at': (self.resolved_at.isoformat() + 'Z') if self.resolved_at else None,
         }
 
 
@@ -183,9 +183,9 @@ class WarrantyClaimMetadata(db.Model):
             'issue_description': self.issue_description,
             'photos': self.photos,
             'status': self.status,
-            'approved_at': self.approved_at.isoformat() if self.approved_at else None,
+            'approved_at': (self.approved_at.isoformat() + 'Z') if self.approved_at else None,
             'approved_notes': self.approved_notes,
-            'created_at': self.created_at.isoformat()
+            'created_at': self.created_at.isoformat() + 'Z'
         }
 
 
@@ -217,7 +217,7 @@ class VehicleVINMapping(db.Model):
             'model': self.model,
             'year': self.year,
             'warranty_expiry': self.warranty_expiry,
-            'created_at': self.created_at.isoformat()
+            'created_at': self.created_at.isoformat() + 'Z'
         }
 
 
@@ -251,7 +251,7 @@ class DisputeMessage(db.Model):
             'sender_name': name,
             'sender_role': self.sender_role,
             'message': self.message,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'created_at': (self.created_at.isoformat() + 'Z') if self.created_at else None,
         }
 
 
@@ -318,7 +318,7 @@ class AuthorizedSCLicense(db.Model):
             'sc_name': self.sc_name,
             'brand': self.brand,
             'used': self.used,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'created_at': (self.created_at.isoformat() + 'Z') if self.created_at else None,
         }
 
 
@@ -345,8 +345,8 @@ class EthFundRequest(db.Model):
             'brand': self.brand,
             'status': self.status,
             'notes': self.notes,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'fulfilled_at': self.fulfilled_at.isoformat() if self.fulfilled_at else None,
+            'created_at': (self.created_at.isoformat() + 'Z') if self.created_at else None,
+            'fulfilled_at': (self.fulfilled_at.isoformat() + 'Z') if self.fulfilled_at else None,
         }
 
 
@@ -373,7 +373,7 @@ class VehicleRecall(db.Model):
             'description': self.description,
             'affected_models': self.affected_models,
             'status': self.status,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'created_at': (self.created_at.isoformat() + 'Z') if self.created_at else None,
         }
 
 
@@ -400,7 +400,7 @@ class RecallVINService(db.Model):
             'recall_id': self.recall_id,
             'vin': self.vin,
             'sc_name': self.sc.name if self.sc else None,
-            'serviced_at': self.serviced_at.isoformat() if self.serviced_at else None,
+            'serviced_at': (self.serviced_at.isoformat() + 'Z') if self.serviced_at else None,
             'notes': self.notes,
         }
 
@@ -436,8 +436,8 @@ class WarrantyVoidRequest(db.Model):
             'status': self.status,
             'manufacturer_notes': self.manufacturer_notes,
             'owner_dispute_reason': self.owner_dispute_reason,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'resolved_at': self.resolved_at.isoformat() if self.resolved_at else None,
+            'created_at': (self.created_at.isoformat() + 'Z') if self.created_at else None,
+            'resolved_at': (self.resolved_at.isoformat() + 'Z') if self.resolved_at else None,
         }
 
 
@@ -469,7 +469,7 @@ class AbuseReport(db.Model):
             'reason': self.reason,
             'category': self.category,
             'vin': self.vin,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'created_at': (self.created_at.isoformat() + 'Z') if self.created_at else None,
         }
 
 
@@ -495,7 +495,7 @@ class Notification(db.Model):
             'type': self.type,
             'data': self.data,
             'read': self.read,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'created_at': (self.created_at.isoformat() + 'Z') if self.created_at else None,
         }
 
 
@@ -519,8 +519,8 @@ class VehicleReclaimRequest(db.Model):
             'requester_address': self.requester_address,
             'requester_email': self.requester_email,
             'status': self.status,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'reviewed_at': self.reviewed_at.isoformat() if self.reviewed_at else None,
+            'created_at': (self.created_at.isoformat() + 'Z') if self.created_at else None,
+            'reviewed_at': (self.reviewed_at.isoformat() + 'Z') if self.reviewed_at else None,
         }
 
 
@@ -545,5 +545,5 @@ class AuditLog(db.Model):
             'event': self.event,
             'detail': self.detail,
             'ip_address': self.ip_address,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'created_at': (self.created_at.isoformat() + 'Z') if self.created_at else None,
         }

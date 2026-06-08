@@ -151,7 +151,7 @@ def _service_stats(vin: str) -> dict:
             last_dt = (last.service_date if isinstance(last.service_date, _dt)
                        else _dt.fromisoformat(str(last.service_date)))
             days = max(0, (datetime.utcnow() - last_dt.replace(tzinfo=None)).days)
-            return {'last_service_date': last_dt.isoformat(), 'days_since_service': days,
+            return {'last_service_date': last_dt.isoformat() + 'Z', 'days_since_service': days,
                     'last_service_mileage': last.mileage}
         except (ValueError, TypeError):
             pass

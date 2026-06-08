@@ -321,7 +321,7 @@ def get_fleet():
         ).filter(ServiceMetadata.vin.in_(vins)).group_by(ServiceMetadata.vin).all():
             service_stats[row.vin] = {
                 'service_count': row.cnt,
-                'last_service_date': row.last_date.isoformat() if row.last_date else None,
+                'last_service_date': (row.last_date.isoformat() + 'Z') if row.last_date else None,
             }
 
     now = _dt.utcnow()
@@ -332,7 +332,7 @@ def get_fleet():
         d['service_count'] = st.get('service_count', 0)
         d['last_service_date'] = st.get('last_service_date')
         if st.get('last_service_date'):
-            last = _dt.fromisoformat(st['last_service_date'])
+            last = _dt.fromisoformat(st['last_service_date'].replace('Z', ''))
             d['days_since_service'] = (now - last).days
         else:
             d['days_since_service'] = None
@@ -551,7 +551,7 @@ def get_vehicle_public(vin):
                     'recall_id': r.id,
                     'title': r.title,
                     'description': r.description,
-                    'issued_at': r.created_at.isoformat() if r.created_at else None,
+                    'issued_at': (r.created_at.isoformat() + 'Z') if r.created_at else None,
                     'status': r.status,
                     'serviced': r.id in serviced_recall_ids,
                 })
@@ -568,7 +568,7 @@ def get_vehicle_public(vin):
         },
         'service_records': finalized,
         'recall_history': recall_history,
-        'registered_at': mapping.created_at.isoformat() if mapping.created_at else None,
+        'registered_at': (mapping.created_at.isoformat() + 'Z') if mapping.created_at else None,
     }), 200
 
 
@@ -608,7 +608,7 @@ def activity_feed():
             'type': 'registration',
             'vin': v.vin,
             'description': f"{v.make or ''} {v.model or ''}".strip() or v.vin,
-            'timestamp': v.created_at.isoformat() if v.created_at else None,
+            'timestamp': (v.created_at.isoformat() + 'Z') if v.created_at else None,
         })
     for c in claims:
         desc = (c.issue_description or '')[:80]
@@ -616,14 +616,14 @@ def activity_feed():
             'type': 'warranty_claim',
             'vin': c.vin,
             'description': desc or 'Warranty claim submitted',
-            'timestamp': c.created_at.isoformat() if c.created_at else None,
+            'timestamp': (c.created_at.isoformat() + 'Z') if c.created_at else None,
         })
     for d in disputes:
         feed.append({
             'type': 'dispute',
             'vin': d.vin,
             'description': d.service_type or 'Service record disputed',
-            'timestamp': d.created_at.isoformat() if d.created_at else None,
+            'timestamp': (d.created_at.isoformat() + 'Z') if d.created_at else None,
         })
 
     feed.sort(key=lambda x: x.get('timestamp') or '', reverse=True)
@@ -1109,7 +1109,7 @@ def reconcile_records():
         # Reconstruct exactly what submit_service() hashed
         meta = {
             'service_type':    row.service_type or '',
-            'service_date':    row.service_date.isoformat() if row.service_date else '',
+            'service_date':    (row.service_date.isoformat() + 'Z') if row.service_date else '',
             'mileage':         row.mileage,
             'parts_replaced':  row.parts_replaced or '',
             'technician_name': row.technician_name or '',
@@ -1154,7 +1154,7 @@ def reconcile_records():
             records_out.append({
                 'vin':              row.vin,
                 'metadata_hash':    db_hash,
-                'service_date':     row.service_date.isoformat() if row.service_date else None,
+                'service_date':     (row.service_date.isoformat() + 'Z') if row.service_date else None,
                 'service_type':     row.service_type,
                 'integrity':        status,
                 'db_fields_match':  db_fields_match,

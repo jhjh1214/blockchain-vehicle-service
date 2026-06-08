@@ -340,7 +340,9 @@ export class ManufacturerDashboardComponent implements OnInit, OnDestroy {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `VehicleChain_Fleet_Audit_${new Date().toISOString().slice(0,10)}.pdf`;
+        const _nd = new Date();
+        const _ds = `${_nd.getFullYear()}-${String(_nd.getMonth()+1).padStart(2,'0')}-${String(_nd.getDate()).padStart(2,'0')}`;
+        a.download = `VehicleChain_Fleet_Audit_${_ds}.pdf`;
         a.click();
         URL.revokeObjectURL(url);
         this.exportLoading = false;
