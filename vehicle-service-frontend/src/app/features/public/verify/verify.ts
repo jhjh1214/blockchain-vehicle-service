@@ -2,6 +2,7 @@ import { Component, OnInit, AfterViewChecked, ElementRef, ViewChild } from '@ang
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, ActivatedRoute } from '@angular/router';
+import { Title, Meta } from '@angular/platform-browser';
 import { BaseChartDirective } from 'ng2-charts';
 import {
   Chart, ChartData, ChartOptions,
@@ -40,9 +41,25 @@ export class VerifyComponent implements OnInit, AfterViewChecked {
     },
   };
 
-  constructor(private vehicleService: VehicleService, private route: ActivatedRoute) {}
+  constructor(
+    private vehicleService: VehicleService,
+    private route: ActivatedRoute,
+    private titleService: Title,
+    private metaService: Meta,
+  ) {}
+
+  private setMeta(vin?: string): void {
+    if (vin) {
+      this.titleService.setTitle(`${vin} — Vehicle History | VehicleChain`);
+      this.metaService.updateTag({ name: 'description', content: `Blockchain-verified service history, warranty status, and recall records for vehicle ${vin}.` });
+    } else {
+      this.titleService.setTitle('Verify Vehicle History — VehicleChain');
+      this.metaService.updateTag({ name: 'description', content: 'Free blockchain-verified vehicle history check. See service records, warranty status, and recall history for any registered vehicle.' });
+    }
+  }
 
   ngOnInit(): void {
+    this.setMeta();
     const paramVin = this.route.snapshot.paramMap.get('vin');
     if (paramVin) {
       this.vin = paramVin.toUpperCase();
@@ -68,6 +85,7 @@ export class VerifyComponent implements OnInit, AfterViewChecked {
       next: r => {
         this.result = r;
         this.loading = false;
+        this.setMeta(v);
         this.buildMileageChart(r.service_records || []);
       },
       error: e => {

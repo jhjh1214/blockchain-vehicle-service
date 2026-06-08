@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /verify
+Allow: /verify/
+Disallow: /dealer/
+Disallow: /manufacturer/
+Disallow: /login
+Disallow: /register
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /verify-email
+
+Sitemap: https://vehiclechain.up.railway.app/sitemap.xml
