@@ -6,6 +6,7 @@ Session-scoped: adapters are patched once; DB is recreated per test via clean_db
 """
 import os
 os.environ['DATABASE_URL'] = 'sqlite:///:memory:'  # must be set before config is imported
+os.environ['SKIP_EMAIL_VERIFICATION'] = 'true'
 
 import itertools
 import time
@@ -30,15 +31,22 @@ def _next_addr():
     return f'0x{n:040x}'
 
 
+# Holds the session-scoped Flask app so register_and_login can use app context
+_flask_app = None
+
+
 # ---------------------------------------------------------------------------
 # Session-scoped Flask app (created once, adapters mocked at method level)
 # ---------------------------------------------------------------------------
 @pytest.fixture(scope='session')
 def app():
+    global _flask_app
     # Prevent the event monitor daemon thread from attempting Ganache connections
     with patch('blockchain.event_monitor.init_event_monitor'):
         from app import create_app
         flask_app = create_app()
+
+    _flask_app = flask_app
 
     flask_app.config['TESTING'] = True
     flask_app.config['RATELIMIT_ENABLED'] = False
@@ -68,6 +76,9 @@ def app():
     wc.transfer_eth = MagicMock()
     wc.grant_role = MagicMock()
     wc.sign_and_send = MagicMock(return_value={'status': 1})
+    wc.w3 = MagicMock()
+    wc.w3.eth.get_balance = MagicMock(return_value=100_000_000_000_000_000)  # 0.1 ETH — above top-up threshold
+    wc.w3.is_connected = MagicMock(return_value=True)
 
     # VehicleRegistry adapter
     vr.contract = MagicMock()
@@ -110,7 +121,7 @@ def app():
 # ---------------------------------------------------------------------------
 @pytest.fixture
 def client(app):
-    return app.test_client()
+    return app.test_client(use_cookies=False)
 
 
 # ---------------------------------------------------------------------------
@@ -118,17 +129,32 @@ def client(app):
 # ---------------------------------------------------------------------------
 def _wipe_db(app):
     with app.app_context():
-        from db.models import (db, User, ServiceMetadata, WarrantyClaimMetadata,
-                                VehicleVINMapping, RefreshToken, DeviceToken,
-                                DisputeMessage, PasswordResetToken, AuditLog)
+        from db.models import (
+            db, User, ServiceMetadata, WarrantyClaimMetadata,
+            VehicleVINMapping, RefreshToken, DeviceToken,
+            DisputeMessage, PasswordResetToken, AuditLog,
+            AuthorizedSCLicense, EthFundRequest, VehicleRecall,
+            RecallVINService, WarrantyVoidRequest, AbuseReport,
+            Notification, VehicleReclaimRequest, EmailVerificationToken,
+        )
+        # Delete in dependency order (children before parents)
         db.session.query(AuditLog).delete()
         db.session.query(DisputeMessage).delete()
         db.session.query(PasswordResetToken).delete()
+        db.session.query(EmailVerificationToken).delete()
         db.session.query(ServiceMetadata).delete()
         db.session.query(WarrantyClaimMetadata).delete()
+        db.session.query(RecallVINService).delete()
+        db.session.query(VehicleRecall).delete()
+        db.session.query(WarrantyVoidRequest).delete()
         db.session.query(VehicleVINMapping).delete()
         db.session.query(RefreshToken).delete()
         db.session.query(DeviceToken).delete()
+        db.session.query(EthFundRequest).delete()
+        db.session.query(VehicleReclaimRequest).delete()
+        db.session.query(AbuseReport).delete()
+        db.session.query(Notification).delete()
+        db.session.query(AuthorizedSCLicense).delete()
         db.session.query(User).delete()
         db.session.commit()
 
@@ -153,21 +179,55 @@ def register_and_login(client, role, email=None, password=STRONG_PASSWORD,
                        name='Test User', brand=None):
     """Register a user and return (access_token, user_dict).
 
-    brand defaults to DEFAULT_BRAND for MANUFACTURER and SERVICE_CENTER roles.
+    MANUFACTURER: auto-generates a unique SSM number.
+    SERVICE_CENTER: creates a temporary manufacturer, pre-registers an SC license
+        via /api/sc/authorized-licenses, then registers the SC with that SSM.
+        The resulting SC has status='pending' and the brand from the license.
+    OWNER: requires consent_given=True (added automatically).
     """
     email = email or f'{role.lower()}-{next(_addr_counter)}@test.com'
     if brand is None and role in ('MANUFACTURER', 'SERVICE_CENTER'):
         brand = DEFAULT_BRAND
+
     payload = {
         'email': email,
         'password': password,
         'role': role,
         'name': name,
     }
-    if brand is not None:
-        payload['brand'] = brand
+
     if role == 'OWNER':
         payload['consent_given'] = True
+
+    elif role == 'MANUFACTURER':
+        payload['brand'] = brand
+        payload['ssm_number'] = f'TSSM{next(_addr_counter):05d}'
+
+    elif role == 'SERVICE_CENTER':
+        # Brand SCs require a manufacturer-issued license.
+        # Create a temporary manufacturer for this purpose; it won't interfere
+        # with individual test assertions since it's role=MANUFACTURER, not SC.
+        temp_ssm = f'TSSM{next(_addr_counter):05d}'
+        temp_r = client.post('/api/auth/register', json={
+            'email': f'tempmfr-{next(_addr_counter)}@test.com',
+            'password': password,
+            'role': 'MANUFACTURER',
+            'name': f'Temp MFR ({brand})',
+            'brand': brand,
+            'ssm_number': temp_ssm,
+        })
+        assert temp_r.status_code == 200, f'Temp manufacturer registration failed: {temp_r.get_json()}'
+        temp_mfr_token = temp_r.get_json()['access_token']
+
+        sc_ssm = f'TSSM{next(_addr_counter):05d}'
+        lic_r = client.post('/api/sc/authorized-licenses',
+                            headers=auth(temp_mfr_token),
+                            json={'ssm_number': sc_ssm})
+        assert lic_r.status_code == 201, f'License creation failed: {lic_r.get_json()}'
+
+        payload['ssm_number'] = sc_ssm
+        # brand is resolved from the license entry inside register_user; no need to pass it
+
     r = client.post('/api/auth/register', json=payload)
     assert r.status_code == 200, f'Register failed: {r.get_json()}'
     data = r.get_json()

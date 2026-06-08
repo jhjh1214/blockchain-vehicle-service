@@ -11,6 +11,7 @@ class TestRegister:
             'role': 'MANUFACTURER',
             'name': 'Honda Corp',
             'brand': 'Honda',
+            'ssm_number': 'SSMTEST001',
         })
         assert r.status_code == 200
         data = r.get_json()
@@ -20,16 +21,16 @@ class TestRegister:
         assert data['user']['brand'] == 'Honda'
 
     def test_register_service_center(self, client):
+        """Independent SC registration requires no SSM and has no brand restriction."""
         r = client.post('/api/auth/register', json={
             'email': 'sc@test.com',
             'password': STRONG_PASSWORD,
             'role': 'SERVICE_CENTER',
             'name': 'Best Auto',
-            'brand': 'Honda',
+            'is_independent': True,
         })
         assert r.status_code == 200
         assert r.get_json()['user']['role'] == 'SERVICE_CENTER'
-        assert r.get_json()['user']['brand'] == 'Honda'
 
     def test_register_manufacturer_without_brand_fails(self, client):
         r = client.post('/api/auth/register', json={
@@ -37,19 +38,21 @@ class TestRegister:
             'password': STRONG_PASSWORD,
             'role': 'MANUFACTURER',
             'name': 'No Brand Corp',
+            'ssm_number': 'SSMTEST002',
         })
         assert r.status_code == 400
         assert 'brand' in r.get_json()['error'].lower()
 
-    def test_register_sc_without_brand_fails(self, client):
+    def test_register_brand_sc_without_ssm_fails(self, client):
+        """Brand (non-independent) SC registration requires a pre-registered SSM number."""
         r = client.post('/api/auth/register', json={
-            'email': 'nobrandsc@test.com',
+            'email': 'nossm@test.com',
             'password': STRONG_PASSWORD,
             'role': 'SERVICE_CENTER',
-            'name': 'No Brand SC',
+            'name': 'No SSM SC',
         })
         assert r.status_code == 400
-        assert 'brand' in r.get_json()['error'].lower()
+        assert 'ssm' in r.get_json()['error'].lower()
 
     def test_register_owner_without_brand_succeeds(self, client):
         r = client.post('/api/auth/register', json={

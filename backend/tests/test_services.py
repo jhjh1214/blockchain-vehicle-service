@@ -4,9 +4,9 @@ import pytest
 from conftest import register_and_login, auth, STRONG_PASSWORD
 
 
-
 VIN = '1HGCM82633A004352'
 SERVICE_DATE = time.strftime('%Y-%m-%dT%H:%M:%S')
+FAKE_HASH = '0x' + 'ab' * 32  # 66-char hex placeholder used where real hash is not needed
 
 
 def _register_vehicle(client, mfr_token, owner_email, make='Honda'):
@@ -264,7 +264,7 @@ class TestVerifyService:
         owner_token, owner = register_and_login(client, 'OWNER')
         _register_vehicle(client, mfr_token, owner['email'])
         r = client.post('/api/service/verify', headers=auth(owner_token), json={
-            'vin': VIN, 'record_index': 0,
+            'vin': VIN, 'metadata_hash': FAKE_HASH,
         })
         assert r.status_code == 200
         data = r.get_json()
@@ -282,7 +282,7 @@ class TestDisputeService:
         owner_token, owner = register_and_login(client, 'OWNER')
         _register_vehicle(client, mfr_token, owner['email'])
         r = client.post('/api/service/dispute', headers=auth(owner_token), json={
-            'vin': VIN, 'record_index': 0, 'reason': 'Wrong parts used',
+            'vin': VIN, 'metadata_hash': FAKE_HASH, 'reason': 'Wrong parts used',
         })
         assert r.status_code == 200
         data = r.get_json()
@@ -300,7 +300,7 @@ class TestResolveDispute:
     def test_manufacturer_can_resolve_approve(self, client):
         mfr_token, _ = register_and_login(client, 'MANUFACTURER')
         r = client.post('/api/service/resolve-dispute', headers=auth(mfr_token), json={
-            'vin': VIN, 'record_index': 0, 'decision': 1, 'resolution_notes': 'Verified correct',
+            'vin': VIN, 'metadata_hash': FAKE_HASH, 'decision': 1, 'resolution_notes': 'Verified correct',
         })
         assert r.status_code == 200
         data = r.get_json()
@@ -309,7 +309,7 @@ class TestResolveDispute:
     def test_manufacturer_can_resolve_reject(self, client):
         mfr_token, _ = register_and_login(client, 'MANUFACTURER')
         r = client.post('/api/service/resolve-dispute', headers=auth(mfr_token), json={
-            'vin': VIN, 'record_index': 0, 'decision': 2, 'resolution_notes': 'Parts wrong',
+            'vin': VIN, 'metadata_hash': FAKE_HASH, 'decision': 2, 'resolution_notes': 'Parts wrong',
         })
         assert r.status_code == 200
         assert r.get_json()['decision'] == 'rejected'
@@ -332,7 +332,7 @@ class TestResolveDispute:
         """Decision=3 (MODIFY) requests SC resubmission — record stays disputed."""
         mfr_token, _ = register_and_login(client, 'MANUFACTURER')
         r = client.post('/api/service/resolve-dispute', headers=auth(mfr_token), json={
-            'vin': VIN, 'record_index': 0, 'decision': 3, 'resolution_notes': 'Please resubmit with correct parts',
+            'vin': VIN, 'metadata_hash': FAKE_HASH, 'decision': 3, 'resolution_notes': 'Please resubmit with correct parts',
         })
         assert r.status_code == 200
         assert r.get_json()['decision'] == 'modify'
@@ -352,7 +352,7 @@ class TestResolveDispute:
         _register_vehicle(client, mfr_a, owner['email'], make='Honda')
 
         r = client.post('/api/service/resolve-dispute', headers=auth(mfr_b), json={
-            'vin': VIN, 'record_index': 0, 'decision': 1, 'resolution_notes': 'Not mine',
+            'vin': VIN, 'metadata_hash': FAKE_HASH, 'decision': 1, 'resolution_notes': 'Not mine',
         })
         assert r.status_code == 403
 
@@ -363,7 +363,7 @@ class TestResolveDispute:
         _register_vehicle(client, mfr_token, owner['email'], make='Honda')
 
         r = client.post('/api/service/resolve-dispute', headers=auth(mfr_token), json={
-            'vin': VIN, 'record_index': 0, 'decision': 1, 'resolution_notes': 'Verified',
+            'vin': VIN, 'metadata_hash': FAKE_HASH, 'decision': 1, 'resolution_notes': 'Verified',
         })
         assert r.status_code == 200
 
@@ -386,7 +386,7 @@ class TestOwnerServiceEndpoints:
         owner_token, owner = register_and_login(client, 'OWNER')
         _register_vehicle(client, mfr_token, owner['email'])
         r = client.post('/api/service/owner/verify', headers=auth(owner_token), json={
-            'vin': VIN, 'record_index': 0,
+            'vin': VIN, 'metadata_hash': FAKE_HASH,
         })
         assert r.status_code == 200
 
@@ -395,7 +395,7 @@ class TestOwnerServiceEndpoints:
         owner_token, owner = register_and_login(client, 'OWNER')
         _register_vehicle(client, mfr_token, owner['email'])
         r = client.post('/api/service/owner/dispute', headers=auth(owner_token), json={
-            'vin': VIN, 'record_index': 0, 'reason': 'Unauthorized service',
+            'vin': VIN, 'metadata_hash': FAKE_HASH, 'reason': 'Unauthorized service',
         })
         assert r.status_code == 200
 
@@ -441,7 +441,7 @@ class TestLegacyVerifyDisputeRoleEnforcement:
         owner_token, owner = register_and_login(client, 'OWNER')
         _register_vehicle(client, mfr_token, owner['email'])
         r = client.post('/api/service/verify', headers=auth(owner_token), json={
-            'vin': VIN, 'record_index': 0,
+            'vin': VIN, 'metadata_hash': FAKE_HASH,
         })
         assert r.status_code == 200
 
@@ -450,7 +450,7 @@ class TestLegacyVerifyDisputeRoleEnforcement:
         owner_token, owner = register_and_login(client, 'OWNER')
         _register_vehicle(client, mfr_token, owner['email'])
         r = client.post('/api/service/dispute', headers=auth(owner_token), json={
-            'vin': VIN, 'record_index': 0, 'reason': 'Wrong parts used',
+            'vin': VIN, 'metadata_hash': FAKE_HASH, 'reason': 'Wrong parts used',
         })
         assert r.status_code == 200
 
@@ -789,7 +789,7 @@ class TestServiceResolutionPersistence:
         mfr_token, meta_hash = self._setup_dispute(client, app)
 
         client.post('/api/service/resolve-dispute', headers=auth(mfr_token), json={
-            'vin': VIN, 'record_index': 0, 'decision': 1,
+            'vin': VIN, 'metadata_hash': meta_hash, 'decision': 1,
             'resolution_notes': 'Claim verified and approved',
         })
 
@@ -802,7 +802,7 @@ class TestServiceResolutionPersistence:
         mfr_token, meta_hash = self._setup_dispute(client, app)
 
         client.post('/api/service/resolve-dispute', headers=auth(mfr_token), json={
-            'vin': VIN, 'record_index': 0, 'decision': 2,
+            'vin': VIN, 'metadata_hash': meta_hash, 'decision': 2,
             'resolution_notes': 'No evidence of defect found',
         })
 
@@ -815,7 +815,7 @@ class TestServiceResolutionPersistence:
         mfr_token, meta_hash = self._setup_dispute(client, app)
 
         client.post('/api/service/resolve-dispute', headers=auth(mfr_token), json={
-            'vin': VIN, 'record_index': 0, 'decision': 1,
+            'vin': VIN, 'metadata_hash': meta_hash, 'decision': 1,
             'resolution_notes': 'Resolved',
         })
 

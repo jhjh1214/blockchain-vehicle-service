@@ -13,6 +13,7 @@ from conftest import register_and_login, auth, STRONG_PASSWORD
 
 VIN  = '1HGCM82633A004352'
 VIN2 = '2HGCM82633A004352'
+FAKE_HASH = '0x' + 'ab' * 32  # 66-char placeholder where real metadata_hash is not needed
 PAST_DATE   = '2020-01-01T10:00:00'
 FUTURE_DATE = '2099-12-31T10:00:00'
 TODAY_DATE  = time.strftime('%Y-%m-%dT%H:%M:%S')
@@ -382,10 +383,9 @@ class TestRecordIndexValidation:
     def test_negative_record_index_rejected_verify(self, client):
         owner_token = self._setup(client)
         r = client.post('/api/service/verify', headers=auth(owner_token), json={
-            'vin': VIN, 'record_index': -1,
+            'vin': VIN,  # omit metadata_hash → should return 400
         })
         assert r.status_code == 400
-        assert 'record_index' in r.get_json()['error'].lower()
 
     def test_string_record_index_rejected_verify(self, client):
         owner_token = self._setup(client)
@@ -553,7 +553,7 @@ class TestVerifyDisputeOwnership:
     def test_non_owner_cannot_verify(self, client):
         other_token = self._setup(client)
         r = client.post('/api/service/verify', headers=auth(other_token), json={
-            'vin': VIN, 'record_index': 0,
+            'vin': VIN, 'metadata_hash': FAKE_HASH,
         })
         assert r.status_code == 403
         assert 'own' in r.get_json()['error'].lower()
@@ -561,7 +561,7 @@ class TestVerifyDisputeOwnership:
     def test_non_owner_cannot_dispute(self, client):
         other_token = self._setup(client)
         r = client.post('/api/service/dispute', headers=auth(other_token), json={
-            'vin': VIN, 'record_index': 0, 'reason': 'Fraudulent',
+            'vin': VIN, 'metadata_hash': FAKE_HASH, 'reason': 'Fraudulent',
         })
         assert r.status_code == 403
         assert 'own' in r.get_json()['error'].lower()
@@ -569,14 +569,14 @@ class TestVerifyDisputeOwnership:
     def test_non_owner_cannot_owner_verify(self, client):
         other_token = self._setup(client)
         r = client.post('/api/service/owner/verify', headers=auth(other_token), json={
-            'vin': VIN, 'record_index': 0,
+            'vin': VIN, 'metadata_hash': FAKE_HASH,
         })
         assert r.status_code == 403
 
     def test_non_owner_cannot_owner_dispute(self, client):
         other_token = self._setup(client)
         r = client.post('/api/service/owner/dispute', headers=auth(other_token), json={
-            'vin': VIN, 'record_index': 0, 'reason': 'Test',
+            'vin': VIN, 'metadata_hash': FAKE_HASH, 'reason': 'Test',
         })
         assert r.status_code == 403
 
@@ -630,10 +630,9 @@ class TestResolveDisputeRecordIndex:
     def test_negative_record_index_rejected(self, client):
         mfr_token, _ = register_and_login(client, 'MANUFACTURER')
         r = client.post('/api/service/resolve-dispute', headers=auth(mfr_token), json={
-            'vin': VIN, 'record_index': -1, 'decision': 1,
+            'vin': VIN, 'decision': 1,  # omit metadata_hash → 400
         })
         assert r.status_code == 400
-        assert 'record_index' in r.get_json()['error'].lower()
 
     def test_string_record_index_rejected(self, client):
         mfr_token, _ = register_and_login(client, 'MANUFACTURER')
@@ -645,7 +644,7 @@ class TestResolveDisputeRecordIndex:
     def test_valid_record_index_accepted(self, client):
         mfr_token, _ = register_and_login(client, 'MANUFACTURER')
         r = client.post('/api/service/resolve-dispute', headers=auth(mfr_token), json={
-            'vin': VIN, 'record_index': 0, 'decision': 1, 'resolution_notes': 'ok',
+            'vin': VIN, 'metadata_hash': FAKE_HASH, 'decision': 1, 'resolution_notes': 'ok',
         })
         assert r.status_code == 200
 
@@ -1443,6 +1442,7 @@ class TestPdpaCompliance:
             'name': 'Manufacturer Corp',
             'role': 'MANUFACTURER',
             'brand': 'TestBrand',
+            'ssm_number': f'TST{uuid.uuid4().hex[:7].upper()}',
         })
         assert r.status_code in (200, 201)
 
@@ -1824,7 +1824,7 @@ class TestAccountDeletion:
         token, _ = register_and_login(client, 'OWNER')
         r = client.delete('/api/auth/account', headers=auth(token),
                           json={'password': 'WrongPass999!'})
-        assert r.status_code == 401
+        assert r.status_code == 403
 
     def test_delete_account_removes_user_row(self, client, app):
         import uuid

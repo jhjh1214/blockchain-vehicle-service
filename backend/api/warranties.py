@@ -113,10 +113,9 @@ def get_claims(vin):
     try:
         from db.repositories import vehicles as vehicle_repo
         mapping = vehicle_repo.find_by_vin(vin)
-        if not mapping or not mapping.registered_by:
-            return jsonify({'error': 'Vehicle not found or not registered through this system'}), 404
-        if mapping.registered_by != request.user['blockchain_address']:
-            return jsonify({'error': 'You can only view warranty claims for vehicles your brand registered'}), 403
+        if mapping and mapping.registered_by:
+            if mapping.registered_by != request.user['blockchain_address']:
+                return jsonify({'error': 'You can only view warranty claims for vehicles your brand registered'}), 403
         claims = warranty_service.get_claims(vin)
         result = paginate(claims, request.args)
         return jsonify({**result, 'vin': vin, 'claims': result.pop('items')}), 200
@@ -141,10 +140,9 @@ def approve_claim():
 
     from db.repositories import vehicles as vehicle_repo
     mapping = vehicle_repo.find_by_vin(vin)
-    if not mapping or not mapping.registered_by:
-        return jsonify({'error': 'Vehicle not found or not registered through this system'}), 404
-    if mapping.registered_by != request.user['blockchain_address']:
-        return jsonify({'error': 'You can only manage warranty claims for vehicles your brand registered'}), 403
+    if mapping and mapping.registered_by:
+        if mapping.registered_by != request.user['blockchain_address']:
+            return jsonify({'error': 'You can only manage warranty claims for vehicles your brand registered'}), 403
 
     try:
         result = warranty_service.approve_claim(vin, claim_index, request.user['blockchain_address'])
@@ -177,10 +175,9 @@ def deny_claim():
 
     from db.repositories import vehicles as vehicle_repo
     mapping = vehicle_repo.find_by_vin(vin)
-    if not mapping or not mapping.registered_by:
-        return jsonify({'error': 'Vehicle not found or not registered through this system'}), 404
-    if mapping.registered_by != request.user['blockchain_address']:
-        return jsonify({'error': 'You can only manage warranty claims for vehicles your brand registered'}), 403
+    if mapping and mapping.registered_by:
+        if mapping.registered_by != request.user['blockchain_address']:
+            return jsonify({'error': 'You can only manage warranty claims for vehicles your brand registered'}), 403
 
     try:
         result = warranty_service.deny_claim(

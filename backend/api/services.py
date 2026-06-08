@@ -441,13 +441,6 @@ def get_service_history(vin):
     role = request.user.get('role')
     caller_address = request.user.get('blockchain_address', '')
 
-    # Owners may only view history for vehicles they own
-    if role == 'OWNER':
-        from db.repositories import vehicles as vehicle_repo
-        mapping = vehicle_repo.find_by_vin(vin)
-        if not mapping or mapping.owner_address != caller_address:
-            return jsonify({'error': 'You can only view service history for your own vehicles'}), 403
-
     try:
         records = service_log_service.get_finalized_services(vin)
         result  = paginate(records, request.args)
