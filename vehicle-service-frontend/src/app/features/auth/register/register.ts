@@ -138,7 +138,7 @@ export class RegisterComponent implements OnInit {
       password: rest.password,
       role: actualRole,
       name: rest.name,
-      phone: rest.phone || '',
+      phone: rest.phone ? `+60 ${rest.phone.trim()}` : '',
       is_independent: isIndependent,
     };
     if (rest.ssm_number) payload.ssm_number = rest.ssm_number.toUpperCase().trim();

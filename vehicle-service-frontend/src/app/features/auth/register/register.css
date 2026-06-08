@@ -1,1 +1,25 @@
-/* Register page uses global auth-page styles — no overrides needed */
+/* ─── Phone field with locked +60 country code prefix ───── */
+.phone-input-wrap {
+  display: flex;
+  align-items: stretch;
+}
+
+.phone-prefix {
+  display: flex;
+  align-items: center;
+  padding: 10px 10px;
+  background: var(--surface-2);
+  border: 1.5px solid var(--border-strong);
+  border-right: none;
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.phone-input-wrap .form-control {
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
