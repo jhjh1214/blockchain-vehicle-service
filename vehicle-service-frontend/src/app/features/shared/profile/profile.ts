@@ -28,6 +28,7 @@ function passwordMatch(g: AbstractControl): ValidationErrors | null {
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, FormsModule],
   templateUrl: './profile.html',
+  styleUrls: ['./profile.css'],
 })
 export class ProfileComponent implements OnInit {
   currentUser: User | null = null;

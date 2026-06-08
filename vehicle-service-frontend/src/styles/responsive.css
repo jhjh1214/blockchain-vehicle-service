@@ -1,0 +1,117 @@
+/* ─── Responsive ─────────────────────────────────────────── */
+
+/* Desktop (≥ 1024px): sidebar always visible */
+@media (min-width: 1024px) {
+  .mobile-topbar    { display: none !important; }
+  .sidebar-overlay  { display: none !important; }
+  .sidebar          { transform: none !important; position: relative !important; }
+  .layout-root .app-shell { height: 100%; }
+}
+
+/* Mobile / Tablet (< 1024px): overlay sidebar */
+@media (max-width: 1023px) {
+  .layout-root {
+    height: 100dvh;
+  }
+
+  .mobile-topbar {
+    display: flex;
+  }
+
+  .sidebar-overlay {
+    display: block;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 50;
+    transform: translateX(-100%);
+    transition: transform var(--transition-md);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+}
+
+/* Phone (≤ 768px): tighter spacing, single-column forms */
+@media (max-width: 768px) {
+  .page {
+    padding: 20px 16px;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .stat-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-grid,
+  .form-grid.cols-3 {
+    grid-template-columns: 1fr;
+  }
+
+  .form-col-span-2 {
+    grid-column: span 1;
+  }
+
+  .steps {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-item:nth-last-child(-n+2) {
+    border-bottom: 1px solid var(--border);
+  }
+
+  .detail-item:last-child {
+    border-bottom: none;
+  }
+
+  .card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .form-actions {
+    flex-direction: column-reverse;
+  }
+
+  .search-bar {
+    flex-direction: column;
+  }
+
+  .page-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .page-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* KPI row — 6-column variant for manufacturer dashboard */
+@media (min-width: 1024px) {
+  .kpi-row-6 { grid-template-columns: repeat(6, 1fr); }
+}
+@media (min-width: 640px) and (max-width: 1023px) {
+  .kpi-row-6 { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 639px) {
+  .kpi-row-6 { grid-template-columns: repeat(2, 1fr); }
+}

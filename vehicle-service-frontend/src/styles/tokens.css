@@ -1,0 +1,67 @@
+/* ─── Design Tokens ──────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
+
+:root {
+  /* Sidebar */
+  --sidebar-width: 240px;
+  --sidebar-bg: #ffffff;
+  --sidebar-border: #e2e8f0;
+  --sidebar-text: #475569;
+  --sidebar-text-active: #0369a1;
+  --sidebar-active-bg: #eff6ff;
+  --sidebar-hover-bg: #f8fafc;
+
+  /* Brand colors — Trust & Authority palette */
+  --color-primary: #0369a1;
+  --color-primary-dark: #025985;
+  --color-primary-light: #e0f2fe;
+  --color-success: #15803d;
+  --color-success-light: #dcfce7;
+  --color-warning: #b45309;
+  --color-warning-light: #fef3c7;
+  --color-danger: #b91c1c;
+  --color-danger-light: #fee2e2;
+  --color-info: #0369a1;
+  --color-info-light: #e0f2fe;
+
+  /* Surfaces */
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --surface-2: #f8fafc;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+
+  /* Typography */
+  --text: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+
+  /* Geometry */
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 18px;
+
+  /* Elevation */
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04), 0 0 0 1px rgba(15, 23, 42, 0.03);
+  --shadow: 0 2px 8px rgba(15, 23, 42, 0.06), 0 0 0 1px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 4px 16px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(15, 23, 42, 0.04);
+  --shadow-lg: 0 16px 48px rgba(15, 23, 42, 0.14), 0 0 0 1px rgba(15, 23, 42, 0.06);
+
+  /* Motion */
+  --transition: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-md: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-fast: 100ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Semantic status colors */
+  --status-green:  #16a34a;
+  --status-yellow: #b45309;
+  --status-red:    #dc2626;
+
+  /* Surface hover */
+  --surface-hover: #f8fafc;
+
+  /* Shorthand aliases */
+  --primary:      var(--color-primary);
+  --text-primary: var(--text);
+  --radius-md:    var(--radius);
+}

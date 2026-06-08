@@ -1,0 +1,226 @@
+/* ─── Auth Pages ─────────────────────────────────────────── */
+/* Shared across: login, register, forgot-password, reset-password, verify-email */
+
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  background-image:
+    radial-gradient(circle at 20% 50%, rgba(3, 105, 161, 0.05) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(3, 105, 161, 0.04) 0%, transparent 40%);
+  padding: 24px;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.10), 0 0 0 1px rgba(15, 23, 42, 0.04);
+  overflow: hidden;
+}
+
+.auth-card-header {
+  padding: 36px 32px 24px;
+  text-align: center;
+  border-top: 3px solid var(--color-primary);
+}
+
+.auth-logo {
+  width: 52px;
+  height: 52px;
+  background: var(--color-primary);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+}
+
+.auth-logo svg {
+  width: 26px;
+  height: 26px;
+  color: #fff;
+}
+
+.auth-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text);
+  margin: 0 0 4px;
+  letter-spacing: -0.03em;
+}
+
+.auth-subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.auth-card-body {
+  padding: 24px 32px 36px;
+  border-top: 1px solid var(--border);
+}
+
+.auth-footer-link {
+  text-align: center;
+  margin-top: 20px;
+  font-size: 13.5px;
+  color: var(--text-muted);
+}
+
+.auth-footer-link a {
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+.auth-legal-footer {
+  text-align: center;
+  margin-top: 12px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.auth-legal-footer a {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.auth-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 18px;
+  padding: 10px 13px;
+  background: var(--color-success-light);
+  border: 1px solid #86efac;
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  color: #14532d;
+  font-weight: 600;
+}
+
+.auth-note svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--color-success);
+}
+
+/* ─── Password field with eye toggle ────────────────────── */
+.input-password-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-password-wrap .form-control {
+  padding-right: 44px;
+}
+
+.btn-eye {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: color var(--transition-fast);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+
+.btn-eye:hover {
+  color: var(--text-secondary);
+}
+
+.btn-eye svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+/* ─── Password strength bar ──────────────────────────────── */
+.password-strength {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.strength-bar {
+  flex: 1;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.strength-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+.strength-fill.strength-1 { width: 20%; background: #ef4444; }
+.strength-fill.strength-2 { width: 40%; background: #f97316; }
+.strength-fill.strength-3 { width: 60%; background: #eab308; }
+.strength-fill.strength-4 { width: 80%; background: #84cc16; }
+.strength-fill.strength-5 { width: 100%; background: #22c55e; }
+
+.strength-text {
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.strength-text.strength-1 { color: #ef4444; }
+.strength-text.strength-2 { color: #f97316; }
+.strength-text.strength-3 { color: #eab308; }
+.strength-text.strength-4 { color: #84cc16; }
+.strength-text.strength-5 { color: #22c55e; }
+
+/* ─── Password requirements checklist ───────────────────── */
+.password-requirements {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.req-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--text-muted);
+  transition: color var(--transition-fast);
+}
+
+.req-item svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.req-item.req-met {
+  color: #22c55e;
+}
+
+.req-item.req-met svg {
+  color: #22c55e;
+}

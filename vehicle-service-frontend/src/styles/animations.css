@@ -1,0 +1,30 @@
+/* ─── Keyframe Animations ────────────────────────────────── */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes route-indeterminate {
+  0%   { transform: scaleX(0); opacity: 1; margin-left: 0; }
+  50%  { transform: scaleX(0.7); opacity: 1; margin-left: 0; }
+  100% { transform: scaleX(0); opacity: 0; margin-left: 100%; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}

@@ -1,0 +1,25 @@
+/* ─── Utility Classes ────────────────────────────────────── */
+.mono {
+  font-family: 'SF Mono', 'Menlo', ui-monospace, 'Courier New', monospace;
+  font-size: 12px;
+}
+
+.text-muted   { color: var(--text-muted); }
+.text-success { color: var(--color-success); }
+.text-danger  { color: var(--color-danger); }
+.text-warning { color: var(--color-warning); }
+
+.mb-0  { margin-bottom: 0; }
+.mb-4  { margin-bottom: 4px; }
+.mb-8  { margin-bottom: 8px; }
+.mb-12 { margin-bottom: 12px; }
+.mb-16 { margin-bottom: 16px; }
+.mb-20 { margin-bottom: 20px; }
+.mb-24 { margin-bottom: 24px; }
+.mb-28 { margin-bottom: 28px; }
+
+.gap-8           { gap: 8px; }
+.flex            { display: flex; }
+.flex-col        { flex-direction: column; }
+.items-center    { align-items: center; }
+.justify-between { justify-content: space-between; }
