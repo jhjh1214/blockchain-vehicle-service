@@ -27,7 +27,7 @@ import { VerifyComponent } from './features/public/verify/verify';
 import { PrivacyPolicyComponent } from './features/public/privacy-policy/privacy-policy';
 
 export const routes: Routes = [
-  { path: '', redirectTo: '/login', pathMatch: 'full' },
+  { path: '', redirectTo: '/verify', pathMatch: 'full' },
   { path: 'login', component: LoginComponent },
   { path: 'register', component: RegisterComponent },
   { path: 'forgot-password', component: ForgotPasswordComponent },
