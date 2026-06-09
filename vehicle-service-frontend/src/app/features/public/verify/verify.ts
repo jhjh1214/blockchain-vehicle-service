@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, ActivatedRoute } from '@angular/router';
 import { Title, Meta } from '@angular/platform-browser';
+import { ThemeService } from '../../../core/services/theme.service';
 import { BaseChartDirective } from 'ng2-charts';
 import {
   Chart, ChartData, ChartOptions,
@@ -41,12 +42,19 @@ export class VerifyComponent implements OnInit, AfterViewChecked {
     },
   };
 
+  isDark = false;
+
   constructor(
     private vehicleService: VehicleService,
     private route: ActivatedRoute,
     private titleService: Title,
     private metaService: Meta,
-  ) {}
+    public theme: ThemeService,
+  ) {
+    this.theme.dark$.subscribe(v => this.isDark = v);
+  }
+
+  toggleTheme(): void { this.theme.toggle(); }
 
   private setMeta(vin?: string): void {
     if (vin) {
