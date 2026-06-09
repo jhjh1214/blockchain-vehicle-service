@@ -583,7 +583,7 @@ Demo password for all seed accounts: `Demo@1234`
 - Notifications screen: full history with type-specific icons, mark-all-read, clear-all
 - VIN claim screen: camera barcode/QR scanner via `mobile_scanner` package — no manual typing needed; if the claimed VIN belongs to an `owner_deleted` vehicle, the screen detects `reclaim_available: true` in the API response and shows a reclaim request dialog instead of a generic error
 - Push notification tap navigation: recall → recalls screen, void → void requests, pending service → pending list
-- Biometric login (TouchID/FaceID) after first password login
+- Biometric login (TouchID/FaceID) via `local_auth` package — shown on login screen when device supports it and user has opted in; opt-in prompt offered once after the first successful "remember me" login; credentials stored in `flutter_secure_storage`
 - All network errors show snackbar; loading states on every button
 
 ### Registration Flow (Web)
