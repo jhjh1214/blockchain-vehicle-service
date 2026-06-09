@@ -15,8 +15,30 @@
   <meta property="og:title" content="VehicleChain — Verify Vehicle Service History">
   <meta property="og:description" content="Free blockchain-verified vehicle history check. See service records, warranty status, and recall history for any registered vehicle.">
   <meta property="og:url" content="https://vehiclechain.up.railway.app/verify">
+  <!-- Structured data: tells Google this is a software app, not a physical chain -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "VehicleChain",
+    "url": "https://vehiclechain.up.railway.app",
+    "description": "Blockchain-powered vehicle service history verification platform. Verify warranty status, service records, and recall history for any registered vehicle using immutable blockchain records.",
+    "applicationCategory": "AutomotiveApplication",
+    "operatingSystem": "Web",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "MYR" },
+    "featureList": [
+      "Blockchain-verified service history",
+      "Warranty status check",
+      "Vehicle recall tracking",
+      "Tamper-proof service records",
+      "QR code vehicle verification"
+    ]
+  }
+  </script>
+
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.tile.openstreetmap.org; connect-src 'self' http://localhost:5000 https://blockchain-vehicle-service-production.up.railway.app ws://localhost:*; frame-ancestors 'none'">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
