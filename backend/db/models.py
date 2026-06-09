@@ -359,10 +359,18 @@ class VehicleRecall(db.Model):
     title = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text, nullable=False)
     affected_models = db.Column(db.JSON, nullable=True)  # null = all models of brand
+    vin_range_start = db.Column(db.String(17), nullable=True)  # null = no VIN range restriction
+    vin_range_end   = db.Column(db.String(17), nullable=True)
     status = db.Column(db.String(20), default='active', nullable=False)  # active | closed
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     issued_by = db.relationship('User', backref=db.backref('recalls_issued', lazy=True))
+
+    def is_vin_affected(self, vin: str) -> bool:
+        """Return True if the given VIN falls within this recall's range (or no range set)."""
+        if not self.vin_range_start or not self.vin_range_end:
+            return True
+        return self.vin_range_start.upper() <= vin.upper() <= self.vin_range_end.upper()
 
     def to_dict(self) -> dict:
         return {
@@ -372,6 +380,8 @@ class VehicleRecall(db.Model):
             'title': self.title,
             'description': self.description,
             'affected_models': self.affected_models,
+            'vin_range_start': self.vin_range_start,
+            'vin_range_end': self.vin_range_end,
             'status': self.status,
             'created_at': (self.created_at.isoformat() + 'Z') if self.created_at else None,
         }

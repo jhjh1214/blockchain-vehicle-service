@@ -46,6 +46,8 @@ export class ManufacturerDashboardComponent implements OnInit, OnDestroy {
   showRecallModal = false;
   recallTitle = '';
   recallMessage = '';
+  recallVinStart = '';
+  recallVinEnd = '';
   recallSending = false;
   recallResult: { sent: number; recall_id?: number } | null = null;
   recallError = '';
@@ -255,6 +257,8 @@ export class ManufacturerDashboardComponent implements OnInit, OnDestroy {
     this.showRecallModal = true;
     this.recallTitle = '';
     this.recallMessage = '';
+    this.recallVinStart = '';
+    this.recallVinEnd = '';
     this.recallResult = null;
     this.recallError = '';
   }
@@ -268,7 +272,9 @@ export class ManufacturerDashboardComponent implements OnInit, OnDestroy {
     this.recallSending = true;
     this.recallResult = null;
     this.recallError = '';
-    this.vehicleService.sendRecall(this.recallTitle.trim(), this.recallMessage.trim()).subscribe({
+    const vinStart = this.recallVinStart.trim().toUpperCase() || undefined;
+    const vinEnd = this.recallVinEnd.trim().toUpperCase() || undefined;
+    this.vehicleService.sendRecall(this.recallTitle.trim(), this.recallMessage.trim(), vinStart, vinEnd).subscribe({
       next: res => {
         this.recallSending = false;
         this.recallResult = res;

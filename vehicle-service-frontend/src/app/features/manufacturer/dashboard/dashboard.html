@@ -408,6 +408,20 @@
             <textarea class="form-control" [(ngModel)]="recallMessage" placeholder="Describe the recall reason and required action…" rows="4" maxlength="500" style="resize:vertical;"></textarea>
             <div style="font-size:11px;color:var(--text-muted);margin-top:4px;text-align:right;">{{ recallMessage.length }}/500</div>
           </div>
+          <div style="margin-top:14px;padding:12px 14px;border:1px dashed var(--border);border-radius:var(--radius-sm);background:var(--bg-subtle,var(--bg-secondary));">
+            <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.04em;">Affected VIN Range (optional)</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">Leave blank to affect all vehicles. If provided, owners will be told whether their specific VIN is in the affected range.</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+              <div>
+                <label class="form-label" style="font-size:11px;">From VIN</label>
+                <input class="form-control" [(ngModel)]="recallVinStart" placeholder="e.g. 1HGBH41JXMN109186" maxlength="17" style="text-transform:uppercase;font-family:monospace;font-size:13px;" (input)="recallVinStart = recallVinStart.toUpperCase()">
+              </div>
+              <div>
+                <label class="form-label" style="font-size:11px;">To VIN</label>
+                <input class="form-control" [(ngModel)]="recallVinEnd" placeholder="e.g. 1HGBH41JXMN109285" maxlength="17" style="text-transform:uppercase;font-family:monospace;font-size:13px;" (input)="recallVinEnd = recallVinEnd.toUpperCase()">
+              </div>
+            </div>
+          </div>
           @if (recallError) {
             <div class="alert alert-error" style="margin-top:12px;">{{ recallError }}</div>
           }

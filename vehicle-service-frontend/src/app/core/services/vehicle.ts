@@ -53,8 +53,11 @@ export class VehicleService {
     return this.http.get(`${environment.apiUrl}/vehicle/fleet-export`, { responseType: 'blob' });
   }
 
-  sendRecall(title: string, message: string): Observable<{ sent: number; recall_id: number }> {
-    return this.http.post<{ sent: number; recall_id: number }>(`${environment.apiUrl}/vehicle/recall`, { title, message });
+  sendRecall(title: string, message: string, vinRangeStart?: string, vinRangeEnd?: string): Observable<{ sent: number; recall_id: number }> {
+    return this.http.post<{ sent: number; recall_id: number }>(`${environment.apiUrl}/vehicle/recall`, {
+      title, message,
+      ...(vinRangeStart ? { vin_range_start: vinRangeStart, vin_range_end: vinRangeEnd } : {}),
+    });
   }
 
   getRecalls(status = 'active'): Observable<{ recalls: any[] }> {

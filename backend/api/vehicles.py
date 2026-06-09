@@ -554,6 +554,9 @@ def get_vehicle_public(vin):
                     'issued_at': (r.created_at.isoformat() + 'Z') if r.created_at else None,
                     'status': r.status,
                     'serviced': r.id in serviced_recall_ids,
+                    'vin_range_start': r.vin_range_start,
+                    'vin_range_end': r.vin_range_end,
+                    'vin_affected': r.is_vin_affected(vin),
                 })
 
     warranty_expiry = vehicle_data.get('warranty_expiry', 0)
@@ -898,6 +901,16 @@ def send_recall():
     if not title or not description:
         return jsonify({'error': 'title and message are required'}), 400
 
+    # VIN range (optional) — validate format if provided
+    vin_range_start = data.get('vin_range_start', '').strip().upper() or None
+    vin_range_end   = data.get('vin_range_end', '').strip().upper() or None
+    if (vin_range_start and len(vin_range_start) != 17) or (vin_range_end and len(vin_range_end) != 17):
+        return jsonify({'error': 'vin_range_start and vin_range_end must each be 17 characters'}), 400
+    if bool(vin_range_start) != bool(vin_range_end):
+        return jsonify({'error': 'Both vin_range_start and vin_range_end must be provided together'}), 400
+    if vin_range_start and vin_range_end and vin_range_start > vin_range_end:
+        return jsonify({'error': 'vin_range_start must be less than or equal to vin_range_end'}), 400
+
     brand = request.user.get('brand', '')
     issued_by_name = request.user.get('name', 'Manufacturer')
 
@@ -908,6 +921,8 @@ def send_recall():
         title=title,
         description=description,
         affected_models=affected_models,
+        vin_range_start=vin_range_start,
+        vin_range_end=vin_range_end,
     )
     _db.session.add(recall)
     _db.session.commit()
