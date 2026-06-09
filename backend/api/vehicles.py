@@ -938,11 +938,16 @@ def send_recall():
             from core.email import send_email
             sc_emails = [sc.email for sc in sc_users if sc.email]
             for email in sc_emails:
+                vin_range_line = (
+                    f'\nAffected VIN Range: {vin_range_start} – {vin_range_end}\n'
+                    if vin_range_start and vin_range_end else
+                    '\nAffected VIN Range: All vehicles of this brand\n'
+                )
                 send_email(
                     to=email,
                     subject=f'[Recall Alert] {title}',
                     text=f'A recall has been issued by {issued_by_name}.\n\n'
-                         f'Title: {title}\n\nDetails:\n{description}\n\n'
+                         f'Title: {title}\n{vin_range_line}\nDetails:\n{description}\n\n'
                          f'Please check your dashboard for details and mark recall services as completed for affected vehicles.',
                 )
     except Exception:
@@ -998,8 +1003,9 @@ def list_recalls_owner():
     for r in recalls:
         d = r.to_dict()
         serviced_vins = {s.vin for s in r.vin_services}
-        d['my_serviced_vins'] = list(owner_vins & serviced_vins)
-        d['my_affected_vins'] = list(owner_vins)
+        affected_vins = {v for v in owner_vins if r.is_vin_affected(v)}
+        d['my_serviced_vins'] = list(affected_vins & serviced_vins)
+        d['my_affected_vins'] = list(affected_vins)
         result.append(d)
     return jsonify({'recalls': result}), 200
 

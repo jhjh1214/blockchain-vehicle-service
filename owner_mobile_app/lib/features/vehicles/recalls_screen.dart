@@ -201,6 +201,33 @@ class _RecallCard extends StatelessWidget {
               ),
             ],
             const SizedBox(height: 8),
+            if (recall['vin_range_start'] != null && recall['vin_range_end'] != null) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.linear_scale, size: 13, color: Colors.grey.shade600),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Affected range: ${recall['vin_range_start']} – ${recall['vin_range_end']}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontFamily: 'monospace',
+                          color: Colors.grey.shade700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 6),
+            ],
             Text(
               'Issued by ${recall['issued_by'] ?? 'Manufacturer'}',
               style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
