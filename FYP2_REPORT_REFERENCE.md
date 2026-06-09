@@ -138,7 +138,7 @@ Base path: `/api`
 | GET | `/public/<vin>` | Public (30/min) | Public vehicle verification — service history + recall history |
 | GET | `/export/<vin>` | Public (10/min) | Download PDF vehicle history report; amber notice box if `owner_deleted` |
 | GET | `/fleet-export` | MANUFACTURER | Download PDF fleet audit report |
-| POST | `/recall` | MANUFACTURER | Issue recall — saves to DB, FCM push to all owners, email all brand SCs |
+| POST | `/recall` | MANUFACTURER | Issue recall — saves to DB, FCM push to all owners, email all brand SCs; optional `vin_range_start`/`vin_range_end` (17 chars each, must be a pair, start ≤ end) to scope the recall to a production batch |
 | GET | `/recalls` | MANUFACTURER, SC | List recalls for own brand |
 | GET | `/recalls/owner` | OWNER | List active recalls for owner's vehicles |
 | POST | `/recalls/<id>/service` | SERVICE_CENTER | Mark a VIN as recall-serviced; blocked for `owner_deleted` vehicles |
@@ -274,14 +274,16 @@ Dispute thread: owner, SC, and manufacturer can post messages (DisputeMessage ta
 SC can only see disputes for records they submitted.
 
 ### Recall Workflow
-1. Manufacturer issues recall with title + description
-2. Saved to VehicleRecall table
+1. Manufacturer issues recall with title + description + optional `vin_range_start` / `vin_range_end`
+2. Saved to VehicleRecall table (VIN range stored when provided; null = affects all vehicles of that brand)
 3. FCM push sent to ALL owners with registered devices
 4. Email sent to all active SCs of that brand
 5. When SC services a recall vehicle: `POST /vehicle/recalls/<id>/service` with VIN
 6. Owner sees recall status in Flutter recalls screen (serviced/pending)
-7. Public verify page shows recall history for that VIN including serviced status
+7. Public verify page shows recall history for that VIN including serviced status; if a VIN range was set, shows the range and a green/red pill badge: "Your vehicle is in the affected range" / "Your vehicle is not in the affected range"
 8. Manufacturer can close the recall when done
+
+**VIN Range:** Optional batch-scoping for recalls that affect only a production run (e.g. one month's build). Backend validates: both values must be 17 chars, must come as a pair, start ≤ end (lexicographic). `VehicleRecall.is_vin_affected(vin)` returns `True` when no range is set (all vehicles affected) or when the VIN falls within the range. Public verify endpoint includes `vin_affected: true/false` per recall so the UI can clearly inform each owner.
 
 ### Warranty Void Request Workflow
 1. SC detects large mileage gap (configurable, default 50,000 km) — warns on submission
@@ -335,7 +337,7 @@ SC can only see disputes for records they submitted.
 | WarrantyClaimMetadata | Warranty claim records linked to VIN |
 | DisputeMessage | Threaded messages for a dispute; `sender_id` FK is `SET NULL` on user delete (preserves thread structure); `sender_name` column stores name snapshot at post time so the thread remains readable after account deletion; message content is anonymised to `[Message deleted — account removed]` on deletion |
 | EthFundRequest | SC ETH requests; status: pending/fulfilled/dismissed |
-| VehicleRecall | Recall records; brand, title, description, status (active/closed) |
+| VehicleRecall | Recall records; brand, title, description, status (active/closed); optional `vin_range_start` / `vin_range_end` (VARCHAR 17) — null means all vehicles affected; `is_vin_affected(vin)` helper returns True if no range set or VIN falls within range |
 | RecallVINService | Junction: which VINs have been serviced under which recall |
 | WarrantyVoidRequest | Void requests; status: pending/disputed/approved/denied |
 | AuthorizedSCLicense | Manufacturer-pre-registered SSM numbers; used flag |
@@ -493,9 +495,7 @@ TRUSTED_PROXY_IPS     Comma-separated IPs to trust X-Forwarded-For from (Railway
 - INDEP_SC_DAILY_LIMIT = 20 (independent workshop)
 - PASSWORD_RESET_EXPIRY_MINUTES = 60
 
-**Schema migration:** On startup, `app.py` runs `db.create_all()` plus explicit
-`ALTER TABLE ADD COLUMN IF NOT EXISTS` for post-initial-deploy columns. Allows zero-downtime
-column additions without a dedicated migration tool.
+**Schema migration:** On startup, `app.py` runs `db.create_all()` plus explicit `ALTER TABLE ADD COLUMN IF NOT EXISTS` checks for every post-initial-deploy column (including `vin_range_start` / `vin_range_end` on `vehicle_recalls`). All migrations are idempotent — safe to run on every restart. This allows zero-downtime column additions without a dedicated migration tool; no manual SQL required on redeploy.
 
 ---
 
@@ -555,7 +555,9 @@ Demo password for all seed accounts: `Demo@1234`
 
 ### Web Dashboard (Angular)
 - Custom CSS variable design system with light/dark mode; theme preference persisted to DB
-- Role-based routing with Angular Router guards
+- `ThemeService` is injected at `AppComponent` root so every page (including the unauthenticated public verify page) respects the saved preference and OS preference on first visit
+- Animated pill-style theme toggle on the public verify page header and in both manufacturer and dealer sidebar footers — sliding thumb with `transform: translateX`, gradient background, and icon spin keyframe animation
+- Role-based routing with Angular Router guards; home route (`/`) redirects to `/verify` (public endpoint) so the public verification page is the entry point for all visitors
 - Responsive layout — sidebar collapses on mobile
 - Every async action shows a spinner; errors shown in inline alert divs
 - Leaflet map on SC network page — colour-coded dots (green=active, amber=pending, red=suspended); uses divIcon to avoid webpack broken image issue
@@ -564,8 +566,13 @@ Demo password for all seed accounts: `Demo@1234`
 - Mileage history line chart on public verify page
 - QR code on public verify page linking back to the URL
 - Tamper badge (red, "TAMPERED") and verified checkmark (green) on service records
+- Recall history on public verify page shows VIN range (if set) and a red/green pill badge per recall: "Your vehicle is in the affected range" / "Your vehicle is not in the affected range"
+- Recall send modal has an optional "Affected VIN Range" section with From/To VIN inputs (auto-uppercased, monospace font)
 - Handover QR on fleet page: for vehicles in `pending` registration status, manufacturer generates a VIN QR code to print on the delivery document; owner scans it in Flutter to claim without typing the 17-character VIN
 - Dashboard KPI row uses flex-column layout with min-height on labels so numbers always align horizontally across cards regardless of label wrap
+- Custom SVG favicon: blue rounded square (#0369a1) with white "VC" text; replaces default Angular icon
+- SEO: `robots.txt` (allows `/verify`, disallows all authenticated paths), `sitemap.xml` (single entry for public verify page), Open Graph meta tags, JSON-LD `WebApplication` structured data, Google Search Console verification meta tag, canonical link — all in `index.html` and `/public/`
+- "Staff sign in" bordered button on the verify page so internal users can navigate to login without the URL being publicly visible
 
 ### Mobile App (Flutter)
 - GoRouter with ShellRoute — persistent bottom nav bar
@@ -638,6 +645,9 @@ PDPA implication: disclosed in Privacy Policy under Data Sharing and Disclosure.
 **ecu_modules field has no hardware integration:**
 The ecu_modules array is accepted in service submission, stored in DB, and included in the integrity hash. However, no OBD-II tool reads it automatically — a technician would have to type ECU module names manually.
 Future work: ELM327 Bluetooth adapter integration in the Flutter app for automatic ECU module reading.
+
+**Safari cross-origin cookie limitation:**
+Safari's Intelligent Tracking Prevention (ITP) blocks third-party cookies even when `SameSite=None; Secure` is set, when the frontend and backend domains are on the Public Suffix List (Railway subdomains are on the PSL). This means Safari users are logged out immediately after login when the Angular app and Flask API are on separate Railway subdomains. The system uses HttpOnly cookies for security (tokens not readable by JavaScript/XSS). The correct production fix is a custom domain with identical eTLD+1 so the cookie is treated as first-party — not implemented for the prototype. Switched to a custom domain would resolve this without any application-code changes.
 
 **No ABAC (Attribute-Based Access Control) layer:**
 The system implements RBAC (six on-chain roles + Flask role decorators). ABAC would add policy evaluation based on subject, resource, action, and environment attributes — for example, restricting the web portal login page to organisational entities only (manufacturers and service centres) while blocking public/owner access entirely at the application layer, before credentials are even checked.
@@ -728,3 +738,8 @@ This section is for the security evaluation chapter. All findings from a systema
 - Role-specific account deletion cleanup: each role triggers a targeted cleanup chain on account deletion (OWNER → marks vehicles; SC → escalates disputes; MANUFACTURER → closes recalls) — no orphaned pending records left in unresolvable state
 - PDPA dispute anonymisation: `DisputeMessage.sender_id` uses `SET NULL` on user delete rather than CASCADE — dispute thread structure and audit history is preserved for manufacturer review while personal identifiers are erased and message content replaced with a deletion notice
 - Email verification gate: all state-changing operations (claim, transfer, service verification, dispute, warranty claim) are blocked for unverified accounts — prevents abuse by unverified email squatters while keeping read-only access open
+- Batch-scoped recalls: optional VIN range lets manufacturers target a specific production run; `is_vin_affected()` is computed per-VIN at query time so each owner immediately knows whether their specific vehicle is affected — no manual cross-referencing needed
+- Public verify page as home route: unauthenticated users land directly on the public VIN lookup; authenticated staff reach login via a secondary "Staff sign in" button — correct separation of public and internal entry points
+- SEO-optimised public endpoint: robots.txt, sitemap.xml, Open Graph tags, and JSON-LD structured data ensure the public verify page is discoverable and correctly indexed; internal routes are explicitly disallowed
+- Zero-downtime auto-migration: startup migration block in `app.py` is idempotent and self-contained — new columns are added on the first deploy that includes them, with no manual DBA intervention required on Railway
+- ThemeService initialised at `AppComponent` root so OS-preference detection and saved-preference restoration apply to all routes including the unauthenticated public page — consistent first-paint theme regardless of entry point
