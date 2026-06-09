@@ -121,6 +121,15 @@ def create_app():
                         conn.execute(text("ALTER TABLE notifications ADD COLUMN read BOOLEAN NOT NULL DEFAULT FALSE"))
                     conn.commit()
 
+            if inspector.has_table('vehicle_recalls'):
+                recall_cols = [c['name'] for c in inspector.get_columns('vehicle_recalls')]
+                with db.engine.connect() as conn:
+                    if 'vin_range_start' not in recall_cols:
+                        conn.execute(text("ALTER TABLE vehicle_recalls ADD COLUMN vin_range_start VARCHAR(17)"))
+                    if 'vin_range_end' not in recall_cols:
+                        conn.execute(text("ALTER TABLE vehicle_recalls ADD COLUMN vin_range_end VARCHAR(17)"))
+                    conn.commit()
+
             # ensure new tables created by SQLAlchemy models exist
             db.create_all()
 
