@@ -1,3 +1,67 @@
+/* ─── Theme Switch ───────────────────────────────────────── */
+.theme-switch {
+  position: relative;
+  width: 52px;
+  height: 28px;
+  border-radius: 99px;
+  border: 1.5px solid #fcd34d;
+  background: linear-gradient(135deg, #fffbeb, #fef3c7);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: background 300ms ease, border-color 300ms ease,
+              box-shadow 200ms ease, transform 150ms ease;
+}
+
+.theme-switch.dark {
+  background: linear-gradient(135deg, #1e1b4b, #1e293b);
+  border-color: #4f46e5;
+}
+
+.theme-switch:hover {
+  box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.25);
+  transform: scale(1.06);
+}
+
+.theme-switch.dark:hover {
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3);
+}
+
+.theme-switch:active { transform: scale(0.94); }
+
+.theme-switch-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #f59e0b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  transition: transform 300ms cubic-bezier(0.4, 0, 0.2, 1),
+              background 300ms ease;
+}
+
+.theme-switch.dark .theme-switch-thumb {
+  transform: translateX(24px);
+  background: #6366f1;
+}
+
+.theme-switch-thumb svg {
+  width: 11px;
+  height: 11px;
+  color: white;
+  animation: theme-icon-spin 250ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes theme-icon-spin {
+  from { opacity: 0; transform: scale(0.3) rotate(-90deg); }
+  to   { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+
 /* ─── Cards ──────────────────────────────────────────────── */
 .card {
   background: var(--surface);
@@ -1018,3 +1082,4 @@ tbody tr:hover {
 .sk-vehicle-title { display: flex; flex-direction: column; gap: 7px; }
 .sk-vin  { height: 10px; width: 140px; }
 .sk-name { height: 16px; width: 200px; }
+
