@@ -472,6 +472,12 @@ select.form-control {
   border-color: #7dd3fc;
 }
 
+.alert-error {
+  background: var(--color-danger-light);
+  color: #7f1d1d;
+  border-color: #fca5a5;
+}
+
 /* ─── Badges ─────────────────────────────────────────────── */
 .badge {
   display: inline-flex;
