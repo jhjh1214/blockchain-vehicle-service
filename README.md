@@ -94,19 +94,24 @@ A full-stack decentralised application for vehicle registration, service history
 - Register new vehicles on-chain (VIN, owner email, warranty period, make/model/year)
 - Pre-register vehicles without an owner (pending status — owner claims later)
 - Approve or deny warranty claims submitted by vehicle owners
-- Resolve disputed service records (approve or reject with resolution notes)
+- Resolve disputed service records (approve, reject, or request modification with resolution notes)
+- Issue safety recalls with optional VIN range to scope recalls to a specific production batch
 - View the entire fleet registered under their brand with health analytics
 - Manage and activate/suspend authorised service centres
 - View dashboard statistics: total vehicles, active warranties, pending claims, dispute rate
+- Export full fleet audit report as PDF
 
 ### Service Centre
 - Submit service records for any vehicle (metadata hashed SHA-256, hash anchored on-chain)
 - View pending and finalized service history for any VIN
 - Look up vehicle details and warranty status by VIN
+- Submit dispute rebuttals with notes before manufacturer resolution
+- Escalate disputed records to manufacturer priority review
 - Participate in dispute chat with vehicle owners
+- Mark recall service as completed for a specific VIN
 
 ### Owner (Mobile + Web)
-- Register and log in via mobile app (Flutter/Android) or web
+- Register and log in via mobile app (Flutter/Android) or web; biometric login (TouchID/FaceID) after first successful login
 - Claim ownership of a pre-registered vehicle using its VIN
 - View owned vehicles, warranty status, expiry countdown
 - Transfer vehicle ownership to another registered user
@@ -114,8 +119,14 @@ A full-stack decentralised application for vehicle registration, service history
 - Submit warranty claims with issue description and optional photos
 - Track warranty claim status (pending → approved / denied)
 - View full finalized service history with filtering
+- View active safety recalls — shows VIN range and whether each specific VIN is in the affected range
 - Password reset via email
 - PDPA-compliant data consent at registration
+- Export vehicle service history as PDF
+
+### Public (No Account Required)
+- Look up any VIN on the public verify page (`/verify`) — shows registration status, warranty, service history, and recall history with per-VIN affected status
+- Accessible at the root URL (`/`); no login required
 
 ---
 
@@ -152,6 +163,9 @@ A full-stack decentralised application for vehicle registration, service history
 | `ServiceMetadata` | Off-chain service record details (type, date, mileage, notes, photos) |
 | `WarrantyClaimMetadata` | Off-chain claim details (issue description, photos, resolution) |
 | `VehicleVINMapping` | VIN ↔ keccak256 hash mapping, owner address, make/model/year, warranty months |
+| `VehicleRecall` | Safety recalls: brand, title, description, status (active/closed), optional `vin_range_start` / `vin_range_end` (17-char VIN bounds for batch-scoped recalls) |
+| `RecallVINService` | Records which VINs have been serviced for a given recall |
+| `AuthorizedSCLicense` | Pre-registered SSM licence numbers — only matching SCs can register as authorised |
 | `AuditLog` | Security audit trail: login success/failure, password changes, key actions with IP |
 | `PasswordResetToken` | Hashed password reset tokens with expiry |
 
@@ -204,7 +218,22 @@ All endpoints prefixed `/api`.
 | GET | `/public/<vin>` | None | Public vehicle details + warranty |
 | GET | `/<vin>` | JWT | Full vehicle details |
 | GET | `/owner/vehicles` | OWNER | List all vehicles owned by caller |
-| GET | `/export/<vin>` | JWT | Export service history as PDF |
+| GET | `/export/<vin>` | None | Export vehicle service history as PDF |
+| GET | `/fleet` | MANUFACTURER | Paginated fleet list |
+| GET | `/fleet-export` | MANUFACTURER | Fleet audit report as PDF |
+| GET | `/stats` | MANUFACTURER | Aggregate manufacturer stats |
+| GET | `/dashboard-stats` | MANUFACTURER | Full dashboard KPIs + charts data (60s TTL cache) |
+| GET | `/activity-feed` | MANUFACTURER | Recent registrations, claims, disputes |
+| POST | `/reconcile` | MANUFACTURER | Integrity check — recompute hashes, flag tampered records |
+| POST | `/recall` | MANUFACTURER | Issue safety recall; optional `vin_range_start`/`vin_range_end` |
+| GET | `/recalls` | MANUFACTURER | List recalls by status (active/closed) |
+| POST | `/recalls/<id>/close` | MANUFACTURER | Close a recall |
+| POST | `/recalls/<id>/service` | SERVICE_CENTER | Mark recall service completed for a VIN |
+| GET | `/recalls/check/<vin>` | None | Active recalls for a VIN with `vin_affected` flag |
+| GET | `/recalls/owner` | OWNER | All active recalls relevant to owner's vehicles with affected status |
+| GET | `/reclaim-requests` | MANUFACTURER | List pending vehicle reclaim requests |
+| POST | `/reclaim-request/<id>/approve` | MANUFACTURER | Approve reclaim |
+| POST | `/reclaim-request/<id>/reject` | MANUFACTURER | Reject reclaim |
 
 ### Services — `/api/service`
 
@@ -218,6 +247,12 @@ All endpoints prefixed `/api`.
 | POST | `/resolve-dispute` | MANUFACTURER | Approve or reject disputed record |
 | GET | `/owner/pending` | OWNER | All pending records across owned vehicles |
 | GET | `/owner/history` | OWNER | All finalized records (filterable by status, type, date) |
+| GET | `/sc/pending` | SERVICE_CENTER | All pending records for the authenticated SC |
+| GET | `/sc/my-stats` | SERVICE_CENTER | SC dispute rate, submission count, flagged status |
+| POST | `/dispute-response` | SERVICE_CENTER | Submit rebuttal notes on a disputed record |
+| POST | `/escalate-dispute` | SERVICE_CENTER | Escalate dispute to manufacturer priority review |
+| GET | `/owner/pending` | OWNER | All pending records across all owned vehicles |
+| GET | `/owner/history` | OWNER | All finalized records across all owned vehicles (filterable) |
 | GET | `/dispute-messages/<vin>/<idx>` | JWT | Dispute chat thread |
 | POST | `/dispute-messages` | JWT | Post message in dispute chat |
 
@@ -305,7 +340,7 @@ blockchain-vehicle-service/
 │   ├── db/
 │   │   ├── models.py               # All SQLAlchemy models
 │   │   └── repositories/           # DB query helpers
-│   ├── tests/                      # 433 passing pytest tests
+│   ├── tests/                      # 453 passing pytest tests
 │   │   ├── test_auth.py            # Auth + profile
 │   │   ├── test_vehicles.py        # Vehicle operations
 │   │   ├── test_services.py        # Service lifecycle + dispute chat
