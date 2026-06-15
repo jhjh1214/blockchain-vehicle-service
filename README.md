@@ -1,5 +1,12 @@
 # VehicleChain — Blockchain Vehicle Service Management System
 
+[![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
+[![Backend Tests](https://img.shields.io/badge/backend%20tests-453%20passing-brightgreen)](backend/tests/)
+[![Contract Tests](https://img.shields.io/badge/contract%20tests-48%20passing-brightgreen)](smart-contracts/test/)
+[![Angular Tests](https://img.shields.io/badge/angular%20tests-106%20passing-brightgreen)](vehicle-service-frontend/src/)
+[![Flutter Tests](https://img.shields.io/badge/flutter%20tests-95%20passing-brightgreen)](owner_mobile_app/test/)
+[![Live Demo](https://img.shields.io/badge/live-vehiclechain.up.railway.app-blue)](https://vehiclechain.up.railway.app)
+
 A full-stack decentralised application for vehicle registration, service history, and warranty management built for a Final Year Project (FYP). The system uses Ethereum smart contracts as the immutable source of truth while a Flask REST API bridges the blockchain with two client interfaces: an Angular web dashboard for Manufacturers and Service Centres, and a Flutter mobile app for vehicle Owners.
 
 ---
@@ -190,7 +197,7 @@ A full-stack decentralised application for vehicle registration, service history
 
 ## API Reference
 
-All endpoints prefixed `/api`.
+All endpoints prefixed `/api`. The table below covers the main feature-facing endpoints. Additional internal/operational endpoints exist under `/api/sc/` (SC management), `/api/notifications/`, `/api/upload/`, and `/api/admin/`.
 
 ### Auth — `/api/auth`
 
@@ -450,7 +457,9 @@ npx hardhat run scripts/deploy.js --network ganache
 
 ## Running Tests
 
-### Backend (433 tests — no Ganache required)
+**Total: 702 tests across all layers** (453 backend · 48 smart contracts · 106 Angular · 95 Flutter)
+
+### Backend (453 tests — no Ganache required)
 
 ```powershell
 cd backend
@@ -473,12 +482,31 @@ The blockchain adapters are fully mocked in `conftest.py`.
 | `test_utils.py` | SHA-256, keccak256 hashing |
 | `test_integration.py` | Full end-to-end workflow (requires Ganache) |
 
-### Smart Contracts
+### Smart Contracts (48 tests — 100% line coverage)
 
 ```powershell
 cd smart-contracts
 npx hardhat test
+npx hardhat coverage   # solidity-coverage report
 ```
+
+### Angular Web App (106 tests)
+
+```powershell
+cd vehicle-service-frontend
+npm test
+```
+
+Covers all service classes and key components (AuthService, VehicleService, WarrantyService, ServiceService, LoginComponent, DealerDashboardComponent).
+
+### Flutter Mobile App (95 tests — 65 unit + 30 widget)
+
+```powershell
+cd owner_mobile_app
+flutter test
+```
+
+Covers models, providers (auth, vehicles, services, warranties), and widget rendering for key screens.
 
 ---
 
@@ -563,3 +591,13 @@ ADMIN_CONTACT_EMAIL=<your email>
 **Remember Me (Flutter):** `TokenStorage` uses `FlutterSecureStorage` for persistent sessions (remember me = true) and in-memory variables for session-only (remember me = false, cleared on process kill).
 
 **Email delivery:** Flask-Mail + SMTP is blocked by Railway's network on port 587. The system uses the Resend HTTP API (port 443) for password reset emails to bypass this restriction.
+
+---
+
+## License
+
+Copyright (c) 2026 Lim Jun Hong.
+
+This project is licensed under the **Creative Commons Attribution-NonCommercial 4.0 International License** — see the [LICENSE](LICENSE) file for details.
+
+You may view and share this code with attribution, but **commercial use is prohibited** without explicit written permission from the author. The author reserves the right to release this project under different terms for commercial purposes.
