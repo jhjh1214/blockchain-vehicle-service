@@ -1,27 +1,86 @@
-# VehicleChain — Blockchain Vehicle Service Management System
+<div align="center">
 
-[![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
-[![Backend Tests](https://img.shields.io/badge/backend%20tests-453%20passing-brightgreen)](backend/tests/)
-[![Contract Tests](https://img.shields.io/badge/contract%20tests-48%20passing-brightgreen)](smart-contracts/test/)
-[![Angular Tests](https://img.shields.io/badge/angular%20tests-106%20passing-brightgreen)](vehicle-service-frontend/src/)
-[![Flutter Tests](https://img.shields.io/badge/flutter%20tests-95%20passing-brightgreen)](owner_mobile_app/test/)
-[![Live Demo](https://img.shields.io/badge/live-vehiclechain.up.railway.app-blue)](https://vehiclechain.up.railway.app)
+# ⛓️ VehicleChain
 
-A full-stack decentralised application for vehicle registration, service history, and warranty management built for a Final Year Project (FYP). The system uses Ethereum smart contracts as the immutable source of truth while a Flask REST API bridges the blockchain with two client interfaces: an Angular web dashboard for Manufacturers and Service Centres, and a Flutter mobile app for vehicle Owners.
+### Blockchain-Backed Vehicle Service & Warranty Management
+
+<p>
+  <a href="https://creativecommons.org/licenses/by-nc/4.0/"><img src="https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey?style=for-the-badge" alt="License"/></a>
+  &nbsp;
+  <a href="https://vehiclechain.up.railway.app"><img src="https://img.shields.io/badge/🌐%20Live%20Demo-vehiclechain.up.railway.app-0369a1?style=for-the-badge" alt="Live Demo"/></a>
+</p>
+
+<p>
+  <img src="https://img.shields.io/badge/Backend-453%20tests%20passing-22c55e?style=flat-square&logo=pytest&logoColor=white" alt="Backend Tests"/>
+  &nbsp;
+  <img src="https://img.shields.io/badge/Contracts-48%20tests%20passing-22c55e?style=flat-square&logo=ethereum&logoColor=white" alt="Contract Tests"/>
+  &nbsp;
+  <img src="https://img.shields.io/badge/Angular-106%20tests%20passing-22c55e?style=flat-square&logo=angular&logoColor=white" alt="Angular Tests"/>
+  &nbsp;
+  <img src="https://img.shields.io/badge/Flutter-95%20tests%20passing-22c55e?style=flat-square&logo=flutter&logoColor=white" alt="Flutter Tests"/>
+</p>
+
+<p>
+  <img src="https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Flask-000000?style=flat-square&logo=flask&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Solidity-363636?style=flat-square&logo=solidity&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Hardhat-FFF100?style=flat-square&logo=hardhat&logoColor=black"/>
+  <img src="https://img.shields.io/badge/Angular-DD0031?style=flat-square&logo=angular&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Flutter-02569B?style=flat-square&logo=flutter&logoColor=white"/>
+  <img src="https://img.shields.io/badge/PostgreSQL-316192?style=flat-square&logo=postgresql&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Ethereum-3C3C3D?style=flat-square&logo=ethereum&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Firebase-FFCA28?style=flat-square&logo=firebase&logoColor=black"/>
+  <img src="https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white"/>
+</p>
+
+<br/>
+
+A full-stack decentralised application for the Malaysian automotive industry.<br/>
+Smart contracts enforce tamper-proof service records and warranty state on a private Ethereum node.<br/>
+A Flask REST API bridges the blockchain with an Angular web dashboard and a Flutter mobile app.
+
+<br/>
+
+<a href="https://vehiclechain.up.railway.app">
+  <img src="https://img.shields.io/badge/%F0%9F%9A%80%20Open%20Live%20Demo-0369a1?style=for-the-badge" height="36" alt="Open Live Demo"/>
+</a>
+
+</div>
 
 ---
 
-## Live Demo
+## 📑 Table of Contents
+
+- [Live Demo](#-live-demo)
+- [Architecture](#️-architecture)
+- [Technology Stack](#-technology-stack)
+- [User Roles & Features](#-user-roles--features)
+- [Smart Contracts](#-smart-contracts)
+- [Database Models](#️-database-models)
+- [Security](#-security)
+- [Quick Start](#-quick-start-docker)
+- [Running Tests](#-running-tests)
+- [API Reference](#-api-reference)
+- [Data Flows](#-data-flows)
+- [Key Design Decisions](#-key-design-decisions)
+- [Deployment](#-deployment)
+- [License](#-license)
+
+---
+
+## 🌐 Live Demo
 
 | Service | URL |
-|---|---|
+|:---|:---|
 | Web App | https://vehiclechain.up.railway.app |
 | Backend API | https://blockchain-vehicle-service-production.up.railway.app |
-| Health Check | https://vehiclechain.up.railway.app/api/health |
+| Health Check | https://blockchain-vehicle-service-production.up.railway.app/api/health |
+
+> **Demo credentials** — run `python init_db.py --seed` locally to generate demo accounts, or contact the author.
 
 ---
 
-## Architecture
+## 🏗️ Architecture
 
 ```
                         Internet
@@ -31,29 +90,27 @@ A full-stack decentralised application for vehicle registration, service history
               └─────────────┬──────────────┘
                             │
           ┌─────────────────▼──────────────────────┐
-          │            Railway Hosting              │
-          │                                         │
-          │  ┌──────────────────────────────────┐   │
-          │  │   frontend (Nginx + Angular)     │   │  vehiclechain.up.railway.app
-          │  │   Manufacturer / SC dashboards   │   │
-          │  └──────────────────────────────────┘   │
-          │                                         │
-          │  ┌──────────────────────────────────┐   │
-          │  │   backend (Flask + Gunicorn)     │   │  blockchain-vehicle-service-production.up.railway.app
-          │  │   REST API · JWT Auth · Web3.py  │   │
-          │  └──────────────────────────────────┘   │
-          │                                         │
-          │  ┌──────────────┐ ┌─────────────────┐   │
-          │  │  PostgreSQL  │ │     Ganache      │   │
-          │  │  (Railway    │ │  (EVM node,      │   │
-          │  │   managed)   │ │   deterministic) │   │
-          │  └──────────────┘ └─────────────────┘   │
-          └─────────────────────────────────────────┘
+          │            Railway Hosting             │
+          │                                        │
+          │  ┌──────────────────────────────────┐  │
+          │  │   frontend (Nginx + Angular)     │  │  vehiclechain.up.railway.app
+          │  │   Manufacturer / SC dashboards   │  │
+          │  └──────────────────────────────────┘  │
+          │                                        │
+          │  ┌──────────────────────────────────┐  │
+          │  │   backend (Flask + Gunicorn)     │  │  blockchain-vehicle-service-production.up.railway.app
+          │  │   REST API · JWT Auth · Web3.py  │  │
+          │  └──────────────────────────────────┘  │
+          │                                        │
+          │  ┌──────────────┐ ┌─────────────────┐  │
+          │  │  PostgreSQL  │ │     Ganache     │  │
+          │  │  (managed)   │ │  (private EVM)  │  │
+          │  └──────────────┘ └─────────────────┘  │
+          └────────────────────────────────────────┘
 
           ┌──────────────────────────────────────────┐
           │   Flutter Owner Mobile App (Android APK) │
-          │   Calls blockchain-vehicle-service-       │
-          │   production.up.railway.app/api directly  │
+          │   Direct REST API calls to backend       │
           └──────────────────────────────────────────┘
 
           ┌──────────────────────────────────────────┐
@@ -64,14 +121,14 @@ A full-stack decentralised application for vehicle registration, service history
           └──────────────────────────────────────────┘
 ```
 
-**Design principle:** The blockchain is the immutable source of truth for ownership, service record finality, and warranty state. PostgreSQL stores human-readable metadata. Neither layer alone is sufficient — this is intentional for tamper-proof auditability.
+> **Design principle:** The blockchain is the immutable source of truth for ownership, service record finality, and warranty state. PostgreSQL stores human-readable metadata. Neither layer alone is sufficient — this is intentional for tamper-proof auditability.
 
 ---
 
-## Technology Stack
+## 🔧 Technology Stack
 
 | Layer | Technology | Version |
-|---|---|---|
+|:---|:---|:---|
 | Smart contracts | Solidity + Hardhat | 0.8.28 / 2.28 |
 | Contract library | OpenZeppelin Contracts | 5.x |
 | Backend | Python + Flask | 3.11 / 3.0 |
@@ -81,7 +138,7 @@ A full-stack decentralised application for vehicle registration, service history
 | Authentication | PyJWT + bcrypt | 2.8 / 4.1 |
 | Wallet encryption | Cryptography (Fernet) | 41.x |
 | Rate limiting | Flask-Limiter | 3.5 |
-| Email (transactional) | Resend HTTP API | 2.4 |
+| Email | Resend HTTP API | 2.4 |
 | Scheduler | APScheduler | 3.10 |
 | Database (prod) | PostgreSQL | 16 |
 | Database (dev/test) | SQLite | bundled |
@@ -95,157 +152,237 @@ A full-stack decentralised application for vehicle registration, service history
 
 ---
 
-## User Roles and Features
+## 👥 User Roles & Features
 
-### Manufacturer
-- Register new vehicles on-chain (VIN, owner email, warranty period, make/model/year)
-- Pre-register vehicles without an owner (pending status — owner claims later)
+### 🏭 Manufacturer
+- Register vehicles on-chain (VIN, owner email, warranty period, make/model/year)
+- Pre-register vehicles without an owner — owner claims later via mobile app
 - Approve or deny warranty claims submitted by vehicle owners
-- Resolve disputed service records (approve, reject, or request modification with resolution notes)
-- Issue safety recalls with optional VIN range to scope recalls to a specific production batch
-- View the entire fleet registered under their brand with health analytics
+- Resolve disputed service records (approve, reject, or request modification)
+- Issue safety recalls with optional VIN range to scope to a specific production batch
+- View the full brand fleet with health analytics, charts, and fleet score
 - Manage and activate/suspend authorised service centres
-- View dashboard statistics: total vehicles, active warranties, pending claims, dispute rate
 - Export full fleet audit report as PDF
 
-### Service Centre
-- Submit service records for any vehicle (metadata hashed SHA-256, hash anchored on-chain)
+### 🔧 Service Centre
+- Submit service records — SHA-256 hash of metadata anchored on-chain
 - View pending and finalized service history for any VIN
-- Look up vehicle details and warranty status by VIN
-- Submit dispute rebuttals with notes before manufacturer resolution
-- Escalate disputed records to manufacturer priority review
-- Participate in dispute chat with vehicle owners
+- Submit dispute rebuttals and escalate to manufacturer priority review
+- Participate in threaded dispute chat with owners
 - Mark recall service as completed for a specific VIN
 
-### Owner (Mobile + Web)
-- Register and log in via mobile app (Flutter/Android) or web; biometric login (TouchID/FaceID) after first successful login
+### 📱 Owner *(Flutter Mobile App)*
+- Biometric login (TouchID / FaceID) after first successful login
 - Claim ownership of a pre-registered vehicle using its VIN
-- View owned vehicles, warranty status, expiry countdown
+- View owned vehicles, warranty status, and expiry countdown
 - Transfer vehicle ownership to another registered user
-- Review pending service records and verify or dispute them
-- Submit warranty claims with issue description and optional photos
-- Track warranty claim status (pending → approved / denied)
-- View full finalized service history with filtering
-- View active safety recalls — shows VIN range and whether each specific VIN is in the affected range
-- Password reset via email
-- PDPA-compliant data consent at registration
+- Review pending service records — verify or dispute on-chain
+- Submit warranty claims with photos
+- View active safety recalls — shows affected VIN range and whether your specific VIN is affected
 - Export vehicle service history as PDF
 
-### Public (No Account Required)
-- Look up any VIN on the public verify page (`/verify`) — shows registration status, warranty, service history, and recall history with per-VIN affected status
-- Accessible at the root URL (`/`); no login required
+### 🌍 Public *(No Account Required)*
+- Look up any VIN at the root URL (`/`) — registration status, warranty, full service history, and recall history
+- Tamper badge shown on any record where the hash doesn't match the chain
+- Mileage trend chart and QR code linking back to the vehicle page
 
 ---
 
-## Smart Contracts
+## 📜 Smart Contracts
 
 | Contract | Responsibility |
-|---|---|
+|:---|:---|
 | `VehicleRegistry` | Register vehicles, track ownership, store finalized service hashes per VIN |
-| `ServiceLog` | Two-stage service verification (submit → verify/dispute → resolve) |
-| `WarrantyTracker` | Manage warranty claim lifecycle (submit → approve/deny) |
+| `ServiceLog` | Two-stage service verification: submit → verify/dispute → resolve |
+| `WarrantyTracker` | Warranty claim lifecycle: submit → approve/deny; on-chain warranty voiding |
 
-### Role-Based Access Control (OpenZeppelin AccessControl)
+### Role-Based Access Control (OpenZeppelin `AccessControl`)
 
 | Role | Contract | Holder | Permissions |
-|---|---|---|---|
-| `DEFAULT_ADMIN_ROLE` | All 3 | Deployer EOA | Grant/revoke roles (system admin only) |
-| `MANUFACTURER_ROLE` | VehicleRegistry | Manufacturer wallet | Register vehicles on-chain |
-| `MANUFACTURER_ADMIN_ROLE` | ServiceLog + WarrantyTracker | Manufacturer wallet | Resolve disputes, approve/deny warranty claims, void warranties |
-| `SERVICE_CENTER_ROLE` | ServiceLog | SC wallet | Submit service records; revoked on account suspension |
+|:---|:---|:---|:---|
+| `DEFAULT_ADMIN_ROLE` | All 3 | Deployer EOA | Grant/revoke roles |
+| `MANUFACTURER_ROLE` | VehicleRegistry | Manufacturer wallet | Register vehicles |
+| `MANUFACTURER_ADMIN_ROLE` | ServiceLog + WarrantyTracker | Manufacturer wallet | Resolve disputes, approve/deny claims, void warranties |
+| `SERVICE_CENTER_ROLE` | ServiceLog | SC wallet | Submit records; revoked on suspension |
 | `OWNER_ROLE` | VehicleRegistry | Owner wallet | Verify/dispute services, submit warranty claims |
 | `SERVICE_LOG_ROLE` | VehicleRegistry | ServiceLog contract | Internal: write finalized service hashes |
 
-`MANUFACTURER_ADMIN_ROLE` uses the same `keccak256("MANUFACTURER_ADMIN_ROLE")` hash on both ServiceLog and WarrantyTracker — one logical role, two contracts. It is intentionally **not** `DEFAULT_ADMIN_ROLE` so manufacturers cannot call `grantRole()` to escalate privileges.
+> `MANUFACTURER_ADMIN_ROLE` is intentionally **not** `DEFAULT_ADMIN_ROLE` — manufacturers cannot call `grantRole()` to escalate privileges.
 
 ---
 
-## Database Models
+## 🗄️ Database Models
 
 | Model | Purpose |
-|---|---|
-| `User` | Accounts: role, blockchain address, name, phone, brand, PDPA consent timestamp, lockout tracking |
-| `RefreshToken` | Token revocation — hashed tokens with expiry |
-| `DeviceToken` | FCM push notification tokens per user/platform |
-| `ServiceMetadata` | Off-chain service record details (type, date, mileage, notes, photos) |
+|:---|:---|
+| `User` | Accounts: role, blockchain address, brand, PDPA consent timestamp, lockout tracking |
+| `VehicleVINMapping` | VIN ↔ keccak256 hash, owner address, make/model/year, `registration_status` |
+| `ServiceMetadata` | Off-chain service record details (type, date, mileage, notes, photos, ECU modules) |
 | `WarrantyClaimMetadata` | Off-chain claim details (issue description, photos, resolution) |
-| `VehicleVINMapping` | VIN ↔ keccak256 hash mapping, owner address, make/model/year, warranty months |
-| `VehicleRecall` | Safety recalls: brand, title, description, status (active/closed), optional `vin_range_start` / `vin_range_end` (17-char VIN bounds for batch-scoped recalls) |
-| `RecallVINService` | Records which VINs have been serviced for a given recall |
-| `AuthorizedSCLicense` | Pre-registered SSM licence numbers — only matching SCs can register as authorised |
-| `AuditLog` | Security audit trail: login success/failure, password changes, key actions with IP |
-| `PasswordResetToken` | Hashed password reset tokens with expiry |
+| `VehicleRecall` | Safety recalls: brand, title, optional `vin_range_start`/`vin_range_end` for batch scoping |
+| `RecallVINService` | Tracks which VINs have been serviced under each recall |
+| `AuthorizedSCLicense` | Pre-registered SSM licence numbers for authorised SC gating |
+| `DisputeMessage` | Threaded dispute chat; `sender_id` is `SET NULL` on delete (audit history preserved) |
+| `Notification` | Persistent in-app inbox — survives FCM downtime |
+| `EthFundRequest` | SC ETH requests to manufacturer |
+| `VehicleReclaimRequest` | Reclaim requests for `owner_deleted` vehicles |
+| `AuditLog` | Security event trail: login, password changes, key actions with IP (90-day TTL) |
+| `RefreshToken` | Hashed refresh tokens with revocation support |
+| `DeviceToken` | FCM tokens per user/platform |
 
 ---
 
-## Security Features
+## 🔒 Security
 
-- **JWT authentication** with short-lived access tokens and refresh token rotation
-- **bcrypt** password hashing (cost factor 12)
-- **Fernet encryption** for Ethereum private keys at rest
-- **Rate limiting** on all auth endpoints (Flask-Limiter)
-- **MIME magic byte validation** on file uploads (prevents extension spoofing)
-- **HMAC-SHA256** time-windowed signature on the admin reset endpoint (replay-resistant)
-- **Account lockout** after 5 failed login attempts (15-minute cooldown)
-- **Audit logging** of all key security events with IP address
-- **CSP headers** on both backend responses and Angular index.html
-- **HSTS** in production (`USE_HTTPS=true`)
-- **Session inactivity timeout** on Angular (30-minute warning at 25 min, auto-logout)
-- **PDPA consent** required at OWNER registration; `consent_given_at` timestamp stored
+| Control | Implementation |
+|:---|:---|
+| Authentication | JWT — 15-min access token + 30-day rotating refresh token, HttpOnly cookies |
+| Password hashing | bcrypt, cost factor 12 |
+| Private key storage | Fernet symmetric encryption at rest |
+| Rate limiting | Flask-Limiter on all auth, upload, and notification-flood-risk endpoints |
+| File upload validation | MIME magic byte check (prevents extension spoofing) |
+| Admin endpoint | HMAC-SHA256 with 30-second time window (replay-resistant) |
+| Account lockout | 5 failed attempts → 15-minute cooldown |
+| On-chain suspension | SC suspension revokes `SERVICE_CENTER_ROLE` on-chain — SC cannot bypass Flask |
+| On-chain warranty voiding | `voidWarranty()` in `WarrantyTracker` — enforced at contract level, not just API |
+| Two-layer integrity check | DB hash recompute + on-chain hash comparison — detects both naive and sophisticated tampering |
+| PDPA compliance | Data export (`GET /auth/data-export`) + full account deletion with role-specific cleanup |
+| Email verification gate | All state-changing operations blocked for unverified accounts |
+| Session inactivity | Angular auto-logout after 30 minutes idle (warning at 25 min) |
 
 ---
 
-## API Reference
+## 🚀 Quick Start (Docker)
 
-All endpoints prefixed `/api`. The table below covers the main feature-facing endpoints. Additional internal/operational endpoints exist under `/api/sc/` (SC management), `/api/notifications/`, `/api/upload/`, and `/api/admin/`.
+### Prerequisites
+- Docker Desktop installed and running
 
-### Auth — `/api/auth`
+```powershell
+# 1. Clone
+git clone https://github.com/jhjh1214/blockchain-vehicle-service.git
+cd blockchain-vehicle-service
+
+# 2. Configure environment
+cp .env.example .env
+# Fill in: POSTGRES_PASSWORD, SECRET_KEY, JWT_SECRET_KEY, KEYSTORE_PASSWORD
+
+# 3. Start all containers
+docker compose up --build
+
+# 4. Deploy smart contracts to local Ganache
+cd smart-contracts
+npx hardhat run scripts/deploy.js --network ganache
+
+# 5. (Optional) Seed demo data
+cd ../backend
+python init_db.py --seed
+```
+
+| Container | Port | Description |
+|:---|:---|:---|
+| `frontend` | 80 | Nginx + Angular SPA |
+| `backend` | 5000 | Flask + Gunicorn REST API |
+| `db` | 5432 | PostgreSQL 16 |
+| `ganache` | 8545 | Local Ethereum node |
+
+---
+
+## 🧪 Running Tests
+
+**702 total tests across all layers**
+
+| Layer | Count | Command |
+|:---|:---:|:---|
+| Backend (pytest) | 453 | `cd backend && pytest` |
+| Smart Contracts (Hardhat) | 48 | `cd smart-contracts && npx hardhat test` |
+| Angular (vitest) | 106 | `cd vehicle-service-frontend && npm test` |
+| Flutter | 95 | `cd owner_mobile_app && flutter test` |
+
+<details>
+<summary>📋 Backend test file breakdown</summary>
+
+| File | Coverage |
+|:---|:---|
+| `test_auth.py` | Registration, login, lockout, JWT, forgot/reset password, device tokens, profile |
+| `test_vehicles.py` | Registration, RBAC, claim, transfer, privacy, service stats |
+| `test_services.py` | Submit, verify, dispute, resolve, owner endpoints, dispute chat, filtering |
+| `test_warranties.py` | Check warranty, submit claim, approve/deny, persistence |
+| `test_sc_management.py` | Service centre listing, activation, brand isolation |
+| `test_stats.py` | Dashboard stats, fleet stats, PDF export, public verify |
+| `test_security.py` | HMAC admin, MIME validation, audit logging, PDPA, JWT type check, production hardening |
+| `test_utils.py` | SHA-256, keccak256 hashing |
+| `test_integration.py` | Full end-to-end workflow (requires Ganache) |
+
+The blockchain adapters are fully mocked in `conftest.py` — Ganache is only required for `test_integration.py`.
+
+</details>
+
+---
+
+## 📡 API Reference
+
+> ~93 routes total across all blueprints. The tables below cover all feature-facing endpoints.
+
+<details>
+<summary>🔑 Auth — <code>/api/auth</code></summary>
 
 | Method | Path | Auth | Description |
-|---|---|---|---|
+|:---|:---|:---|:---|
 | POST | `/register` | None | Create account (MANUFACTURER / SERVICE_CENTER / OWNER) |
 | POST | `/login` | None | Authenticate, receive access + refresh tokens |
 | POST | `/logout` | JWT | Revoke refresh token |
+| POST | `/logout-all` | JWT | Revoke all sessions (all devices) |
 | GET | `/me` | JWT | Current user profile |
-| PUT | `/profile` | JWT | Update name, phone, city, state |
-| POST | `/change-password` | JWT | Change password (revokes session) |
-| POST | `/forgot-password` | None | Send password reset email via Resend |
+| PUT | `/profile` | JWT | Update name, phone, city, state, theme |
+| POST | `/change-password` | JWT | Change password (revokes all sessions) |
+| POST | `/forgot-password` | None | Send password reset email |
 | POST | `/reset-password` | None | Reset password with token from email |
+| GET | `/verify-email` | None | Verify email address from link |
+| POST | `/resend-verification` | JWT | Resend verification email |
 | POST | `/device-token` | JWT | Register FCM push notification token |
-| GET | `/privacy-policy` | None | PDPA Privacy Policy content (JSON) |
-| GET | `/terms` | None | Terms of Service content (JSON) |
+| GET | `/privacy-policy` | None | PDPA Privacy Policy (JSON) |
+| GET | `/terms` | None | Terms of Service (JSON) |
+| GET | `/data-export` | JWT | PDPA — export all personal data |
+| DELETE | `/account` | JWT | PDPA — delete account and all personal data |
 
-### Vehicles — `/api/vehicle`
+</details>
+
+<details>
+<summary>🚗 Vehicles — <code>/api/vehicle</code></summary>
 
 | Method | Path | Auth | Description |
-|---|---|---|---|
+|:---|:---|:---|:---|
 | POST | `/register` | MANUFACTURER | Register vehicle on-chain |
 | POST | `/claim` | OWNER | Claim ownership of pending vehicle |
 | POST | `/transfer` | OWNER | Transfer vehicle to another owner |
-| GET | `/public/<vin>` | None | Public vehicle details + warranty |
+| GET | `/public/<vin>` | None | Public vehicle details + service history |
 | GET | `/<vin>` | JWT | Full vehicle details |
 | GET | `/owner/vehicles` | OWNER | List all vehicles owned by caller |
-| GET | `/export/<vin>` | None | Export vehicle service history as PDF |
-| GET | `/fleet` | MANUFACTURER | Paginated fleet list |
+| GET | `/export/<vin>` | None | Download PDF service history report |
+| GET | `/fleet` | MANUFACTURER | Paginated fleet list with health stats |
 | GET | `/fleet-export` | MANUFACTURER | Fleet audit report as PDF |
-| GET | `/stats` | MANUFACTURER | Aggregate manufacturer stats |
-| GET | `/dashboard-stats` | MANUFACTURER | Full dashboard KPIs + charts data (60s TTL cache) |
+| GET | `/stats` | MANUFACTURER | Aggregate stats |
+| GET | `/dashboard-stats` | MANUFACTURER | Full dashboard KPIs + chart data (15s cache) |
 | GET | `/activity-feed` | MANUFACTURER | Recent registrations, claims, disputes |
-| POST | `/reconcile` | MANUFACTURER | Integrity check — recompute hashes, flag tampered records |
-| POST | `/recall` | MANUFACTURER | Issue safety recall; optional `vin_range_start`/`vin_range_end` |
-| GET | `/recalls` | MANUFACTURER | List recalls by status (active/closed) |
+| POST | `/reconcile` | MANUFACTURER | Two-layer integrity check — flag tampered records |
+| POST | `/recall` | MANUFACTURER | Issue safety recall (optional VIN range) |
+| GET | `/recalls` | MANUFACTURER / SC | List recalls by status |
 | POST | `/recalls/<id>/close` | MANUFACTURER | Close a recall |
-| POST | `/recalls/<id>/service` | SERVICE_CENTER | Mark recall service completed for a VIN |
+| POST | `/recalls/<id>/service` | SERVICE_CENTER | Mark recall service complete for a VIN |
 | GET | `/recalls/check/<vin>` | None | Active recalls for a VIN with `vin_affected` flag |
-| GET | `/recalls/owner` | OWNER | All active recalls relevant to owner's vehicles with affected status |
-| GET | `/reclaim-requests` | MANUFACTURER | List pending vehicle reclaim requests |
+| GET | `/recalls/owner` | OWNER | All active recalls relevant to owner's vehicles |
+| POST | `/reclaim-request` | OWNER | Request reclaim of an `owner_deleted` vehicle |
+| GET | `/reclaim-requests` | MANUFACTURER | List pending reclaim requests |
 | POST | `/reclaim-request/<id>/approve` | MANUFACTURER | Approve reclaim |
 | POST | `/reclaim-request/<id>/reject` | MANUFACTURER | Reject reclaim |
 
-### Services — `/api/service`
+</details>
+
+<details>
+<summary>🔩 Services — <code>/api/service</code></summary>
 
 | Method | Path | Auth | Description |
-|---|---|---|---|
+|:---|:---|:---|:---|
 | POST | `/submit` | SERVICE_CENTER | Hash metadata and anchor on-chain |
 | GET | `/pending/<vin>` | JWT | Pending (unverified) records |
 | GET | `/history/<vin>` | JWT | Finalized records |
@@ -253,20 +390,27 @@ All endpoints prefixed `/api`. The table below covers the main feature-facing en
 | POST | `/dispute` | OWNER | Dispute pending record with reason |
 | POST | `/resolve-dispute` | MANUFACTURER | Approve or reject disputed record |
 | GET | `/owner/pending` | OWNER | All pending records across owned vehicles |
-| GET | `/owner/history` | OWNER | All finalized records (filterable by status, type, date) |
-| GET | `/sc/pending` | SERVICE_CENTER | All pending records for the authenticated SC |
-| GET | `/sc/my-stats` | SERVICE_CENTER | SC dispute rate, submission count, flagged status |
+| GET | `/owner/history` | OWNER | All finalized records (filterable) |
+| GET | `/center/pending` | SERVICE_CENTER | All pending records for the authenticated SC |
+| GET | `/sc/my-stats` | SERVICE_CENTER | SC dispute rate, submission count, ETH balance |
 | POST | `/dispute-response` | SERVICE_CENTER | Submit rebuttal notes on a disputed record |
-| POST | `/escalate-dispute` | SERVICE_CENTER | Escalate dispute to manufacturer priority review |
-| GET | `/owner/pending` | OWNER | All pending records across all owned vehicles |
-| GET | `/owner/history` | OWNER | All finalized records across all owned vehicles (filterable) |
+| POST | `/escalate-dispute` | SERVICE_CENTER | Escalate to manufacturer priority review |
 | GET | `/dispute-messages/<vin>/<idx>` | JWT | Dispute chat thread |
 | POST | `/dispute-messages` | JWT | Post message in dispute chat |
+| POST | `/void-request` | SERVICE_CENTER | Submit warranty void request |
+| GET | `/void-requests/manufacturer` | MANUFACTURER | List void requests for own brand |
+| GET | `/void-requests/owner` | OWNER | List void requests for own vehicles |
+| POST | `/void-requests/<id>/resolve` | MANUFACTURER | Approve or deny void request |
+| POST | `/void-requests/<id>/dispute` | OWNER | Dispute a pending void request |
+| POST | `/report` | OWNER / MANUFACTURER / SC | Report an independent workshop |
 
-### Warranties — `/api/warranty`
+</details>
+
+<details>
+<summary>🛡️ Warranties — <code>/api/warranty</code></summary>
 
 | Method | Path | Auth | Description |
-|---|---|---|---|
+|:---|:---|:---|:---|
 | GET | `/check/<vin>` | JWT | Warranty validity, expiry, days remaining |
 | GET | `/check-eligibility/<vin>` | JWT | Check claim eligibility |
 | POST | `/submit-claim` | OWNER | Submit warranty claim |
@@ -275,35 +419,74 @@ All endpoints prefixed `/api`. The table below covers the main feature-facing en
 | POST | `/deny-claim` | MANUFACTURER | Deny claim with reason |
 | GET | `/owner/claims` | OWNER | All claims across owned vehicles |
 
+</details>
+
+<details>
+<summary>🏢 SC Management — <code>/api/sc</code></summary>
+
+| Method | Path | Auth | Description |
+|:---|:---|:---|:---|
+| GET | `/service-centers` | MANUFACTURER | List brand's service centres |
+| GET | `/service-centers/<id>` | MANUFACTURER | SC detail + live ETH balance |
+| POST | `/service-centers/<id>/activate` | MANUFACTURER | Activate a pending SC |
+| POST | `/service-centers/<id>/suspend` | MANUFACTURER | Suspend SC (revokes on-chain role) |
+| POST | `/service-centers/<id>/fund` | MANUFACTURER | Transfer ETH to SC |
+| POST | `/fund-all` | MANUFACTURER | Fund all active SCs |
+| POST | `/eth-request` | SERVICE_CENTER | Request ETH from manufacturer |
+| GET | `/manufacturer/eth-requests` | MANUFACTURER | List pending ETH requests |
+| GET | `/authorized-licenses` | MANUFACTURER | List pre-registered SSM numbers |
+| POST | `/authorized-licenses` | MANUFACTURER | Add authorised SSM number |
+| DELETE | `/authorized-licenses/<id>` | MANUFACTURER | Remove authorised SSM number |
+
+</details>
+
+<details>
+<summary>🔔 Notifications — <code>/api/notifications</code></summary>
+
+| Method | Path | Auth | Description |
+|:---|:---|:---|:---|
+| GET | `/` | JWT | List notifications (unread first) |
+| GET | `/count` | JWT | Unread count (for badge polling) |
+| POST | `/<id>/read` | JWT | Mark one as read |
+| POST | `/read-all` | JWT | Mark all as read |
+
+</details>
+
 ---
 
-## Data Flows
+## 🔄 Data Flows
 
-### Service Record Lifecycle
+<details>
+<summary>Service Record Lifecycle</summary>
+
 ```
 1. Service Centre → POST /api/service/submit
    Backend hashes metadata (SHA-256, key-sorted JSON)
-   Metadata saved to PostgreSQL (ServiceMetadata)
+   Metadata saved to PostgreSQL
    Hash submitted on-chain → ServiceLog.submitService(vinHash, metadataHash)
    Status: PENDING on-chain
 
-2. Owner → POST /api/service/owner/verify  { vin, metadata_hash }
+2. Owner → POST /api/service/owner/verify
    Backend calls ServiceLog.verifyService(vinHash, metadataHash)
-   Contract finds record by metadataHash (not index — swap-and-pop safe)
+   Contract finds record by metadataHash (swap-and-pop safe)
    Contract calls VehicleRegistry.addServiceHash(vinHash, metadataHash)
    Status: FINALIZED — permanent on-chain history
 
-3. Owner → POST /api/service/owner/dispute  { vin, metadata_hash, reason }
+3. Owner → POST /api/service/owner/dispute
    Backend calls ServiceLog.disputeService(vinHash, metadataHash, reason)
    Status: DISPUTED on-chain
 
-4. Manufacturer → POST /api/service/resolve-dispute  { vin, metadata_hash, decision }
+4. Manufacturer → POST /api/service/resolve-dispute
    Backend calls ServiceLog.resolveDispute(vinHash, metadataHash, decision, resolutionHash)
-   decision=1 (APPROVE): record finalized and added to VehicleRegistry.serviceHashes
-   decision=2 (REJECT): record removed from pending array
+   APPROVE → finalized + added to VehicleRegistry.serviceHashes
+   REJECT  → removed from pending array
 ```
 
-### Vehicle Claim Lifecycle
+</details>
+
+<details>
+<summary>Vehicle Claim Lifecycle</summary>
+
 ```
 1. Manufacturer → POST /api/vehicle/register (no owner_email)
    Vehicle registered on-chain with manufacturer as temporary owner
@@ -315,53 +498,99 @@ All endpoints prefixed `/api`. The table below covers the main feature-facing en
    registration_status = 'active' in PostgreSQL
 ```
 
+</details>
+
 ---
 
-## Project Structure
+## 💡 Key Design Decisions
+
+**Dual storage model** — Every on-chain record has a linked PostgreSQL row. The blockchain stores hashes; the DB stores full metadata. Tampering with DB metadata is detectable by recomputing and comparing hashes via `POST /vehicle/reconcile`.
+
+**Metadata-hash-based record lookup** — `ServiceLog` identifies records by their SHA-256 `metadataHash`, not array indices. This eliminates the index-shifting race condition that swap-and-pop removal would otherwise cause.
+
+**Blockchain-first ordering** — All critical operations hit the blockchain before writing to PostgreSQL. If the chain transaction fails, no DB record is created.
+
+**On-chain role revocation** — SC suspension calls `revokeRole(SERVICE_CENTER_ROLE)` on-chain. A suspended SC cannot bypass Flask by calling the contract directly with their private key.
+
+**Owner ETH subsidy** — Owners register with 0 ETH. `ensure_owner_eth()` silently tops up their wallet from the deployer before any blockchain write. Completely transparent to the user.
+
+**PDPA compliance** — Data export and full account deletion are fully implemented, with role-specific cleanup chains (OWNER → marks vehicles `owner_deleted`; SC → escalates disputes; MANUFACTURER → closes recalls).
+
+---
+
+## 🚢 Deployment
+
+<details>
+<summary>Required backend environment variables</summary>
+
+```env
+# Database
+DATABASE_URL=postgresql://...
+
+# Flask
+FLASK_ENV=production
+SECRET_KEY=<python -c "import secrets; print(secrets.token_hex(32))">
+JWT_SECRET_KEY=<python -c "import secrets; print(secrets.token_hex(32))">
+KEYSTORE_PASSWORD=<python -c "import secrets; print(secrets.token_hex(32))">
+ADMIN_SECRET=<python -c "import secrets; print(secrets.token_hex(32))">
+
+# Blockchain
+GANACHE_URL=<Ganache JSON-RPC endpoint>
+CHAIN_ID=1337
+VEHICLE_REGISTRY_ADDRESS=<from deploy.js output>
+SERVICE_LOG_ADDRESS=<from deploy.js output>
+WARRANTY_TRACKER_ADDRESS=<from deploy.js output>
+DEPLOYER_ADDRESS=<from deploy.js output>
+DEPLOYER_PRIVATE_KEY=<store in Railway secrets only>
+
+# CORS
+CORS_ORIGINS=https://your-frontend.up.railway.app
+FRONTEND_URL=https://your-frontend.up.railway.app
+USE_HTTPS=true
+
+# Email (Resend)
+RESEND_API_KEY=<from resend.com>
+MAIL_DEFAULT_SENDER=VehicleChain <noreply@yourdomain.com>
+
+# Misc
+TRUSTED_PROXY_IPS=<railway-proxy-ip>
+ADMIN_CONTACT_EMAIL=<your email>
+```
+
+</details>
+
+<details>
+<summary>Project structure</summary>
 
 ```
 blockchain-vehicle-service/
 ├── backend/                        # Flask REST API
 │   ├── api/                        # Route blueprints
-│   │   ├── auth.py                 # Auth, forgot/reset password, device tokens, privacy policy
-│   │   ├── vehicles.py             # Vehicle CRUD + PDF export
-│   │   ├── services.py             # Service lifecycle + dispute chat
+│   │   ├── auth.py                 # Auth, forgot/reset password, device tokens, PDPA
+│   │   ├── vehicles.py             # Vehicle CRUD, recalls, reclaim, PDF export
+│   │   ├── services.py             # Service lifecycle, dispute chat, void requests
 │   │   ├── warranties.py           # Warranty claims
 │   │   ├── uploads.py              # File uploads (MIME validated, rate limited)
 │   │   ├── sc_management.py        # Service centre management
+│   │   ├── notifications.py        # Notification inbox
 │   │   ├── admin.py                # Admin reset (HMAC-protected)
 │   │   └── middleware.py           # @token_required, @role_required
 │   ├── blockchain/
 │   │   ├── client.py               # Web3 HTTPProvider singleton
 │   │   ├── keystore.py             # Fernet-encrypted private key store
 │   │   ├── utils.py                # sha256_hash(), keccak256_hash(), vin_to_hex()
-│   │   ├── event_monitor.py        # Background blockchain event listener
 │   │   └── adapters/               # Contract wrapper classes
 │   ├── core/                       # Business logic (no Flask imports)
 │   │   ├── auth_service.py         # Register, login, bcrypt, JWT
 │   │   ├── audit.py                # Audit event logger
-│   │   ├── scheduler.py            # APScheduler — warranty expiry reminders
+│   │   ├── scheduler.py            # APScheduler — warranty reminders, log purge
+│   │   ├── notifications.py        # FCM + DB inbox sender
 │   │   ├── vehicle_service.py
-│   │   ├── service_log_service.py  # Includes _apply_filters()
+│   │   ├── service_log_service.py
 │   │   └── warranty_service.py
-│   ├── db/
-│   │   ├── models.py               # All SQLAlchemy models
-│   │   └── repositories/           # DB query helpers
+│   ├── db/models.py                # All SQLAlchemy models
 │   ├── tests/                      # 453 passing pytest tests
-│   │   ├── test_auth.py            # Auth + profile
-│   │   ├── test_vehicles.py        # Vehicle operations
-│   │   ├── test_services.py        # Service lifecycle + dispute chat
-│   │   ├── test_warranties.py      # Warranty lifecycle
-│   │   ├── test_sc_management.py   # SC management
-│   │   ├── test_stats.py           # Stats, analytics, PDF export
-│   │   ├── test_security.py        # All security/hardening tests (HMAC, MIME, audit, PDPA)
-│   │   ├── test_utils.py           # Hashing utilities
-│   │   └── test_integration.py     # End-to-end workflow tests
-│   ├── Dockerfile                  # Python 3.11-slim + Gunicorn
-│   ├── app.py                      # Flask app factory
-│   ├── config.py                   # .env configuration loader
-│   ├── conftest.py                 # pytest fixtures (mocked blockchain)
-│   ├── extensions.py               # Flask-Limiter, Flask-Mail instances
+│   ├── app.py                      # Flask app factory + startup migrations
 │   └── requirements.txt
 │
 ├── smart-contracts/                # Hardhat project
@@ -369,235 +598,60 @@ blockchain-vehicle-service/
 │   │   ├── VehicleRegistry.sol
 │   │   ├── ServiceLog.sol
 │   │   └── WarrantyTracker.sol
-│   ├── scripts/
-│   │   ├── deploy.js               # Deploys all contracts + grants roles
-│   │   └── seed.js                 # Seeds test data
-│   ├── test/test_contracts.js      # Hardhat/Chai contract tests
-│   └── hardhat.config.js           # ganache + railway networks
+│   ├── scripts/deploy.js           # Deploys all contracts + grants roles
+│   ├── test/test_contracts.js      # 48 Hardhat/Chai tests
+│   └── hardhat.config.js
 │
 ├── vehicle-service-frontend/       # Angular 21 web application
-│   ├── src/
-│   │   ├── app/
-│   │   │   ├── core/               # Guards, interceptors, auth service, models
-│   │   │   ├── features/
-│   │   │   │   ├── auth/           # Login, register, forgot/reset password, privacy policy
-│   │   │   │   ├── manufacturer/   # Fleet, vehicles, warranty claims, dispute resolution
-│   │   │   │   ├── dealer/         # Service submission, pending records, VIN lookup
-│   │   │   │   ├── shared/         # Profile, change password
-│   │   │   │   └── public/         # Public VIN verify, privacy policy page
-│   │   │   └── shared/shell/       # Role shells with inactivity timeout
-│   │   ├── environments/
-│   │   │   ├── environment.ts      # Dev: http://localhost:5000/api
-│   │   │   └── environment.prod.ts # Prod: Railway backend URL
-│   │   └── index.html              # CSP meta tag
-│   ├── nginx.conf                  # SPA routing (no proxy — Angular calls backend directly)
-│   └── Dockerfile                  # Node 20 build + Nginx serve
+│   ├── src/app/
+│   │   ├── core/                   # Guards, interceptors, services
+│   │   ├── features/
+│   │   │   ├── auth/               # Login, register, forgot/reset password
+│   │   │   ├── manufacturer/       # Fleet, vehicles, warranty claims, disputes
+│   │   │   ├── dealer/             # Service submission, pending records, VIN lookup
+│   │   │   └── public/             # Public VIN verify page (home route)
+│   │   └── shared/shell/           # Role shells with inactivity timeout
+│   └── Dockerfile                  # Node 20 build + Nginx
 │
 ├── owner_mobile_app/               # Flutter owner mobile application
 │   └── lib/
-│       ├── core/
-│       │   ├── api/                # ApiClient (Dio), ApiEndpoints
-│       │   ├── models/             # User, Vehicle, ServiceRecord, WarrantyClaim
-│       │   ├── services/           # PushNotificationService
-│       │   └── storage/            # TokenStorage (secure + in-memory)
 │       ├── features/
-│       │   ├── auth/               # Login (remember me), Register (PDPA consent),
-│       │   │                       # ForgotPassword, PrivacyPolicy screens
-│       │   ├── vehicles/           # Vehicle list, detail, claim, transfer
-│       │   ├── services/           # Pending services, history (filtered), dispute chat
+│       │   ├── auth/               # Login (biometric), Register, ForgotPassword
+│       │   ├── vehicles/           # Vehicle list, detail, claim
+│       │   ├── services/           # Pending services, history, dispute chat
 │       │   ├── warranties/         # Warranty claims, submit claim
+│       │   ├── notifications/      # Notification inbox
 │       │   └── profile/            # Profile, change password
 │       └── router/                 # GoRouter with auth guard
 │
-├── docker-compose.yml              # Local: backend + frontend + postgres + ganache
-├── .env.example                    # Template for all required environment variables
-├── setup.ps1                       # Windows automated local setup script
-└── seed.py                         # Database seed script
+├── docker-compose.yml
+├── .env.example
+└── setup.ps1                       # Windows automated local setup script
 ```
 
----
+</details>
 
-## Running Locally (Docker — Recommended)
-
-### Prerequisites
-- Docker Desktop installed and running
-
-### Steps
-
-```powershell
-# 1. Clone and enter the repo
-git clone https://github.com/jhjh1214/blockchain-vehicle-service.git
-cd blockchain-vehicle-service
-
-# 2. Create your .env from the template
-cp .env.example .env
-# Edit .env — fill in POSTGRES_PASSWORD, SECRET_KEY, JWT_SECRET_KEY, KEYSTORE_PASSWORD
-
-# 3. Build and start all 4 containers
-docker compose up --build
-
-# 4. Deploy smart contracts to the local Ganache
-cd smart-contracts
-npx hardhat run scripts/deploy.js --network ganache
-
-# 5. Open the app
-# Web:     http://localhost
-# API:     http://localhost:5000/api/health
-```
-
-### Services
-| Container | Port | Description |
-|---|---|---|
-| `frontend` | 80 | Nginx + Angular web app |
-| `backend` | 5000 | Flask + Gunicorn REST API |
-| `db` | 5432 (internal) | PostgreSQL 16 |
-| `ganache` | 8545 | Local Ethereum node |
-
----
-
-## Running Tests
-
-**Total: 702 tests across all layers** (453 backend · 48 smart contracts · 106 Angular · 95 Flutter)
-
-### Backend (453 tests — no Ganache required)
-
-```powershell
-cd backend
-.\venv\Scripts\Activate.ps1
-pytest
-pytest --cov=. --cov-report=term-missing   # with coverage
-```
-
-The blockchain adapters are fully mocked in `conftest.py`.
-
-| Test File | Coverage |
-|---|---|
-| `test_auth.py` | Registration, login, lockout, JWT, forgot/reset password, device tokens, profile |
-| `test_vehicles.py` | Registration, RBAC, claim, transfer, privacy, service stats |
-| `test_services.py` | Submit, verify, dispute, resolve, owner endpoints, dispute chat, filtering |
-| `test_warranties.py` | Check warranty, submit claim, approve/deny, persistence |
-| `test_sc_management.py` | Service centre listing, activation, brand isolation |
-| `test_stats.py` | Dashboard stats, fleet stats, PDF export, public verify |
-| `test_security.py` | HMAC admin, MIME validation, audit logging, PDPA, JWT type check, production hardening |
-| `test_utils.py` | SHA-256, keccak256 hashing |
-| `test_integration.py` | Full end-to-end workflow (requires Ganache) |
-
-### Smart Contracts (48 tests — 100% line coverage)
-
-```powershell
-cd smart-contracts
-npx hardhat test
-npx hardhat coverage   # solidity-coverage report
-```
-
-### Angular Web App (106 tests)
-
-```powershell
-cd vehicle-service-frontend
-npm test
-```
-
-Covers all service classes and key components (AuthService, VehicleService, WarrantyService, ServiceService, LoginComponent, DealerDashboardComponent).
-
-### Flutter Mobile App (95 tests — 65 unit + 30 widget)
-
-```powershell
-cd owner_mobile_app
-flutter test
-```
-
-Covers models, providers (auth, vehicles, services, warranties), and widget rendering for key screens.
-
----
-
-## Deployment (Railway)
-
-The system is deployed on Railway with 4 services. To redeploy after a Ganache restart (wipes chain state):
+To redeploy after a Ganache restart (wipes chain state):
 
 ```powershell
 cd smart-contracts
 npx hardhat run scripts/deploy.js --network railway
 ```
 
-Contract addresses are deterministic (same mnemonic → same addresses every time).
-
-### Required Backend Environment Variables
-
-```env
-# Database
-DATABASE_URL=postgresql://...          # Provided by Railway PostgreSQL addon
-
-# Flask
-FLASK_ENV=production
-SECRET_KEY=<generate: python -c "import secrets; print(secrets.token_hex(32))">
-JWT_SECRET_KEY=<generate: python -c "import secrets; print(secrets.token_hex(32))">
-KEYSTORE_PASSWORD=<generate: python -c "import secrets; print(secrets.token_hex(32))">
-ADMIN_SECRET=<generate: python -c "import secrets; print(secrets.token_hex(32))">
-PASSWORD_RESET_EXPIRY_MINUTES=60
-
-# Blockchain — addresses printed by deploy.js, store in Railway env vars, never in code
-GANACHE_URL=<your Hardhat/Ganache RPC URL>
-CHAIN_ID=1337
-VEHICLE_REGISTRY_ADDRESS=<from deploy.js output>
-SERVICE_LOG_ADDRESS=<from deploy.js output>
-WARRANTY_TRACKER_ADDRESS=<from deploy.js output>
-DEPLOYER_ADDRESS=<from deploy.js output>
-DEPLOYER_PRIVATE_KEY=<from Hardhat node — store in Railway secrets only>
-
-# CORS / URLs
-CORS_ORIGINS=https://your-frontend.up.railway.app
-FRONTEND_URL=https://your-frontend.up.railway.app
-USE_HTTPS=true
-
-# Email (Resend)
-RESEND_API_KEY=<from resend.com dashboard>
-MAIL_DEFAULT_SENDER=VehicleChain <noreply@yourdomain.com>
-MAIL_SUPPRESS_SEND=false
-
-# Trusted proxy IPs (set to Railway's internal proxy CIDR)
-TRUSTED_PROXY_IPS=<railway-proxy-ip>
-
-# Admin email for abuse alerts
-ADMIN_CONTACT_EMAIL=<your email>
-```
+Contract addresses are deterministic — same mnemonic produces the same addresses every time.
 
 ---
 
-## Hashing Strategy
+## 📄 License
 
-| Purpose | Algorithm | Location |
-|---|---|---|
-| Service metadata fingerprint | SHA-256 (key-sorted JSON) | `blockchain/utils.py` |
-| Warranty claim fingerprint | SHA-256 | `blockchain/utils.py` |
-| VIN → on-chain `bytes32` | keccak256 | `blockchain/utils.py` |
-| Password storage | bcrypt (cost 12) | `core/auth_service.py` |
-| Password reset token | SHA-256 | `api/auth.py` |
-| Admin endpoint replay prevention | HMAC-SHA256 (30s window) | `api/admin.py` |
-
----
-
-## Key Design Decisions
-
-**Dual storage model:** Every on-chain record has a corresponding PostgreSQL row linked by hash. The blockchain stores hashes; the DB stores full metadata. Either can independently verify the other — tampering with DB metadata is detectable by recomputing and comparing the hash.
-
-**Metadata-hash-based record lookup:** ServiceLog identifies records by their `metadataHash` (SHA-256 of the service metadata) rather than array indices. This eliminates the index-shifting race condition that swap-and-pop removal would otherwise cause. The `record_index` field returned in API responses is display-only and not used for any chain operation.
-
-**VIN encoding:** VINs are hashed with `keccak256(abi.encodePacked(vin))` for on-chain storage. The `VehicleVINMapping` table maps the human-readable VIN to its on-chain key.
-
-**Blockchain-first ordering:** All critical operations (vehicle registration, service submission, warranty claims) hit the blockchain before writing to the database. If the chain transaction fails, no DB record is created — ensuring consistency.
-
-**PDPA consent:** OWNER role registration requires explicit consent. The `consent_given_at` timestamp is stored and the backend rejects OWNER registrations without `consent_given: true`. Non-OWNER roles (B2B) are exempt.
-
-**Remember Me (Flutter):** `TokenStorage` uses `FlutterSecureStorage` for persistent sessions (remember me = true) and in-memory variables for session-only (remember me = false, cleared on process kill).
-
-**Email delivery:** Flask-Mail + SMTP is blocked by Railway's network on port 587. The system uses the Resend HTTP API (port 443) for password reset emails to bypass this restriction.
-
----
-
-## License
-
-Copyright (c) 2026 Lim Jun Hong.
+Copyright © 2026 **Lim Jun Hong**
 
 This project is licensed under the **Creative Commons Attribution-NonCommercial 4.0 International License** — see the [LICENSE](LICENSE) file for details.
 
 You may view and share this code with attribution, but **commercial use is prohibited** without explicit written permission from the author. The author reserves the right to release this project under different terms for commercial purposes.
+
+---
+
+<div align="center">
+  <sub>Built as a Final Year Project (FYP) · Universiti · 2026</sub>
+</div>
