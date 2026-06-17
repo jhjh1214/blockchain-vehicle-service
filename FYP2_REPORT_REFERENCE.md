@@ -570,7 +570,6 @@ Demo password for all seed accounts: `Demo@1234`
 - Tamper badge (red, "TAMPERED") and verified checkmark (green) on service records
 - Recall history on public verify page shows VIN range (if set) and a red/green pill badge per recall: "Your vehicle is in the affected range" / "Your vehicle is not in the affected range"
 - Recall send modal has an optional "Affected VIN Range" section with From/To VIN inputs (auto-uppercased, monospace font)
-- Handover QR on fleet page: for vehicles in `pending` registration status, manufacturer generates a VIN QR code to print on the delivery document; owner scans it in Flutter to claim without typing the 17-character VIN
 - Dashboard KPI row uses flex-column layout with min-height on labels so numbers always align horizontally across cards regardless of label wrap
 - Custom SVG favicon: blue rounded square (#0369a1) with white "VC" text; replaces default Angular icon
 - SEO: `robots.txt` (allows `/verify`, disallows all authenticated paths), `sitemap.xml` (single entry for public verify page), Open Graph meta tags, JSON-LD `WebApplication` structured data, Google Search Console verification meta tag, canonical link — all in `index.html` and `/public/`
@@ -583,7 +582,7 @@ Demo password for all seed accounts: `Demo@1234`
 - Recalls screen: card list, green (serviced) / orange (pending) status
 - Void requests screen: lists requests, "Dispute" button with reason dialog
 - Notifications screen: full history with type-specific icons, mark-all-read, clear-all
-- VIN claim screen: camera barcode/QR scanner via `mobile_scanner` package — no manual typing needed; if the claimed VIN belongs to an `owner_deleted` vehicle, the screen detects `reclaim_available: true` in the API response and shows a reclaim request dialog instead of a generic error
+- VIN claim screen: manual 17-character VIN entry; if the claimed VIN belongs to an `owner_deleted` vehicle, the screen detects `reclaim_available: true` in the API response and shows a reclaim request dialog instead of a generic error
 - Push notification tap navigation: recall → recalls screen, void → void requests, pending service → pending list
 - Biometric login (TouchID/FaceID) via `local_auth` package — shown on login screen when device supports it and user has opted in; opt-in prompt offered once after the first successful "remember me" login; credentials stored in `flutter_secure_storage`
 - All network errors show snackbar; loading states on every button
@@ -639,6 +638,10 @@ Report phrasing: "Static analysis was performed using Slither 0.11.5. No high or
 System tested by developer; no pilot with real mechanics over time.
 453 backend (pytest) + 48 smart contract (Hardhat) + 106 Angular (vitest) + 95 Flutter (65 unit + 30 widget) = **702 tests total**; functional prototype demonstrates all workflows end-to-end.
 Future work: 3-month pilot with a real workshop, measuring time savings vs. paper-based processes.
+
+**No VIN barcode/QR scanner in Flutter:**
+The VIN claim screen accepts manual 17-character VIN entry only. An in-app camera scanner (`mobile_scanner`) was prototyped but removed due to Camera2 API compatibility issues on certain Android OEM devices (Honor/Huawei) where the preview renders as a permanent black screen regardless of permission state — a known hardware-level driver conflict with no reliable software-only workaround on those devices.
+Future work: Android App Links (HTTPS deep links with `assetlinks.json` domain verification) would allow the manufacturer's handover QR code to open the app and pre-fill the VIN via the native camera without any in-app scanner dependency — resolving the OEM compatibility issue entirely.
 
 **FCM and email are centralised:**
 Decentralised push is an unsolved production problem — even Uniswap and OpenSea use centralised notifications.
@@ -726,7 +729,6 @@ This section is for the security evaluation chapter. All findings from a systema
 - Brand-scoped access control: every DB query is filtered by the requesting user's brand or blockchain address — no cross-tenant data leakage
 - Dispute resolution is three-party: owner disputes, SC rebuts, manufacturer resolves — all on-chain with off-chain message thread
 - Independent workshop lifecycle is complete: registration, ETH funding, submission, abuse reporting, auto-suspension (blockchain role also revoked)
-- VIN barcode scan in Flutter: no manual 17-character entry; camera scans door-jamb barcode or QR code
 - Public API is genuinely useful: warranty status + full service history with integrity badges + recall history
 - PDF reports: per-vehicle and fleet-level exports with professional ReportLab layout
 - Health check endpoint: `GET /api/health` returns DB and blockchain status; Railway uses this for uptime monitoring
