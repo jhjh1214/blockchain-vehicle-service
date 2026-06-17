@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'vehicles_provider.dart';
 
@@ -89,40 +87,6 @@ class _ClaimVehicleScreenState extends State<ClaimVehicleScreen> {
     }
   }
 
-  Future<void> _scanQr() async {
-    // Request permission before opening the scanner screen
-    final status = await Permission.camera.request();
-    if (!mounted) return;
-
-    if (status.isPermanentlyDenied) {
-      showDialog(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: const Text('Camera Permission Required'),
-          content: const Text(
-              'Camera access was permanently denied. Please enable it in App Settings to scan barcodes.'),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-            TextButton(
-              onPressed: () { Navigator.pop(context); openAppSettings(); },
-              child: const Text('Open Settings'),
-            ),
-          ],
-        ),
-      );
-      return;
-    }
-
-    if (!status.isGranted) return;
-
-    final result = await Navigator.of(context, rootNavigator: true).push<String>(
-      MaterialPageRoute(builder: (_) => const _QrScannerScreen()),
-    );
-    if (result != null && mounted) {
-      _vinCtrl.text = result.toUpperCase();
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -145,15 +109,10 @@ class _ClaimVehicleScreenState extends State<ClaimVehicleScreen> {
               TextFormField(
                 controller: _vinCtrl,
                 textCapitalization: TextCapitalization.characters,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   labelText: 'Vehicle Identification Number (VIN)',
                   hintText: 'e.g. 1HGBH41JXMN109186',
-                  prefixIcon: const Icon(Icons.tag),
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.qr_code_scanner),
-                    tooltip: 'Scan VIN barcode',
-                    onPressed: _scanQr,
-                  ),
+                  prefixIcon: Icon(Icons.tag),
                 ),
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return 'VIN required';
@@ -161,13 +120,7 @@ class _ClaimVehicleScreenState extends State<ClaimVehicleScreen> {
                   return null;
                 },
               ),
-              const SizedBox(height: 8),
-              TextButton.icon(
-                onPressed: _scanQr,
-                icon: const Icon(Icons.qr_code_scanner),
-                label: const Text('Scan VIN Barcode / QR Code'),
-              ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: _loading ? null : _submit,
                 child: _loading
@@ -181,200 +134,6 @@ class _ClaimVehicleScreenState extends State<ClaimVehicleScreen> {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _QrScannerScreen extends StatefulWidget {
-  const _QrScannerScreen();
-
-  @override
-  State<_QrScannerScreen> createState() => _QrScannerScreenState();
-}
-
-class _QrScannerScreenState extends State<_QrScannerScreen> {
-  MobileScannerController? _controller;
-  bool _scanned = false;
-  int _restartKey = 0;
-
-  // Error state lives here so the overlay renders at the top of the Stack,
-  // guaranteed visible and touchable regardless of what MobileScanner does.
-  MobileScannerException? _cameraError;
-  bool _didAutoRetry = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _startController();
-  }
-
-  void _startController() {
-    _controller?.dispose();
-    _controller = MobileScannerController(
-      facing: CameraFacing.back,
-      detectionSpeed: DetectionSpeed.normal,
-    );
-    _scanned = false;
-    _cameraError = null;
-  }
-
-  @override
-  void dispose() {
-    _controller?.dispose();
-    super.dispose();
-  }
-
-  void _onDetect(BarcodeCapture capture) {
-    if (_scanned) return;
-    final barcode = capture.barcodes.firstOrNull;
-    final raw = barcode?.rawValue;
-    if (raw == null || raw.isEmpty) return;
-    _scanned = true;
-    _controller?.stop();
-    final vin = _extractVin(raw);
-    Navigator.of(context, rootNavigator: true).pop(vin ?? raw);
-  }
-
-  void _handleCameraError(MobileScannerException error) {
-    // Called once per error event via addPostFrameCallback (safe outside build).
-    if (_cameraError != null) return; // already handling an error
-
-    final isPermission = error.errorCode == MobileScannerErrorCode.permissionDenied;
-
-    // Auto-retry once for transient failures (camera not yet released after
-    // the permission dialog closes on Android).
-    if (!isPermission && !_didAutoRetry) {
-      _didAutoRetry = true;
-      Future.delayed(const Duration(milliseconds: 700), () {
-        if (mounted) _retry();
-      });
-      return;
-    }
-
-    if (mounted) setState(() => _cameraError = error);
-  }
-
-  void _retry() {
-    setState(() {
-      _startController();
-      _restartKey++;
-      _didAutoRetry = false;
-    });
-  }
-
-  static String? _extractVin(String raw) {
-    final vinRe = RegExp(r'^[A-HJ-NPR-Z0-9]{17}$', caseSensitive: false);
-    if (vinRe.hasMatch(raw.trim())) return raw.trim().toUpperCase();
-    final urlMatch = RegExp(r'[/=]([A-HJ-NPR-Z0-9]{17})(?:[/?#]|$)', caseSensitive: false)
-        .firstMatch(raw);
-    if (urlMatch != null) return urlMatch.group(1)!.toUpperCase();
-    return null;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final error = _cameraError;
-    final isPermission = error?.errorCode == MobileScannerErrorCode.permissionDenied;
-
-    return Scaffold(
-      appBar: AppBar(title: const Text('Scan VIN')),
-      body: Stack(
-        children: [
-          MobileScanner(
-            key: ValueKey(_restartKey),
-            controller: _controller!,
-            onDetect: _onDetect,
-            errorBuilder: (ctx, err, _) {
-              // Delegate to state-level handler outside the build phase so the
-              // error overlay renders as a top-level Stack child (always visible).
-              if (_cameraError == null) {
-                WidgetsBinding.instance.addPostFrameCallback(
-                  (_) => _handleCameraError(err),
-                );
-              }
-              return const ColoredBox(
-                color: Colors.black,
-                child: SizedBox.expand(),
-              );
-            },
-          ),
-          // Viewfinder overlay — hidden when an error is showing
-          if (error == null) ...[
-            Center(
-              child: Container(
-                width: 260,
-                height: 100,
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.white, width: 2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-            ),
-            const Positioned(
-              bottom: 40,
-              left: 0,
-              right: 0,
-              child: Text(
-                'Align barcode or QR code within the frame',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white, fontSize: 14),
-              ),
-            ),
-          ],
-          // Error overlay — top-level Stack child so nothing can obscure it
-          if (error != null)
-            ColoredBox(
-              color: Colors.black,
-              child: SizedBox.expand(
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 32),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          isPermission
-                              ? Icons.no_photography_outlined
-                              : Icons.camera_alt_outlined,
-                          color: Colors.white54,
-                          size: 64,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          isPermission
-                              ? 'Camera permission required.\n\nGo to App Settings and allow camera access, then tap Retry.'
-                              : 'Camera could not start.\nTap Retry to try again.',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                              color: Colors.white70, fontSize: 14, height: 1.5),
-                        ),
-                        const SizedBox(height: 24),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            ElevatedButton.icon(
-                              onPressed: _retry,
-                              icon: const Icon(Icons.refresh),
-                              label: const Text('Retry'),
-                            ),
-                            if (isPermission) ...[
-                              const SizedBox(width: 12),
-                              ElevatedButton.icon(
-                                onPressed: openAppSettings,
-                                icon: const Icon(Icons.settings),
-                                label: const Text('Settings'),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-        ],
       ),
     );
   }
