@@ -61,8 +61,8 @@ export class VerifyComponent implements OnInit, AfterViewChecked {
       this.titleService.setTitle(`${vin} — Vehicle History | VehicleChain`);
       this.metaService.updateTag({ name: 'description', content: `Blockchain-verified service history, warranty status, and recall records for vehicle ${vin}.` });
     } else {
-      this.titleService.setTitle('Verify Vehicle History — VehicleChain');
-      this.metaService.updateTag({ name: 'description', content: 'Free blockchain-verified vehicle history check. See service records, warranty status, and recall history for any registered vehicle.' });
+      this.titleService.setTitle('Free Vehicle History Check by VIN — VehicleChain');
+      this.metaService.updateTag({ name: 'description', content: 'Free vehicle history report by VIN. Instantly check service records, warranty status, mileage history, and safety recalls — blockchain-verified and tamper-proof.' });
     }
   }
 
