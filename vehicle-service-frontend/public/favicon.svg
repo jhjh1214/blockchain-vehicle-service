@@ -1,4 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <rect width="32" height="32" rx="7" fill="#0369a1"/>
-  <text x="16" y="22" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="15" fill="white">VC</text>
+  <g fill="white">
+    <!-- Car body -->
+    <rect x="2" y="17" width="28" height="7" rx="1.5"/>
+    <!-- Cabin / roof -->
+    <path d="M9.5 17 L12 11 L14.5 10 L18 10 L20.5 11 L23 17 Z"/>
+    <!-- Left wheel ring -->
+    <circle cx="9" cy="24" r="3.5"/>
+    <!-- Left wheel hub -->
+    <circle cx="9" cy="24" r="1.6" fill="#0369a1"/>
+    <!-- Right wheel ring -->
+    <circle cx="23" cy="24" r="3.5"/>
+    <!-- Right wheel hub -->
+    <circle cx="23" cy="24" r="1.6" fill="#0369a1"/>
+  </g>
 </svg>
