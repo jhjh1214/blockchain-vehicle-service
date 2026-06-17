@@ -1,17 +1,21 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="7" fill="#0369a1"/>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1e3a8a"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="8" fill="url(#bg)"/>
   <g fill="white">
     <!-- Car body -->
-    <rect x="2" y="17" width="28" height="7" rx="1.5"/>
+    <rect x="1" y="18" width="30" height="7" rx="1.5"/>
     <!-- Cabin / roof -->
-    <path d="M9.5 17 L12 11 L14.5 10 L18 10 L20.5 11 L23 17 Z"/>
-    <!-- Left wheel ring -->
-    <circle cx="9" cy="24" r="3.5"/>
-    <!-- Left wheel hub -->
-    <circle cx="9" cy="24" r="1.6" fill="#0369a1"/>
-    <!-- Right wheel ring -->
-    <circle cx="23" cy="24" r="3.5"/>
-    <!-- Right wheel hub -->
-    <circle cx="23" cy="24" r="1.6" fill="#0369a1"/>
+    <path d="M7 18 L10 11 L14 9.5 L18.5 9.5 L22 11 L25 18 Z"/>
+    <!-- Left wheel -->
+    <circle cx="8" cy="25" r="4.5"/>
+    <circle cx="8" cy="25" r="2" fill="#0f172a"/>
+    <!-- Right wheel -->
+    <circle cx="24" cy="25" r="4.5"/>
+    <circle cx="24" cy="25" r="2" fill="#0f172a"/>
   </g>
 </svg>
