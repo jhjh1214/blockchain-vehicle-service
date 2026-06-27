@@ -13,11 +13,15 @@ export interface WarrantyStatus {
 
 export interface WarrantyClaim {
   vin: string;
+  claim_index?: number;
   claim_details_hash: string;
   timestamp: number;
   claimant: string;
   status: 'pending' | 'approved' | 'denied';
   resolution_notes_hash: string | null;
+  make?: string;
+  model?: string;
+  year?: number;
   metadata?: {
     issue_description: string;
     photos: string[];
@@ -44,6 +48,10 @@ export class WarrantyService {
 
   getClaims(vin: string): Observable<{ vin: string; claims: WarrantyClaim[]; count: number }> {
     return this.http.get<any>(`${environment.apiUrl}/warranty/claims/${vin}`);
+  }
+
+  getMfrClaims(): Observable<{ claims: WarrantyClaim[]; count: number }> {
+    return this.http.get<any>(`${environment.apiUrl}/warranty/manufacturer/claims?limit=200`);
   }
 
   approveClaim(vin: string, claimIndex: number): Observable<any> {

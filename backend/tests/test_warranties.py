@@ -156,6 +156,74 @@ class TestGetClaims:
         assert r.status_code == 401
 
 
+class TestMfrAggregateClaims:
+    """A manufacturer previously had to already know a VIN before seeing any claim
+    for it — there was no way to discover one without an external prompt (e.g. an
+    email). This covers the aggregate endpoint that fixes that."""
+
+    def test_manufacturer_can_get_aggregate_claims(self, client):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        r = client.get('/api/warranty/manufacturer/claims', headers=auth(mfr_token))
+        assert r.status_code == 200
+        data = r.get_json()
+        assert 'claims' in data
+        assert 'pagination' in data
+
+    def test_non_manufacturer_cannot_access(self, client):
+        owner_token, _ = register_and_login(client, 'OWNER')
+        r = client.get('/api/warranty/manufacturer/claims', headers=auth(owner_token))
+        assert r.status_code == 403
+
+    def test_requires_auth(self, client):
+        r = client.get('/api/warranty/manufacturer/claims')
+        assert r.status_code == 401
+
+    def test_includes_claim_for_registered_vehicle_with_plain_vin(self, client, app):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER', brand='Honda')
+        _register_vehicle(client, mfr_token, make='Honda')
+
+        from blockchain.adapters.warranty_tracker import warranty_tracker as wt
+        wt.get_claims.return_value = [{
+            'claim_details_hash': '0x' + 'aa' * 32,
+            'timestamp': 1_700_000_000,
+            'claimant': '0x' + '03' * 20,
+            'resolution_notes_hash': None,
+        }]
+
+        try:
+            r = client.get('/api/warranty/manufacturer/claims', headers=auth(mfr_token))
+            assert r.status_code == 200
+            claims = r.get_json()['claims']
+            assert len(claims) == 1
+            assert claims[0]['vin'] == VIN
+            assert claims[0]['claim_index'] == 0
+            assert claims[0]['status'] == 'pending'
+            assert claims[0]['make'] == 'Honda'
+        finally:
+            wt.get_claims.return_value = []
+
+    def test_does_not_see_other_manufacturers_claims(self, client):
+        """Manufacturer B's vehicles shouldn't appear in manufacturer A's aggregate view."""
+        mfr_a, _ = register_and_login(client, 'MANUFACTURER', brand='Honda')
+        mfr_b, _ = register_and_login(client, 'MANUFACTURER', brand='Toyota')
+        _register_vehicle(client, mfr_a, make='Honda')
+
+        from blockchain.adapters.warranty_tracker import warranty_tracker as wt
+        wt.get_claims.return_value = [{
+            'claim_details_hash': '0x' + 'bb' * 32,
+            'timestamp': 1_700_000_000,
+            'claimant': '0x' + '04' * 20,
+            'resolution_notes_hash': None,
+        }]
+
+        try:
+            r = client.get('/api/warranty/manufacturer/claims', headers=auth(mfr_b))
+            assert r.status_code == 200
+            assert r.get_json()['claims'] == []
+        finally:
+            wt.get_claims.return_value = []
+
+
 class TestApproveClaim:
     def test_registering_manufacturer_can_approve(self, client):
         """Manufacturer who registered the vehicle can approve its warranty claims."""

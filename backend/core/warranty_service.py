@@ -109,6 +109,43 @@ def get_owner_claims(owner_address: str) -> list:
     return all_claims
 
 
+def get_mfr_claims(mfr_address: str) -> list:
+    """All warranty claims across every VIN this manufacturer registered.
+
+    Mirrors get_owner_claims' shape but keyed by registering manufacturer instead
+    of owner, and nests metadata like get_claims() so the existing per-VIN claims
+    UI can render aggregate rows without any template changes.
+    """
+    mappings = vehicle_repo.find_by_registered_by(mfr_address)
+    all_claims = []
+    for mapping in mappings:
+        claims = warranty_tracker.get_claims(mapping.vin)
+        for idx, claim in enumerate(claims):
+            metadata = warranty_repo.find_by_claim_hash(claim['claim_details_hash'])
+            issue_description = ''
+            photos = []
+            db_status = 'pending'
+            if metadata:
+                issue_description = metadata.issue_description or ''
+                photos = metadata.photos or []
+                db_status = metadata.status or 'pending'
+            all_claims.append({
+                'vin': mapping.vin,
+                'claim_index': idx,
+                'claim_details_hash': claim.get('claim_details_hash', ''),
+                'timestamp': claim.get('timestamp', 0),
+                'claimant': claim.get('claimant', ''),
+                'status': db_status,
+                'resolution_notes_hash': claim.get('resolution_notes_hash'),
+                'metadata': {'issue_description': issue_description, 'photos': photos},
+                'make': mapping.make,
+                'model': mapping.model,
+                'year': mapping.year,
+            })
+    all_claims.sort(key=lambda c: (c['status'] != 'pending', -(c.get('timestamp') or 0)))
+    return all_claims
+
+
 def approve_claim(vin: str, claim_index: int, from_address: str, notes: str = '') -> dict:
     mapping = vehicle_repo.find_by_vin(vin)
     if mapping and mapping.warranty_expiry and mapping.warranty_expiry < int(time.time()):

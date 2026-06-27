@@ -123,6 +123,23 @@ def get_claims(vin):
         return jsonify({'error': str(e)}), 500
 
 
+@warranty_bp.route('/manufacturer/claims', methods=['GET'])
+@role_required('MANUFACTURER')
+def get_mfr_claims():
+    """All warranty claims across every VIN this manufacturer registered.
+
+    Previously a manufacturer had to already know a VIN before seeing any claims
+    for it — there was no way to discover one to act on without an external
+    prompt (e.g. an email). This surfaces every claim up front, pending ones first.
+    """
+    try:
+        claims = warranty_service.get_mfr_claims(request.user['blockchain_address'])
+        result = paginate(claims, request.args)
+        return jsonify({**result, 'claims': result.pop('items')}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @warranty_bp.route('/approve-claim', methods=['POST'])
 @role_required('MANUFACTURER')
 def approve_claim():

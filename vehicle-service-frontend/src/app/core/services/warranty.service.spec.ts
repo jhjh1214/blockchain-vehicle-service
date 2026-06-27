@@ -56,6 +56,13 @@ describe('WarrantyService', () => {
     req.flush({ vin: VIN, claims: [], count: 0 });
   });
 
+  it('getMfrClaims hits GET /warranty/manufacturer/claims', () => {
+    service.getMfrClaims().subscribe();
+    const req = httpMock.expectOne(`${environment.apiUrl}/warranty/manufacturer/claims?limit=200`);
+    expect(req.request.method).toBe('GET');
+    req.flush({ claims: [], count: 0 });
+  });
+
   it('approveClaim posts to /warranty/approve-claim with correct body', () => {
     service.approveClaim(VIN, 2).subscribe();
     const req = httpMock.expectOne(`${environment.apiUrl}/warranty/approve-claim`);

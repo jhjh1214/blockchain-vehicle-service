@@ -20,7 +20,7 @@
               formControlName="vin"
               class="form-control"
               [class.is-invalid]="f['vin'].invalid && f['vin'].touched"
-              placeholder="Enter 17-character VIN"
+              placeholder="Or look up a specific VIN"
               maxlength="17"
               style="text-transform:uppercase;"
             />
@@ -28,6 +28,9 @@
           <button type="submit" class="btn btn-primary" [disabled]="loading">
             @if (loading) { <span class="spinner"></span> } @else { Search }
           </button>
+          @if (viewMode === 'vin') {
+            <button type="button" class="btn btn-ghost" (click)="loadAllClaims()">← All Claims</button>
+          }
         </div>
         @if (f['vin'].invalid && f['vin'].touched) {
           <div class="invalid-feedback" style="margin-top:6px;">Enter a valid 17-character VIN</div>
@@ -65,28 +68,7 @@
   }
 
   <!-- Skeleton while loading -->
-  @if (loading && currentVin) {
-    <!-- Warranty status skeleton -->
-    <div class="card mb-24">
-      <div class="card-header">
-        <div style="display:flex;flex-direction:column;gap:7px;">
-          <div class="sk-cell w-55" style="height:16px;"></div>
-          <div class="sk-cell w-40" style="height:11px;"></div>
-        </div>
-        <div class="sk-badge" style="width:60px;height:22px;border-radius:10px;"></div>
-      </div>
-      <div class="card-body">
-        <div class="sk-detail-grid">
-          @for (n of [1,2,3,4]; track n) {
-            <div class="sk-detail-item">
-              <div class="sk-cell sk-label w-55"></div>
-              <div class="sk-cell sk-value w-85"></div>
-            </div>
-          }
-        </div>
-      </div>
-    </div>
-    <!-- Claims skeleton -->
+  @if (loading) {
     <div class="card">
       <div class="card-header">
         <div class="sk-cell w-40" style="height:16px;"></div>
@@ -116,8 +98,8 @@
     </div>
   }
 
-  <!-- Warranty status card -->
-  @if (!loading && warrantyStatus) {
+  <!-- Warranty status card (VIN search mode only) -->
+  @if (!loading && viewMode === 'vin' && warrantyStatus) {
     <div class="card mb-24">
       <div class="card-header">
         <div>
@@ -155,11 +137,15 @@
   }
 
   <!-- Claims list -->
-  @if (currentVin && !loading) {
+  @if (!loading) {
     @if (claims.length > 0) {
       <div class="card">
         <div class="card-header">
-          <h3 class="card-title">Warranty Claims</h3>
+          @if (viewMode === 'vin') {
+            <h3 class="card-title">Warranty Claims</h3>
+          } @else {
+            <h3 class="card-title">All Warranty Claims</h3>
+          }
           <span class="badge badge-info">{{ claims.length }} total</span>
         </div>
         <div class="card-body" style="padding:0;">
@@ -168,6 +154,9 @@
               <div class="claim-header">
                 <div class="flex items-center gap-8">
                   <span class="claim-index">#{{ i + 1 }}</span>
+                  @if (viewMode === 'all') {
+                    <span class="mono badge badge-info" style="font-size:11px;">{{ claim.vin }}</span>
+                  }
                   <span [class]="statusBadge(claim.status)">
                     <span class="dot"></span>
                     {{ claim.status | titlecase }}
@@ -175,13 +164,13 @@
                 </div>
                 @if (claim.status === 'pending') {
                   <div class="flex" style="gap:8px;">
-                    <button class="btn btn-success btn-sm" (click)="approveClaim(i)" [disabled]="actionLoading">
+                    <button class="btn btn-success btn-sm" (click)="approveClaim(claim)" [disabled]="actionLoading">
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                       </svg>
                       Approve
                     </button>
-                    <button class="btn btn-danger btn-sm" (click)="startDeny(i)" [disabled]="actionLoading">
+                    <button class="btn btn-danger btn-sm" (click)="startDeny(claim)" [disabled]="actionLoading">
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
                       </svg>
@@ -193,6 +182,12 @@
 
               <div class="claim-body">
                 <div class="detail-grid">
+                  @if (viewMode === 'all' && (claim.make || claim.model)) {
+                    <div class="detail-item">
+                      <div class="detail-label">Vehicle</div>
+                      <div class="detail-value">{{ claim.make }} {{ claim.model }} {{ claim.year }}</div>
+                    </div>
+                  }
                   <div class="detail-item">
                     <div class="detail-label">Submitted</div>
                     <div class="detail-value">{{ formatDate(claim.timestamp) }}</div>
@@ -215,7 +210,7 @@
               </div>
 
               <!-- Deny form inline -->
-              @if (denyingIndex === i) {
+              @if (denyingClaim === claim) {
                 <div class="deny-form">
                   <form [formGroup]="denyForm" (ngSubmit)="confirmDeny()">
                     <div class="form-group mb-16">
@@ -247,7 +242,7 @@
     }
 
     <!-- No claims -->
-    @if (claims.length === 0 && warrantyStatus) {
+    @if (claims.length === 0 && !error) {
       <div class="card">
         <div class="card-body">
           <div class="empty-state">
@@ -256,28 +251,16 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
               </svg>
             </div>
-            <h3>No Warranty Claims</h3>
-            <p>No warranty claims have been submitted for this vehicle.</p>
+            @if (viewMode === 'vin') {
+              <h3>No Warranty Claims</h3>
+              <p>No warranty claims have been submitted for VIN {{ currentVin }}.</p>
+            } @else {
+              <h3>No Warranty Claims</h3>
+              <p>No warranty claims have been submitted for your registered vehicles yet.</p>
+            }
           </div>
         </div>
       </div>
     }
-  }
-
-  <!-- Initial state -->
-  @if (!currentVin && !loading) {
-    <div class="card">
-      <div class="card-body">
-        <div class="empty-state">
-          <div class="empty-state-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
-            </svg>
-          </div>
-          <h3>Search for Warranty Claims</h3>
-          <p>Enter a vehicle VIN to view its warranty status and manage claims</p>
-        </div>
-      </div>
-    </div>
   }
 </div>

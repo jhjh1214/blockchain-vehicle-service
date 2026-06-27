@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -11,7 +11,7 @@ import { WarrantyService, WarrantyClaim, WarrantyStatus } from '../../../core/se
   templateUrl: './warranty-claims.html',
   styleUrls: ['./warranty-claims.css']
 })
-export class WarrantyClaimsComponent {
+export class WarrantyClaimsComponent implements OnInit {
   searchForm: FormGroup;
   denyForm: FormGroup;
 
@@ -21,11 +21,13 @@ export class WarrantyClaimsComponent {
   actionError = '';
   actionSuccess = '';
 
+  /** 'all' = every claim across vehicles this manufacturer registered; 'vin' = a specific VIN search. */
+  viewMode: 'all' | 'vin' = 'all';
   currentVin = '';
   warrantyStatus: WarrantyStatus | null = null;
   claims: WarrantyClaim[] = [];
 
-  denyingIndex: number | null = null;
+  denyingClaim: WarrantyClaim | null = null;
 
   constructor(private fb: FormBuilder, private warrantyService: WarrantyService) {
     this.searchForm = this.fb.group({
@@ -36,7 +38,33 @@ export class WarrantyClaimsComponent {
     });
   }
 
+  ngOnInit(): void {
+    this.loadAllClaims();
+  }
+
   get f() { return this.searchForm.controls; }
+
+  loadAllClaims(): void {
+    this.viewMode = 'all';
+    this.loading = true;
+    this.error = '';
+    this.claims = [];
+    this.warrantyStatus = null;
+    this.actionSuccess = '';
+    this.actionError = '';
+    this.currentVin = '';
+
+    this.warrantyService.getMfrClaims().subscribe({
+      next: (data) => {
+        this.claims = data.claims || [];
+        this.loading = false;
+      },
+      error: (err) => {
+        this.error = err.error?.error || 'Failed to load warranty claims';
+        this.loading = false;
+      }
+    });
+  }
 
   onSearch(): void {
     if (this.searchForm.invalid) {
@@ -44,16 +72,18 @@ export class WarrantyClaimsComponent {
       return;
     }
 
+    this.viewMode = 'vin';
     this.loading = true;
     this.error = '';
     this.claims = [];
     this.warrantyStatus = null;
     this.actionSuccess = '';
     this.actionError = '';
-    this.currentVin = this.searchForm.value.vin;
+    const vin = this.searchForm.value.vin.toUpperCase();
+    this.currentVin = vin;
 
     // Load warranty status and claims in parallel
-    this.warrantyService.checkWarranty(this.currentVin).subscribe({
+    this.warrantyService.checkWarranty(vin).subscribe({
       next: (status) => {
         this.warrantyStatus = status;
         this.loading = false;
@@ -64,9 +94,9 @@ export class WarrantyClaimsComponent {
       }
     });
 
-    this.warrantyService.getClaims(this.currentVin).subscribe({
+    this.warrantyService.getClaims(vin).subscribe({
       next: (data) => {
-        this.claims = data.claims;
+        this.claims = (data.claims || []).map((c, i) => ({ ...c, vin, claim_index: i }));
       },
       error: () => {
         // Non-fatal — still show warranty status
@@ -74,15 +104,15 @@ export class WarrantyClaimsComponent {
     });
   }
 
-  approveClaim(index: number): void {
+  approveClaim(claim: WarrantyClaim): void {
     this.actionLoading = true;
     this.actionError = '';
     this.actionSuccess = '';
 
-    this.warrantyService.approveClaim(this.currentVin, index).subscribe({
+    this.warrantyService.approveClaim(claim.vin, claim.claim_index!).subscribe({
       next: () => {
-        this.actionSuccess = `Claim #${index + 1} approved.`;
-        this.claims[index] = { ...this.claims[index], status: 'approved' };
+        this.actionSuccess = `Claim for ${claim.vin} approved.`;
+        claim.status = 'approved';
         this.actionLoading = false;
       },
       error: (err) => {
@@ -92,32 +122,32 @@ export class WarrantyClaimsComponent {
     });
   }
 
-  startDeny(index: number): void {
-    this.denyingIndex = index;
+  startDeny(claim: WarrantyClaim): void {
+    this.denyingClaim = claim;
     this.denyForm.reset();
     this.actionError = '';
   }
 
   cancelDeny(): void {
-    this.denyingIndex = null;
+    this.denyingClaim = null;
   }
 
   confirmDeny(): void {
-    if (this.denyForm.invalid || this.denyingIndex === null) {
+    if (this.denyForm.invalid || !this.denyingClaim) {
       this.denyForm.markAllAsTouched();
       return;
     }
 
-    const index = this.denyingIndex;
+    const claim = this.denyingClaim;
     const reason = this.denyForm.value.reason;
     this.actionLoading = true;
     this.actionError = '';
 
-    this.warrantyService.denyClaim(this.currentVin, index, reason).subscribe({
+    this.warrantyService.denyClaim(claim.vin, claim.claim_index!, reason).subscribe({
       next: () => {
-        this.actionSuccess = `Claim #${index + 1} denied.`;
-        this.claims[index] = { ...this.claims[index], status: 'denied' };
-        this.denyingIndex = null;
+        this.actionSuccess = `Claim for ${claim.vin} denied.`;
+        claim.status = 'denied';
+        this.denyingClaim = null;
         this.actionLoading = false;
       },
       error: (err) => {
@@ -130,7 +160,7 @@ export class WarrantyClaimsComponent {
   formatDate(timestamp: number): string {
     if (!timestamp) return '—';
     return new Date(timestamp * 1000).toLocaleDateString('en-MY', {
-      year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+      year: 'numeric', month: 'short', day: 'numeric'
     });
   }
 
