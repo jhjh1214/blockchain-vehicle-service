@@ -1,18 +1,26 @@
-import { Injectable } from '@angular/core';
+import { Injectable, OnDestroy } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable } from 'rxjs';
-import { tap } from 'rxjs/operators';
+import { BehaviorSubject, Observable, Subscription, interval, of } from 'rxjs';
+import { tap, filter, switchMap, catchError } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { User, LoginRequest, AuthResponse, RegisterRequest } from '../models/user.model';
 import { jwtDecode } from 'jwt-decode';
 import { ThemeService } from './theme.service';
 
 const USER_KEY = 'currentUser';
+// How often to re-verify the live session against the locally cached profile.
+// The auth cookie is shared across every tab of this browser, so logging into
+// a different account in another tab silently swaps the cookie under this tab
+// too — this catches that drift even when "remember me" was off (sessionStorage
+// writes don't fire cross-tab `storage` events, so the listener alone can't).
+const SESSION_CHECK_MS = 15_000;
 
 @Injectable({ providedIn: 'root' })
-export class AuthService {
+export class AuthService implements OnDestroy {
   private currentUserSubject: BehaviorSubject<User | null>;
   currentUser: Observable<User | null>;
+  private readonly _storageListener = (event: StorageEvent) => this._onStorageEvent(event);
+  private _sessionWatchSub?: Subscription;
 
   constructor(private http: HttpClient, private theme: ThemeService) {
     // Restore user profile from storage for UI state (role, name, email — not a token)
@@ -21,6 +29,50 @@ export class AuthService {
       stored ? JSON.parse(stored) : null
     );
     this.currentUser = this.currentUserSubject.asObservable();
+
+    window.addEventListener('storage', this._storageListener);
+    this._startSessionWatch();
+  }
+
+  ngOnDestroy(): void {
+    window.removeEventListener('storage', this._storageListener);
+    this._sessionWatchSub?.unsubscribe();
+  }
+
+  /** Fast path: fires instantly in other tabs when a tab using "remember me" logs in/out. */
+  private _onStorageEvent(event: StorageEvent): void {
+    if (event.key !== USER_KEY) return;
+    const current = this.currentUserSubject.value;
+    const incoming: User | null = event.newValue ? JSON.parse(event.newValue) : null;
+    if ((incoming?.id ?? null) !== (current?.id ?? null)) {
+      this._onSessionMismatch();
+    }
+  }
+
+  /** Fallback path: catches the case where the other tab didn't use "remember me". */
+  private _startSessionWatch(): void {
+    this._sessionWatchSub = interval(SESSION_CHECK_MS).pipe(
+      filter(() => this.isAuthenticated()),
+      switchMap(() => this.http.get<User>(`${environment.apiUrl}/auth/me`, { withCredentials: true }).pipe(
+        catchError(() => of(null))
+      )),
+    ).subscribe(serverUser => {
+      const local = this.currentUserSubject.value;
+      if (serverUser && local && serverUser.id !== local.id) {
+        this._onSessionMismatch();
+      }
+    });
+  }
+
+  /**
+   * The shared auth cookie now belongs to a different account than what this tab
+   * is rendering — reload to resync. Only this tab's own sessionStorage is cleared;
+   * localStorage is left untouched since it may hold another tab's valid
+   * "remember me" session that this tab must not destroy.
+   */
+  private _onSessionMismatch(): void {
+    sessionStorage.removeItem(USER_KEY);
+    window.location.reload();
   }
 
   get currentUserValue(): User | null {

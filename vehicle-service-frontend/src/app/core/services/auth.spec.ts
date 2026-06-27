@@ -129,4 +129,50 @@ describe('AuthService', () => {
     expect(req.request.body.new_password).toBe('new123!');
     req.flush({ message: 'ok' });
   });
+
+  describe('cross-tab session guard', () => {
+    // The auth cookie is shared across every tab of this browser. If a different
+    // account logs in (or out) in another tab, this tab's cookie silently swaps
+    // too, even though it still renders the old account's UI — these guard
+    // against that by reloading the moment the mismatch is detected.
+    let reloadSpy: ReturnType<typeof vi.fn>;
+
+    beforeEach(() => {
+      reloadSpy = vi.fn();
+      vi.stubGlobal('location', { ...window.location, reload: reloadSpy });
+    });
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it('reloads when another tab logs in as a different user (storage event)', () => {
+      sessionStorage.setItem('currentUser', JSON.stringify(MOCK_USER));
+      const otherUser = { ...MOCK_USER, id: 999, email: 'other@example.com' };
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: 'currentUser',
+        newValue: JSON.stringify(otherUser),
+      }));
+      expect(reloadSpy).toHaveBeenCalled();
+      expect(sessionStorage.getItem('currentUser')).toBeNull();
+    });
+
+    it('does not reload when the storage event is for the same user', () => {
+      service.login({ email: 'a@b.com', password: 'pass' }).subscribe();
+      httpMock.expectOne(`${environment.apiUrl}/auth/login`).flush(MOCK_RESPONSE);
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: 'currentUser',
+        newValue: JSON.stringify(MOCK_USER),
+      }));
+      expect(reloadSpy).not.toHaveBeenCalled();
+    });
+
+    it('ignores storage events for unrelated keys', () => {
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: 'some_other_key',
+        newValue: 'whatever',
+      }));
+      expect(reloadSpy).not.toHaveBeenCalled();
+    });
+  });
 });
