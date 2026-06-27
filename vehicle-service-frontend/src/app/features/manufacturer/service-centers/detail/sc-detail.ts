@@ -17,6 +17,7 @@ export class ScDetailComponent implements OnInit {
   error = '';
 
   actionLoading = false;
+  fundLoading = false;
   actionMsg = '';
   actionError = '';
 
@@ -62,7 +63,7 @@ export class ScDetailComponent implements OnInit {
 
   fund(): void {
     if (!this.sc) return;
-    this.actionLoading = true;
+    this.fundLoading = true;
     this.actionMsg = '';
     this.actionError = '';
     this.scService.fund(this.sc.id, this.fundAmount).subscribe({
@@ -70,10 +71,10 @@ export class ScDetailComponent implements OnInit {
         this.actionMsg = r.message;
         if (this.sc && r.new_balance !== undefined) this.sc = { ...this.sc, eth_balance: r.new_balance };
         this.showFundPanel = false;
-        this.actionLoading = false;
+        this.fundLoading = false;
         this.cdr.detectChanges();
       },
-      error: e => { this.actionError = e.error?.error || 'Funding failed'; this.actionLoading = false; this.cdr.detectChanges(); }
+      error: e => { this.actionError = e.error?.error || 'Funding failed'; this.fundLoading = false; this.cdr.detectChanges(); }
     });
   }
 

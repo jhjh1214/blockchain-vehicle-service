@@ -170,14 +170,14 @@
                   <div class="form-group mb-12">
                     <label class="form-label">Amount (ETH)</label>
                     <input type="number" class="form-control" [(ngModel)]="fundAmount"
-                           min="0.01" max="10" step="0.1" />
+                           min="0.01" max="10" step="0.1" [disabled]="fundLoading" />
                   </div>
                   <div class="fund-panel-actions">
-                    <button class="btn btn-primary" (click)="fund()" [disabled]="actionLoading">
-                      @if (actionLoading) { <span class="spinner"></span> }
+                    <button class="btn btn-primary" (click)="fund()" [disabled]="fundLoading">
+                      @if (fundLoading) { <span class="spinner"></span> Sending… }
                       @else { Send {{ fundAmount }} ETH }
                     </button>
-                    <button class="btn btn-ghost" (click)="showFundPanel = false">Cancel</button>
+                    <button class="btn btn-ghost" (click)="showFundPanel = false" [disabled]="fundLoading">Cancel</button>
                   </div>
                 </div>
               }
