@@ -60,12 +60,12 @@ describe('ServiceService', () => {
   });
 
   it('resolveDispute posts to /service/resolve-dispute with correct body', () => {
-    service.resolveDispute(VIN, 2, 1, 'Approved after review').subscribe();
+    service.resolveDispute(VIN, '0xabc123', 1, 'Approved after review').subscribe();
     const req = httpMock.expectOne(`${environment.apiUrl}/service/resolve-dispute`);
     expect(req.request.method).toBe('POST');
     expect(req.request.body).toEqual({
       vin: VIN,
-      record_index: 2,
+      metadata_hash: '0xabc123',
       decision: 1,
       resolution_notes: 'Approved after review',
     });
