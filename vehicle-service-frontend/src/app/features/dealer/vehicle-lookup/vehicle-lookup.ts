@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { VehicleService } from '../../../core/services/vehicle';
 import { ServiceService } from '../../../core/services/service';
@@ -10,7 +10,7 @@ import { ServiceRecord } from '../../../core/models/service.model';
 @Component({
   selector: 'app-vehicle-lookup',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, RouterModule],
   templateUrl: './vehicle-lookup.html',
   styleUrls: ['./vehicle-lookup.css']
 })
@@ -22,6 +22,12 @@ export class VehicleLookupComponent implements OnInit {
   vehicle: Vehicle | null = null;
   serviceHistory: ServiceRecord[] = [];
   showHistory = false;
+
+  showVoidForm = false;
+  voidReason = '';
+  voidLoading = false;
+  voidSuccess = '';
+  voidError = '';
 
   constructor(
     private fb: FormBuilder,
@@ -58,6 +64,11 @@ export class VehicleLookupComponent implements OnInit {
     this.serviceHistory = [];
     this.showHistory = false;
 
+    this.showVoidForm = false;
+    this.voidReason = '';
+    this.voidSuccess = '';
+    this.voidError = '';
+
     this.vehicleService.getVehicle(this.searchForm.value.vin).subscribe({
       next: (data) => {
         this.vehicle = data;
@@ -66,6 +77,24 @@ export class VehicleLookupComponent implements OnInit {
       error: (err) => {
         this.error = err.error?.error || 'Vehicle not found';
         this.loading = false;
+      }
+    });
+  }
+
+  submitVoidRequest(): void {
+    if (!this.vehicle || !this.voidReason.trim() || this.voidLoading) return;
+    this.voidLoading = true;
+    this.voidError = '';
+    this.serviceService.createVoidRequest(this.vehicle.vin, this.voidReason.trim()).subscribe({
+      next: () => {
+        this.voidLoading = false;
+        this.showVoidForm = false;
+        this.voidSuccess = 'Warranty void request submitted. The manufacturer will be notified.';
+        this.voidReason = '';
+      },
+      error: (err) => {
+        this.voidLoading = false;
+        this.voidError = err.error?.error || 'Failed to submit void request';
       }
     });
   }

@@ -139,7 +139,7 @@
           </div>
         </div>
       </div>
-      <div class="card-footer" style="display:flex;gap:8px;">
+      <div class="card-footer" style="display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn btn-secondary" (click)="loadServiceHistory()" [disabled]="historyLoading || showHistory">
           @if (historyLoading) { <span class="spinner spinner-dark"></span> }
           @else { {{ showHistory ? 'History Loaded' : 'View Service History' }} }
@@ -147,8 +147,35 @@
         <a class="btn btn-primary" routerLink="/dealer/submit-service" [queryParams]="{vin: vehicle.vin}">
           Submit New Service
         </a>
+        @if (!showVoidForm) {
+          <button type="button" class="btn btn-sm" style="background:var(--color-warning,#d97706);color:#fff;border:none;"
+                  (click)="showVoidForm = true">Request Warranty Void</button>
+        }
       </div>
+
+      @if (showVoidForm) {
+        <div class="card-body" style="border-top:1px solid var(--border);">
+          <label style="font-size:13px;font-weight:500;display:block;margin-bottom:6px;">Reason for warranty void request</label>
+          <textarea class="form-control" rows="3" [(ngModel)]="voidReason"
+                    placeholder="e.g. Vehicle was found serviced outside the authorised network with no record of authorisation…"
+                    style="margin-bottom:8px;"></textarea>
+          @if (voidError) {
+            <div class="alert alert-danger" style="margin-bottom:8px;">{{ voidError }}</div>
+          }
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-sm btn-ghost" (click)="showVoidForm = false; voidReason = ''; voidError = ''">Cancel</button>
+            <button class="btn btn-sm" style="background:var(--color-warning,#d97706);color:#fff;border:none;"
+                    (click)="submitVoidRequest()" [disabled]="!voidReason.trim() || voidLoading">
+              @if (voidLoading) { <span class="spinner"></span> } @else { Submit Void Request }
+            </button>
+          </div>
+        </div>
+      }
     </div>
+  }
+
+  @if (voidSuccess) {
+    <div class="alert alert-success mb-24">{{ voidSuccess }}</div>
   }
 
   <!-- Service history skeleton -->
