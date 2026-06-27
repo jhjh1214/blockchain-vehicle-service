@@ -63,6 +63,10 @@ export class ServiceService {
     return this.http.get<any>(`${environment.apiUrl}/service/center/pending?limit=200`);
   }
 
+  getMfrDisputedServices(): Observable<{ disputed_services: any[]; count: number }> {
+    return this.http.get<any>(`${environment.apiUrl}/service/manufacturer/disputed?limit=200`);
+  }
+
   getOwnerHistory(filters?: { status?: string; service_type?: string; date_from?: string; date_to?: string }): Observable<{ service_history: ServiceRecord[]; count: number }> {
     let params: Record<string, string> = {};
     if (filters?.status)       params['status']       = filters.status;

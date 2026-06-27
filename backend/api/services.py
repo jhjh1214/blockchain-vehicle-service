@@ -557,6 +557,23 @@ def get_sc_pending_records():
         return jsonify({'error': str(e)}), 500
 
 
+@service_bp.route('/manufacturer/disputed', methods=['GET'])
+@role_required('MANUFACTURER')
+def get_mfr_disputed_records():
+    """All disputed service records across every VIN this manufacturer registered.
+
+    Without this, a manufacturer could only see a dispute by already knowing its
+    VIN and searching for it — there was no way to discover one in the first
+    place, so the manufacturer side of a dispute thread was unreachable in practice.
+    """
+    try:
+        records = service_log_service.get_mfr_disputed_services(request.user['blockchain_address'])
+        result = paginate(records, request.args)
+        return jsonify({**result, 'disputed_services': result.pop('items')}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @service_bp.route('/owner/history', methods=['GET'])
 @role_required('OWNER')
 def get_owner_service_history():

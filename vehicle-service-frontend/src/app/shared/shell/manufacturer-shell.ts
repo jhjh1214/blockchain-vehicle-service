@@ -26,6 +26,7 @@ export class ManufacturerShellComponent implements OnInit, OnDestroy {
   resendState: 'idle' | 'loading' | 'sent' | 'error' = 'idle';
   warrantyBadge = 0;
   voidBadge = 0;
+  disputeBadge = 0;
   notifCount = 0;
   showNotifPanel = false;
   notifList: any[] = [];
@@ -57,6 +58,7 @@ export class ManufacturerShellComponent implements OnInit, OnDestroy {
     this.badge.startManufacturer();
     this.subs.add(this.badge.warrantyBadge$.subscribe(v => this.warrantyBadge = v));
     this.subs.add(this.badge.voidBadge$.subscribe(v => this.voidBadge = v));
+    this.subs.add(this.badge.disputeBadge$.subscribe(v => this.disputeBadge = v));
     this.subs.add(this.badge.notifCount$.subscribe(v => this.notifCount = v));
   }
 

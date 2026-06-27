@@ -293,7 +293,49 @@ def _flatten_owner_record(record, index: int, mapping, sc_user_cache=None) -> di
         'escalated': meta.get('escalated', False),
         'escalated_at': meta.get('escalated_at'),
         'integrity_status': record.get('integrity_status'),
+        'timestamp': record.get('timestamp'),
     }
+
+
+def get_mfr_disputed_services(mfr_address: str) -> list:
+    """All disputed records across every VIN this manufacturer registered.
+
+    Manufacturers previously had no way to discover a dispute without already
+    knowing the VIN — there was no aggregate view, only a VIN search box. This
+    surfaces every open dispute up front, escalated ones first, so the manufacturer
+    side of the three-party dispute thread is actually reachable in practice.
+    """
+    mappings = vehicle_repo.find_by_registered_by(mfr_address)
+    raw_collected = []
+    for mapping in mappings:
+        raw_records = service_log.get_pending_services(mapping.vin)
+        for idx, record in enumerate(raw_records):
+            if not record.get('disputed'):
+                continue
+            metadata = service_repo.find_by_metadata_hash(record['metadata_hash'])
+            if metadata:
+                record['metadata'] = {
+                    'service_type': metadata.service_type,
+                    'service_date': metadata.service_date.isoformat() if metadata.service_date else None,
+                    'mileage': metadata.mileage,
+                    'parts_replaced': metadata.parts_replaced,
+                    'technician_name': metadata.technician_name,
+                    'service_notes': metadata.service_notes,
+                    'photos': metadata.photos or [],
+                    'rebuttal_notes': metadata.rebuttal_notes,
+                    'rebuttal_submitted_at': metadata.rebuttal_submitted_at.isoformat() if metadata.rebuttal_submitted_at else None,
+                    'escalated': metadata.escalated,
+                    'escalated_at': metadata.escalated_at.isoformat() if metadata.escalated_at else None,
+                }
+            raw_collected.append((record, idx, mapping))
+
+    if not raw_collected:
+        return []
+    sc_user_cache = _load_sc_user_cache([r for r, _, _ in raw_collected])
+    result = [_flatten_owner_record(record, idx, mapping, sc_user_cache) for record, idx, mapping in raw_collected]
+    # Escalated disputes need manufacturer attention first; otherwise newest first.
+    result.sort(key=lambda r: (not r.get('escalated', False), -(r.get('timestamp') or 0)))
+    return result
 
 
 def get_owner_finalized_services(owner_address: str, filters: dict = None) -> list:

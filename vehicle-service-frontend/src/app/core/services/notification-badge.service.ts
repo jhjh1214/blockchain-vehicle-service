@@ -49,6 +49,14 @@ export class NotificationBadgeService implements OnDestroy {
         }
       })
     );
+    this.sub.add(
+      interval(POLL_MS).pipe(
+        startWith(0),
+        switchMap(() => this.serviceService.getMfrDisputedServices().pipe(catchError(() => of(null)))),
+      ).subscribe(res => {
+        if (res) this._disputeBadge.next(res.disputed_services?.length ?? 0);
+      })
+    );
     this._pollNotifCount();
   }
 

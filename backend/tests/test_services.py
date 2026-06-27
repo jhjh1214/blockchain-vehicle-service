@@ -847,3 +847,119 @@ class TestServiceResolutionPersistence:
     def teardown_method(self, method):
         from blockchain.adapters.service_log import service_log as sl
         sl.get_pending_services.return_value = []
+
+
+class TestManufacturerDisputedAggregate:
+    """The manufacturer previously had no way to discover a dispute without already
+    knowing its VIN, and the VIN-search path returned the on-chain VIN hash instead of
+    the plain VIN in `record['vin']` — breaking thread/resolve calls downstream. This
+    covers the new aggregate endpoint that fixes both."""
+
+    def _setup_dispute(self, client, app, mfr_token, owner_email, vin=VIN, escalated=False, timestamp=1_700_000_000):
+        _register_vehicle_services(client, mfr_token, owner_email=owner_email, vin=vin)
+        _, sc_user = register_and_login(client, 'SERVICE_CENTER')
+        sc_token = _activate_sc_services(client, mfr_token, sc_user)
+        client.post('/api/service/submit', headers=auth(sc_token), json={
+            'vin': vin, 'service_type': 'Engine Service',
+            'service_date': SERVICE_DATE, 'mileage': 30000,
+        })
+        with app.app_context():
+            from db.models import ServiceMetadata
+            record = ServiceMetadata.query.filter_by(vin=vin).first()
+            meta_hash = record.metadata_hash
+            if escalated:
+                record.escalated = True
+                from db.models import db as _db
+                _db.session.commit()
+
+        from blockchain.adapters.service_log import service_log as sl
+        sl.get_pending_services.return_value = [{
+            'metadata_hash': meta_hash,
+            'verified': False,
+            'disputed': True,
+            'service_center': '0x' + '02' * 20,
+            'timestamp': timestamp,
+        }]
+        return meta_hash
+
+    def teardown_method(self, method):
+        from blockchain.adapters.service_log import service_log as sl
+        sl.get_pending_services.return_value = []
+
+    def test_manufacturer_sees_disputed_record_with_plain_vin(self, client, app):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        _, owner = register_and_login(client, 'OWNER')
+        self._setup_dispute(client, app, mfr_token, owner['email'])
+
+        r = client.get('/api/service/manufacturer/disputed', headers=auth(mfr_token))
+        assert r.status_code == 200
+        records = r.get_json()['disputed_services']
+        assert len(records) == 1
+        # Must be the plain 17-char VIN, not the on-chain keccak256 hash —
+        # that hash previously broke every thread/resolve call for this record.
+        assert records[0]['vin'] == VIN
+        assert records[0]['record_index'] == 0
+        assert records[0]['disputed'] is True
+
+    def test_non_manufacturer_cannot_access(self, client):
+        sc_token, _ = register_and_login(client, 'SERVICE_CENTER')
+        r = client.get('/api/service/manufacturer/disputed', headers=auth(sc_token))
+        assert r.status_code == 403
+
+    def test_other_manufacturer_does_not_see_unrelated_brand_dispute(self, client, app):
+        mfr_a, _ = register_and_login(client, 'MANUFACTURER', brand='Honda')
+        mfr_b, _ = register_and_login(client, 'MANUFACTURER', brand='Toyota')
+        _, owner = register_and_login(client, 'OWNER')
+        self._setup_dispute(client, app, mfr_a, owner['email'])
+
+        r = client.get('/api/service/manufacturer/disputed', headers=auth(mfr_b))
+        assert r.status_code == 200
+        assert r.get_json()['disputed_services'] == []
+
+    def test_escalated_disputes_sorted_first(self, client, app):
+        """A newer, non-escalated dispute and an older, escalated one on a different
+        VIN — the escalated one must surface first regardless of recency."""
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        _, owner = register_and_login(client, 'OWNER')
+        vin2 = '2HGCM82633A004352'
+
+        _register_vehicle_services(client, mfr_token, owner_email=owner['email'], vin=VIN)
+        _register_vehicle_services(client, mfr_token, owner_email=owner['email'], vin=vin2)
+        _, sc_user = register_and_login(client, 'SERVICE_CENTER')
+        sc_token = _activate_sc_services(client, mfr_token, sc_user)
+        client.post('/api/service/submit', headers=auth(sc_token), json={
+            'vin': VIN, 'service_type': 'Engine Service', 'service_date': SERVICE_DATE, 'mileage': 30000,
+        })
+        client.post('/api/service/submit', headers=auth(sc_token), json={
+            'vin': vin2, 'service_type': 'Brake Service', 'service_date': SERVICE_DATE, 'mileage': 12000,
+        })
+
+        with app.app_context():
+            from db.models import ServiceMetadata, db as _db
+            rec1 = ServiceMetadata.query.filter_by(vin=VIN).first()
+            rec2 = ServiceMetadata.query.filter_by(vin=vin2).first()
+            hash1, hash2 = rec1.metadata_hash, rec2.metadata_hash
+            rec2.escalated = True
+            _db.session.commit()
+
+        from blockchain.adapters.service_log import service_log as sl
+        sc_addr = '0x' + '02' * 20
+        def fake_pending(vin):
+            if vin == VIN:
+                return [{'metadata_hash': hash1, 'verified': False, 'disputed': True,
+                          'service_center': sc_addr, 'timestamp': 1_700_000_500}]
+            if vin == vin2:
+                return [{'metadata_hash': hash2, 'verified': False, 'disputed': True,
+                          'service_center': sc_addr, 'timestamp': 1_600_000_000}]
+            return []
+        sl.get_pending_services.side_effect = fake_pending
+
+        try:
+            r = client.get('/api/service/manufacturer/disputed', headers=auth(mfr_token))
+            assert r.status_code == 200
+            records = r.get_json()['disputed_services']
+            assert len(records) == 2
+            assert records[0]['vin'] == vin2
+            assert records[0]['escalated'] is True
+        finally:
+            sl.get_pending_services.side_effect = None

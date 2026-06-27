@@ -20,7 +20,7 @@
               formControlName="vin"
               class="form-control"
               [class.is-invalid]="f['vin'].invalid && f['vin'].touched"
-              placeholder="Enter 17-character VIN"
+              placeholder="Or look up a specific VIN"
               maxlength="17"
               style="text-transform:uppercase;"
               aria-label="Vehicle Identification Number (VIN)"
@@ -29,6 +29,11 @@
           <button type="submit" class="btn btn-primary" [disabled]="loading">
             @if (loading) { <span class="spinner"></span> } @else { Search }
           </button>
+          @if (viewMode === 'vin') {
+            <button type="button" class="btn btn-ghost" (click)="loadAllDisputes()">
+              ← All Disputes
+            </button>
+          }
         </div>
         @if (f['vin'].invalid && f['vin'].touched) {
           <div class="invalid-feedback" style="margin-top:6px;">Enter a valid 17-character VIN</div>
@@ -66,7 +71,7 @@
   }
 
   <!-- Skeleton while loading -->
-  @if (loading && currentVin) {
+  @if (loading) {
     <div class="card">
       <div class="card-header">
         <div style="display:flex;flex-direction:column;gap:7px;">
@@ -101,13 +106,17 @@
   }
 
   <!-- Disputed records -->
-  @if (currentVin && !loading) {
+  @if (!loading) {
     @if (disputedRecords.length > 0) {
       <div class="card">
         <div class="card-header">
           <div>
-            <h3 class="card-title">Disputed Records</h3>
-            <div class="mono text-muted" style="font-size:12px;margin-top:2px;">VIN: {{ currentVin }}</div>
+            <h3 class="card-title">{{ viewMode === 'vin' ? 'Disputed Records' : 'All Disputed Records' }}</h3>
+            @if (viewMode === 'vin') {
+              <div class="mono text-muted" style="font-size:12px;margin-top:2px;">VIN: {{ currentVin }}</div>
+            } @else {
+              <div class="text-muted" style="font-size:12px;margin-top:2px;">Across all registered vehicles — escalated disputes shown first</div>
+            }
           </div>
           <span class="badge badge-disputed">{{ disputedRecords.length }} disputed</span>
         </div>
@@ -117,10 +126,19 @@
               <div class="dispute-header">
                 <div class="flex items-center gap-8">
                   <span class="dispute-index">#{{ i + 1 }}</span>
+                  @if (viewMode === 'all') {
+                    <span class="mono badge badge-info">{{ record.vin }}</span>
+                  }
                   <span class="badge badge-disputed">
                     <span class="dot"></span>
                     Disputed
                   </span>
+                  @if (record.escalated) {
+                    <span class="badge" style="background:var(--color-danger-light,#fee2e2);color:#7f1d1d;">
+                      <span class="dot"></span>
+                      Escalated
+                    </span>
+                  }
                 </div>
                 @if (resolvingIndex !== i) {
                   <div class="flex" style="gap:8px;flex-wrap:wrap;">
@@ -154,13 +172,13 @@
               }
 
               <!-- SC rebuttal -->
-              @if (record.metadata?.rebuttal_notes) {
+              @if (record.rebuttal_notes) {
                 <div class="info-box" style="margin-bottom:12px;border-left-color:var(--color-primary);background:var(--color-primary-light);">
                   <strong style="color:var(--color-primary);">Service Centre Rebuttal:</strong>
-                  <span style="margin-left:4px;">{{ record.metadata?.rebuttal_notes }}</span>
-                  @if (record.metadata?.rebuttal_submitted_at) {
+                  <span style="margin-left:4px;">{{ record.rebuttal_notes }}</span>
+                  @if (record.rebuttal_submitted_at) {
                     <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
-                      Submitted {{ record.metadata?.rebuttal_submitted_at | date:'d MMM y, HH:mm' }}
+                      Submitted {{ record.rebuttal_submitted_at | date:'d MMM y, HH:mm' }}
                     </div>
                   }
                 </div>
@@ -173,19 +191,19 @@
               <div class="detail-grid">
                 <div class="detail-item">
                   <div class="detail-label">Service Type</div>
-                  <div class="detail-value">{{ record.metadata?.service_type || '—' }}</div>
+                  <div class="detail-value">{{ record.service_type || '—' }}</div>
                 </div>
                 <div class="detail-item">
                   <div class="detail-label">Service Date</div>
-                  <div class="detail-value">{{ formatDateTime(record.metadata?.service_date || '') }}</div>
+                  <div class="detail-value">{{ formatDateTime(record.service_date || '') }}</div>
                 </div>
                 <div class="detail-item">
                   <div class="detail-label">Mileage</div>
-                  <div class="detail-value">{{ record.metadata?.mileage ? (record.metadata?.mileage + ' km') : '—' }}</div>
+                  <div class="detail-value">{{ record.mileage ? (record.mileage + ' km') : '—' }}</div>
                 </div>
                 <div class="detail-item">
                   <div class="detail-label">Technician</div>
-                  <div class="detail-value">{{ record.metadata?.technician_name || '—' }}</div>
+                  <div class="detail-value">{{ record.technician_name || '—' }}</div>
                 </div>
                 <div class="detail-item">
                   <div class="detail-label">Submitted On</div>
@@ -317,7 +335,7 @@
       </div>
     }
 
-    <!-- No disputes after search -->
+    <!-- No disputes -->
     @if (disputedRecords.length === 0 && !error) {
       <div class="card">
         <div class="card-body">
@@ -327,28 +345,16 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
               </svg>
             </div>
-            <h3>No Disputed Records</h3>
-            <p>No disputed service records found for VIN {{ currentVin }}.</p>
+            @if (viewMode === 'vin') {
+              <h3>No Disputed Records</h3>
+              <p>No disputed service records found for VIN {{ currentVin }}.</p>
+            } @else {
+              <h3>No Active Disputes</h3>
+              <p>There are no disputed service records across your registered vehicles right now.</p>
+            }
           </div>
         </div>
       </div>
     }
-  }
-
-  <!-- Initial state -->
-  @if (!currentVin && !loading) {
-    <div class="card">
-      <div class="card-body">
-        <div class="empty-state">
-          <div class="empty-state-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
-            </svg>
-          </div>
-          <h3>Search by VIN</h3>
-          <p>Enter a vehicle VIN to view its disputed service records</p>
-        </div>
-      </div>
-    </div>
   }
 </div>

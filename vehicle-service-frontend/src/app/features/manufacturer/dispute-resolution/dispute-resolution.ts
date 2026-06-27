@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ServiceService } from '../../../core/services/service';
@@ -9,17 +9,17 @@ interface DisputedRecord {
   metadata_hash: string;
   timestamp: number;
   disputed: boolean;
+  escalated?: boolean;
+  escalated_at?: string;
   dispute_reason?: string;
-  metadata?: {
-    service_type: string;
-    service_date: string;
-    mileage: number;
-    technician_name: string;
-    parts_replaced: string;
-    service_notes: string;
-    rebuttal_notes?: string;
-    rebuttal_submitted_at?: string;
-  };
+  service_type?: string;
+  service_date?: string;
+  mileage?: number;
+  technician_name?: string;
+  parts_replaced?: string;
+  service_notes?: string;
+  rebuttal_notes?: string;
+  rebuttal_submitted_at?: string;
 }
 
 @Component({
@@ -29,7 +29,7 @@ interface DisputedRecord {
   templateUrl: './dispute-resolution.html',
   styleUrl: './dispute-resolution.css'
 })
-export class DisputeResolutionComponent {
+export class DisputeResolutionComponent implements OnInit {
   searchForm: FormGroup;
   resolveForm: FormGroup;
 
@@ -39,6 +39,8 @@ export class DisputeResolutionComponent {
   actionSuccess = '';
   actionError = '';
 
+  /** 'all' = aggregate view across every VIN; 'vin' = a specific VIN search result. */
+  viewMode: 'all' | 'vin' = 'all';
   currentVin = '';
   disputedRecords: DisputedRecord[] = [];
   resolvingIndex: number | null = null;
@@ -56,6 +58,30 @@ export class DisputeResolutionComponent {
     });
     this.resolveForm = this.fb.group({
       resolution_notes: ['', Validators.required]
+    });
+  }
+
+  ngOnInit(): void {
+    this.loadAllDisputes();
+  }
+
+  loadAllDisputes(): void {
+    this.viewMode = 'all';
+    this.loading = true;
+    this.error = '';
+    this.actionSuccess = '';
+    this.actionError = '';
+    this.resolvingIndex = null;
+    this.currentVin = '';
+    this.serviceService.getMfrDisputedServices().subscribe({
+      next: (res) => {
+        this.disputedRecords = res.disputed_services || [];
+        this.loading = false;
+      },
+      error: (err) => {
+        this.error = err.error?.error || 'Failed to load disputed records';
+        this.loading = false;
+      }
     });
   }
 
@@ -115,6 +141,7 @@ export class DisputeResolutionComponent {
       return;
     }
     const vin = this.searchForm.value.vin.toUpperCase();
+    this.viewMode = 'vin';
     this.loading = true;
     this.error = '';
     this.actionSuccess = '';
@@ -125,9 +152,7 @@ export class DisputeResolutionComponent {
 
     this.serviceService.getPendingServices(vin).subscribe({
       next: (res) => {
-        this.disputedRecords = (res.pending_services || [])
-          .map((r: any, i: number) => ({ ...r, record_index: i }))
-          .filter((r: any) => r.disputed);
+        this.disputedRecords = this.flattenAndFilterDisputed(res.pending_services, vin);
         this.loading = false;
       },
       error: (err) => {
@@ -135,6 +160,26 @@ export class DisputeResolutionComponent {
         this.loading = false;
       }
     });
+  }
+
+  /** /service/pending/:vin nests metadata and uses the on-chain VIN hash, not the plain
+   * VIN, in its `vin` field — flatten to the same shape the aggregate endpoint returns. */
+  private flattenAndFilterDisputed(records: any[], vin: string): DisputedRecord[] {
+    return (records || [])
+      .map((r: any, i: number) => ({
+        ...r,
+        vin,
+        record_index: i,
+        service_type: r.metadata?.service_type,
+        service_date: r.metadata?.service_date,
+        mileage: r.metadata?.mileage,
+        technician_name: r.metadata?.technician_name,
+        parts_replaced: r.metadata?.parts_replaced,
+        service_notes: r.metadata?.service_notes,
+        rebuttal_notes: r.metadata?.rebuttal_notes,
+        rebuttal_submitted_at: r.metadata?.rebuttal_submitted_at,
+      }))
+      .filter((r: any) => r.disputed);
   }
 
   startResolve(index: number, decision: 'approve' | 'reject' | 'modify'): void {
@@ -167,7 +212,7 @@ export class DisputeResolutionComponent {
     this.serviceService.resolveDispute(record.vin, record.metadata_hash, decision, notes).subscribe({
       next: () => {
         const label = this.resolvingDecision === 'approve' ? 'approved' : this.resolvingDecision === 'reject' ? 'rejected' : 'flagged for modification';
-        this.actionSuccess = `Dispute ${label} successfully for ${record.metadata?.service_type || 'record'}.`;
+        this.actionSuccess = `Dispute ${label} successfully for ${record.service_type || 'record'}.`;
         this.resolvingIndex = null;
         this.resolvingDecision = null;
         this.actionLoading = false;
@@ -182,11 +227,14 @@ export class DisputeResolutionComponent {
   }
 
   private refreshDisputed(): void {
-    this.serviceService.getPendingServices(this.currentVin).subscribe({
+    if (this.viewMode === 'all') {
+      this.loadAllDisputes();
+      return;
+    }
+    const vin = this.currentVin;
+    this.serviceService.getPendingServices(vin).subscribe({
       next: (res) => {
-        this.disputedRecords = (res.pending_services || [])
-          .map((r: any, i: number) => ({ ...r, record_index: i }))
-          .filter((r: any) => r.disputed);
+        this.disputedRecords = this.flattenAndFilterDisputed(res.pending_services, vin);
       },
       error: () => {}
     });

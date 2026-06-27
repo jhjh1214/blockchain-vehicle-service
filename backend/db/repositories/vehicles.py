@@ -16,6 +16,10 @@ def find_by_owner(owner_address: str, status: str = None) -> list:
     return q.all()
 
 
+def find_by_registered_by(registered_by: str) -> list:
+    return VehicleVINMapping.query.filter_by(registered_by=registered_by).all()
+
+
 def create(vin: str, vin_hash: str, owner_address: str,
            make: str = None, model: str = None, year: int = None,
            warranty_expiry: int = None, registered_by: str = None,
