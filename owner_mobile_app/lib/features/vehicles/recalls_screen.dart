@@ -110,14 +110,14 @@ class _RecallCard extends StatelessWidget {
     final unserviced = myAffected.where((v) => !myServiced.contains(v)).toList();
     final isFullyServiced = unserviced.isEmpty && myAffected.isNotEmpty;
 
+    final statusColor = isFullyServiced ? Colors.green : Colors.orange;
+    final muted = Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6);
+
     return Card(
       margin: const EdgeInsets.only(bottom: 14),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: isFullyServiced ? Colors.green.shade300 : Colors.orange.shade300,
-          width: 1.5,
-        ),
+        side: BorderSide(color: statusColor.withValues(alpha: 0.4), width: 1.5),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -128,7 +128,7 @@ class _RecallCard extends StatelessWidget {
               children: [
                 Icon(
                   isFullyServiced ? Icons.check_circle : Icons.warning_amber_rounded,
-                  color: isFullyServiced ? Colors.green : Colors.orange,
+                  color: statusColor,
                   size: 20,
                 ),
                 const SizedBox(width: 8),
@@ -143,39 +143,40 @@ class _RecallCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               recall['description'] ?? '',
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+              style: TextStyle(fontSize: 13, color: muted),
             ),
             const SizedBox(height: 12),
             if (unserviced.isNotEmpty) ...[
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.orange.shade50,
+                  color: Colors.orange.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.orange.shade200),
+                  border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const Text(
                       'Service Required for:',
                       style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 12,
-                          color: Colors.orange.shade800),
+                          color: Colors.orange),
                     ),
                     const SizedBox(height: 4),
                     ...unserviced.map((v) => Text(
                           v,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontFamily: 'monospace',
                               fontSize: 12,
-                              letterSpacing: 0.5),
+                              letterSpacing: 0.5,
+                              color: Colors.orange.withValues(alpha: 0.9)),
                         )),
                     const SizedBox(height: 8),
                     Text(
                       'Please visit an authorised service centre to have the recall service performed.',
-                      style: TextStyle(fontSize: 12, color: Colors.orange.shade700),
+                      style: TextStyle(fontSize: 12, color: Colors.orange.withValues(alpha: 0.85)),
                     ),
                   ],
                 ),
@@ -184,17 +185,17 @@ class _RecallCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.green.shade50,
+                  color: Colors.green.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.green.shade200),
+                  border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.check_circle, color: Colors.green.shade600, size: 16),
+                    const Icon(Icons.check_circle, color: Colors.green, size: 16),
                     const SizedBox(width: 6),
                     Text(
                       'Recall service completed for your vehicle(s)',
-                      style: TextStyle(fontSize: 12, color: Colors.green.shade700),
+                      style: TextStyle(fontSize: 12, color: Colors.green.withValues(alpha: 0.9)),
                     ),
                   ],
                 ),
@@ -205,13 +206,13 @@ class _RecallCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: Colors.grey.shade300),
+                  border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.linear_scale, size: 13, color: Colors.grey.shade600),
+                    Icon(Icons.linear_scale, size: 13, color: muted),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
@@ -219,7 +220,7 @@ class _RecallCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 11,
                           fontFamily: 'monospace',
-                          color: Colors.grey.shade700,
+                          color: muted,
                         ),
                       ),
                     ),
@@ -230,7 +231,7 @@ class _RecallCard extends StatelessWidget {
             ],
             Text(
               'Issued by ${recall['issued_by'] ?? 'Manufacturer'}',
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+              style: TextStyle(fontSize: 11, color: muted),
             ),
           ],
         ),

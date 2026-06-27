@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import '../../core/services/push_notification_service.dart';
 import 'notifications_provider.dart';
 
 class NotificationsScreen extends StatefulWidget {
@@ -114,6 +116,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     ],
                   ),
                   isThreeLine: true,
+                  onTap: () => PushNotificationService.navigateForData(
+                      GoRouter.of(context), n.data),
                 );
               },
             ),

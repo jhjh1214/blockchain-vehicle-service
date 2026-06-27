@@ -86,19 +86,21 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
         separatorBuilder: (_, __) => const SizedBox(height: 8),
         itemBuilder: (context, i) {
           if (unservicedRecallCount > 0 && i == 0) {
+            const color = Colors.orange;
             return Card(
-              color: Colors.orange.shade50,
+              color: color.withValues(alpha: 0.08),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
-                side: BorderSide(color: Colors.orange.shade300, width: 1.5),
+                side: BorderSide(color: color.withValues(alpha: 0.35), width: 1.5),
               ),
               child: ListTile(
-                leading: Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700),
+                leading: const Icon(Icons.warning_amber_rounded, color: color),
                 title: Text(
                   '$unservicedRecallCount Active Recall${unservicedRecallCount != 1 ? "s" : ""}',
-                  style: TextStyle(fontWeight: FontWeight.w600, color: Colors.orange.shade800),
+                  style: const TextStyle(fontWeight: FontWeight.w600, color: color),
                 ),
-                subtitle: const Text('Your vehicle(s) require safety recall service'),
+                subtitle: Text('Your vehicle(s) require safety recall service',
+                    style: TextStyle(color: color.withValues(alpha: 0.85))),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push('/vehicles/recalls'),
               ),

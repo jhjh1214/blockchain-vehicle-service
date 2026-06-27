@@ -92,9 +92,16 @@ class PushNotificationService {
   void _handleTap(RemoteMessage message) {
     final router = _router;
     if (router == null) return;
-    final type = message.data['type'] ?? '';
-    final vin = message.data['vin'] ?? '';
-    final recordIndex = message.data['record_index'] ?? '';
+    navigateForData(router, message.data);
+  }
+
+  /// Shared type→route mapping used both when a push notification is tapped
+  /// from the system tray and when a notification is tapped inside the app's
+  /// in-app notification list.
+  static void navigateForData(GoRouter router, Map<String, dynamic> data) {
+    final type = data['type'] ?? '';
+    final vin = data['vin'] ?? '';
+    final recordIndex = data['record_index'] ?? '';
     switch (type) {
       case 'dispute_message':
         if (vin.isNotEmpty && recordIndex.isNotEmpty) {
@@ -119,8 +126,6 @@ class PushNotificationService {
       default:
         if (vin.isNotEmpty) {
           router.go('/vehicles/$vin');
-        } else {
-          router.go('/notifications');
         }
     }
   }
