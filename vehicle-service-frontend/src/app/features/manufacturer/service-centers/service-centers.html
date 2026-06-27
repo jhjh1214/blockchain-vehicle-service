@@ -48,36 +48,38 @@
         @if (licenses.length === 0) {
           <div style="font-size:13px;color:var(--text-muted);padding:8px 0;">No SSM licenses registered yet. Add your authorised workshops' SSM numbers above.</div>
         } @else {
-          <table style="width:100%;font-size:13px;border-collapse:collapse;">
-            <thead>
-              <tr style="border-bottom:1px solid var(--border);">
-                <th style="text-align:left;padding:6px 8px;color:var(--text-muted);font-weight:500;">SSM Number</th>
-                <th style="text-align:left;padding:6px 8px;color:var(--text-muted);font-weight:500;">Workshop Name</th>
-                <th style="text-align:left;padding:6px 8px;color:var(--text-muted);font-weight:500;">Status</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (lic of licenses; track lic.id) {
+          <div class="data-table-wrap">
+            <table style="width:100%;font-size:13px;border-collapse:collapse;">
+              <thead>
                 <tr style="border-bottom:1px solid var(--border);">
-                  <td style="padding:8px;font-family:monospace;font-weight:600;">{{ lic.ssm_number }}</td>
-                  <td style="padding:8px;">{{ lic.sc_name || '—' }}</td>
-                  <td style="padding:8px;">
-                    @if (lic.used) {
-                      <span class="badge badge-verified">Registered</span>
-                    } @else {
-                      <span class="badge badge-pending">Available</span>
-                    }
-                  </td>
-                  <td style="padding:8px;text-align:right;">
-                    @if (!lic.used) {
-                      <button class="btn btn-sm btn-ghost" style="color:var(--color-danger);" (click)="deleteLicense(lic.id)">Remove</button>
-                    }
-                  </td>
+                  <th style="text-align:left;padding:6px 8px;color:var(--text-muted);font-weight:500;">SSM Number</th>
+                  <th style="text-align:left;padding:6px 8px;color:var(--text-muted);font-weight:500;">Workshop Name</th>
+                  <th style="text-align:left;padding:6px 8px;color:var(--text-muted);font-weight:500;">Status</th>
+                  <th></th>
                 </tr>
-              }
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                @for (lic of licenses; track lic.id) {
+                  <tr style="border-bottom:1px solid var(--border);">
+                    <td style="padding:8px;font-family:monospace;font-weight:600;">{{ lic.ssm_number }}</td>
+                    <td style="padding:8px;">{{ lic.sc_name || '—' }}</td>
+                    <td style="padding:8px;">
+                      @if (lic.used) {
+                        <span class="badge badge-verified">Registered</span>
+                      } @else {
+                        <span class="badge badge-pending">Available</span>
+                      }
+                    </td>
+                    <td style="padding:8px;text-align:right;">
+                      @if (!lic.used) {
+                        <button class="btn btn-sm btn-ghost" style="color:var(--color-danger);" (click)="deleteLicense(lic.id)">Remove</button>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
         }
       </div>
     }

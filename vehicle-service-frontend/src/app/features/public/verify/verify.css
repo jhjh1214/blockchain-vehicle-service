@@ -218,8 +218,17 @@
   margin-bottom: 20px;
 }
 
+.verify-seo-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  text-align: left;
+  margin-bottom: 16px;
+}
+
 @media (max-width: 540px) {
   .verify-header, .verify-search, .verify-result { padding-left: 20px; padding-right: 20px; }
   .verify-detail-grid { grid-template-columns: 1fr; }
   .verify-qr-row { flex-direction: column; align-items: center; text-align: center; }
+  .verify-seo-grid { grid-template-columns: 1fr; }
 }

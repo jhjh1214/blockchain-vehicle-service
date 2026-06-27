@@ -66,6 +66,13 @@
   border-color: var(--border);
 }
 
+.recall-vin-range-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
 @media (max-width: 640px) {
   .charts-row { grid-template-columns: 1fr; }
+  .recall-vin-range-grid { grid-template-columns: 1fr; }
 }
