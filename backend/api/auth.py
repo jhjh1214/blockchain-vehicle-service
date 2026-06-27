@@ -451,7 +451,7 @@ def delete_account():
     if not password:
         return jsonify({'error': 'Password is required to confirm account deletion'}), 400
 
-    from db.models import db, AuditLog, DisputeMessage, VehicleVINMapping
+    from db.models import db, AuditLog, DisputeMessage, VehicleVINMapping, Notification, AbuseReport
 
     user = auth_service.get_user_by_id(request.user['user_id'])
     if not user:
@@ -524,6 +524,18 @@ def delete_account():
     VehicleVINMapping.query.filter_by(
         intended_owner_email=user.email
     ).update({'intended_owner_email': None}, synchronize_session=False)
+
+    # Delete notifications outright — they're personal and not needed after erasure.
+    # (notifications.user_id is NOT NULL, so the ORM's default "de-associate" cascade
+    # would otherwise fail trying to null it out when the user row is deleted.)
+    Notification.query.filter_by(user_id=user.id).delete(synchronize_session=False)
+
+    # Abuse reports made against this user are deleted (reported_user_id is NOT NULL,
+    # same issue as above); reports this user filed against others are anonymised.
+    AbuseReport.query.filter_by(reported_user_id=user.id).delete(synchronize_session=False)
+    AbuseReport.query.filter_by(reporter_user_id=user.id).update(
+        {'reporter_user_id': None}, synchronize_session=False
+    )
 
     role = user.role
 

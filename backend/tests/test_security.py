@@ -1875,6 +1875,42 @@ class TestAccountDeletion:
             remaining = AuditLog.query.filter_by(user_id=user_id).count()
             assert remaining == 0
 
+    def test_delete_account_with_notifications_and_abuse_reports(self, client, app):
+        """Regression test: notifications.user_id and abuse_reports.reported_user_id are
+        NOT NULL with no delete cascade configured on the relationship, so SQLAlchemy's
+        default de-associate-on-delete behaviour (null out the FK) used to raise an
+        IntegrityError and silently break account deletion for any owner with at least
+        one notification — i.e. almost every active owner."""
+        import uuid
+        email = f'del4_{uuid.uuid4().hex[:6]}@test.com'
+        r = client.post('/api/auth/register', json={
+            'email': email, 'password': STRONG_PASSWORD,
+            'role': 'OWNER', 'name': 'Notif Del', 'consent_given': True,
+        })
+        token = r.get_json()['access_token']
+        user_id = r.get_json()['user']['id']
+
+        with app.app_context():
+            from db.models import db, Notification, AbuseReport
+            db.session.add(Notification(
+                user_id=user_id, title='Warranty Update', body='Your warranty was approved.',
+                type='warranty_claim',
+            ))
+            db.session.add(AbuseReport(
+                reported_user_id=user_id, reporter_role='SERVICE_CENTER',
+                reason='Suspicious VIN claim', category='other',
+            ))
+            db.session.commit()
+
+        r2 = client.delete('/api/auth/account', headers=auth(token),
+                           json={'password': STRONG_PASSWORD})
+        assert r2.status_code == 200
+
+        with app.app_context():
+            from db.models import User, Notification as Notif
+            assert User.query.filter_by(email=email).first() is None
+            assert Notif.query.filter_by(user_id=user_id).count() == 0
+
 
 class TestDataExport:
     def test_data_export_requires_auth(self, client):
