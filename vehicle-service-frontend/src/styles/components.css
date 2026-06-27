@@ -391,6 +391,27 @@ select.form-control {
   cursor: pointer;
 }
 
+/* Suppress the native number-input spinner — restyling it consistently across
+   browsers isn't worth the fragility, and most production UIs just hide it. */
+input[type="number"].form-control {
+  -moz-appearance: textfield;
+}
+input[type="number"].form-control::-webkit-outer-spin-button,
+input[type="number"].form-control::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Checkbox — themed via accent-color rather than a full custom replacement,
+   consistent in every current browser without the fragility of a div-based one. */
+input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
 .invalid-feedback {
   font-size: 12px;
   color: var(--color-danger);
