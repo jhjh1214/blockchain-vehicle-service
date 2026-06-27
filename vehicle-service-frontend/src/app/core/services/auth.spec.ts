@@ -51,18 +51,19 @@ describe('AuthService', () => {
     req.flush(MOCK_RESPONSE);
   });
 
-  it('login stores tokens in localStorage when rememberMe=true', () => {
+  it('login stores user profile in localStorage when rememberMe=true', () => {
+    // Tokens live in HttpOnly cookies set by the backend — only the profile is cached client-side.
     service.login({ email: 'a@b.com', password: 'pass' }, true).subscribe();
     httpMock.expectOne(`${environment.apiUrl}/auth/login`).flush(MOCK_RESPONSE);
-    expect(localStorage.getItem('access_token')).toBe(MOCK_RESPONSE.access_token);
-    expect(localStorage.getItem('refresh_token')).toBe(MOCK_RESPONSE.refresh_token);
+    expect(JSON.parse(localStorage.getItem('currentUser')!)).toEqual(MOCK_USER);
+    expect(sessionStorage.getItem('currentUser')).toBeNull();
   });
 
-  it('login stores tokens in sessionStorage when rememberMe=false', () => {
+  it('login stores user profile in sessionStorage when rememberMe=false', () => {
     service.login({ email: 'a@b.com', password: 'pass' }, false).subscribe();
     httpMock.expectOne(`${environment.apiUrl}/auth/login`).flush(MOCK_RESPONSE);
-    expect(sessionStorage.getItem('access_token')).toBe(MOCK_RESPONSE.access_token);
-    expect(localStorage.getItem('access_token')).toBeNull();
+    expect(JSON.parse(sessionStorage.getItem('currentUser')!)).toEqual(MOCK_USER);
+    expect(localStorage.getItem('currentUser')).toBeNull();
   });
 
   it('login updates currentUserValue', () => {
@@ -112,12 +113,12 @@ describe('AuthService', () => {
     req.flush(MOCK_RESPONSE);
   });
 
-  it('refreshTokens posts to correct URL', () => {
-    sessionStorage.setItem('refresh_token', 'old-refresh');
+  it('refreshTokens posts to correct URL with credentials, no body', () => {
+    // The refresh token is an HttpOnly cookie sent automatically — no body needed.
     service.refreshTokens().subscribe();
     const req = httpMock.expectOne(`${environment.apiUrl}/auth/refresh`);
     expect(req.request.method).toBe('POST');
-    expect(req.request.body.refresh_token).toBe('old-refresh');
+    expect(req.request.withCredentials).toBe(true);
     req.flush(MOCK_RESPONSE);
   });
 

@@ -6,6 +6,8 @@ import { AuthService } from '../../../core/services/auth';
 import { BlockchainService } from '../../../core/services/blockchain.service';
 import { VehicleService, DashboardStats } from '../../../core/services/vehicle';
 import { ThemeService } from '../../../core/services/theme.service';
+import { ScManagementService } from '../../../core/services/sc-management.service';
+import { ServiceService } from '../../../core/services/service';
 
 const MOCK_USER = {
   id: 1, email: 'mfr@test.com',
@@ -47,6 +49,7 @@ function makeVehicleSpy(stats: DashboardStats | null = MOCK_STATS, fail = false)
     getManufacturerStats: vi.fn().mockReturnValue(of(stats!)),
     getActivityFeed: vi.fn().mockReturnValue(of({ feed: [] })),
     getFleetExport: vi.fn().mockReturnValue(of(new Blob())),
+    getRecalls: vi.fn().mockReturnValue(of({ recalls: [] })),
   };
 }
 
@@ -55,11 +58,25 @@ function makeThemeSpy(isDark = false) {
   return { dark$: subject.asObservable(), isDark };
 }
 
+function makeScManagementSpy() {
+  return {
+    getEthRequests: vi.fn().mockReturnValue(of({ requests: [], count: 0 })),
+  };
+}
+
+function makeServiceSpy() {
+  return {
+    getVoidRequestsManufacturer: vi.fn().mockReturnValue(of({ requests: [] })),
+  };
+}
+
 async function setup(
   authSpy: any = makeAuthSpy(),
   blockchainSpy: any = makeBlockchainSpy(),
   vehicleSpy: any = makeVehicleSpy(),
   themeSpy: any = makeThemeSpy(),
+  scSpy: any = makeScManagementSpy(),
+  serviceSpy: any = makeServiceSpy(),
 ) {
   await TestBed.configureTestingModule({
     imports: [ManufacturerDashboardComponent],
@@ -69,6 +86,8 @@ async function setup(
       { provide: BlockchainService, useValue: blockchainSpy },
       { provide: VehicleService,   useValue: vehicleSpy },
       { provide: ThemeService,     useValue: themeSpy },
+      { provide: ScManagementService, useValue: scSpy },
+      { provide: ServiceService,   useValue: serviceSpy },
     ],
   }).compileComponents();
 }
@@ -97,10 +116,9 @@ describe('ManufacturerDashboardComponent', () => {
 
   it('statsError is true when getDashboardStats and getManufacturerStats both fail', async () => {
     const vehicleSpy = {
+      ...makeVehicleSpy(),
       getDashboardStats:    vi.fn().mockReturnValue(throwError(() => new Error('fail'))),
       getManufacturerStats: vi.fn().mockReturnValue(throwError(() => new Error('fail'))),
-      getActivityFeed:      vi.fn().mockReturnValue(of({ feed: [] })),
-      getFleetExport:       vi.fn().mockReturnValue(of(new Blob())),
     };
     await setup(makeAuthSpy(), makeBlockchainSpy(), vehicleSpy);
     const fixture = TestBed.createComponent(ManufacturerDashboardComponent);
