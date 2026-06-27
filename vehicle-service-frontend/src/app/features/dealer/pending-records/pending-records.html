@@ -20,7 +20,7 @@
               formControlName="vin"
               class="form-control"
               [class.is-invalid]="f['vin'].invalid && f['vin'].touched"
-              placeholder="Enter 17-character VIN"
+              placeholder="Or look up a specific VIN"
               maxlength="17"
               style="text-transform:uppercase;"
             />
@@ -28,6 +28,9 @@
           <button type="submit" class="btn btn-primary" [disabled]="loading">
             @if (loading) { <span class="spinner"></span> } @else { Search }
           </button>
+          @if (viewMode === 'vin') {
+            <button type="button" class="btn btn-ghost" (click)="loadAll()">← All Records</button>
+          }
         </div>
         @if (f['vin'].invalid && f['vin'].touched) {
           <div class="invalid-feedback" style="margin-top:6px;">Enter a valid 17-character VIN</div>
@@ -47,7 +50,7 @@
   }
 
   <!-- Skeleton while loading -->
-  @if (loading && currentVin) {
+  @if (loading) {
     <div class="card">
       <div class="card-header">
         <div class="sk sk-cell w-55" style="height:16px;"></div>
@@ -96,7 +99,11 @@
 
     <div class="card">
       <div class="card-header">
-        <h3 class="card-title">Pending for VIN: <span class="mono" style="font-size:13px;">{{ currentVin }}</span></h3>
+        @if (viewMode === 'vin') {
+          <h3 class="card-title">Pending for VIN: <span class="mono" style="font-size:13px;">{{ currentVin }}</span></h3>
+        } @else {
+          <h3 class="card-title">All Pending Records</h3>
+        }
         <span class="badge badge-pending">{{ filteredRecords.length }} records</span>
       </div>
       <div class="table-wrap">
@@ -104,6 +111,7 @@
           <thead>
             <tr>
               <th>ID</th>
+              @if (viewMode === 'all') { <th>VIN</th> }
               <th>Service Type</th>
               <th>Service Date</th>
               <th>Mileage</th>
@@ -117,17 +125,18 @@
             @for (record of filteredRecords; track record; let i = $index) {
               <tr [class.row-expanded]="expandedIndex === i">
                 <td class="td-muted td-id">{{ record.record_index }}</td>
-                <td><strong>{{ record.metadata?.service_type || '—' }}</strong></td>
-                <td>{{ formatDateTime(record.metadata?.service_date || '') }}</td>
-                <td>{{ record.metadata?.mileage ? (record.metadata?.mileage + ' km') : '—' }}</td>
-                <td>{{ record.metadata?.technician_name || '—' }}</td>
+                @if (viewMode === 'all') { <td class="mono" style="font-size:12px;">{{ record.vin }}</td> }
+                <td><strong>{{ record.service_type || '—' }}</strong></td>
+                <td>{{ formatDateTime(record.service_date || '') }}</td>
+                <td>{{ record.mileage ? (record.mileage + ' km') : '—' }}</td>
+                <td>{{ record.technician_name || '—' }}</td>
                 <td>{{ formatDate(record.timestamp) }}</td>
                 <td>
                   @if (!record.disputed) {
                     <span [class]="ageBadgeClass(getDaysPending(record.timestamp))">
                       {{ ageLabel(getDaysPending(record.timestamp)) }}
                     </span>
-                  } @else if (record.metadata?.escalated) {
+                  } @else if (record.escalated) {
                     <span class="badge badge-disputed" style="background:var(--color-warning-light,#fff7ed);color:var(--color-warning,#d97706);border:1px solid var(--color-warning,#d97706);">Escalated</span>
                   } @else {
                     <span class="badge badge-disputed">Disputed</span>
@@ -143,7 +152,7 @@
               </tr>
               @if (expandedIndex === i) {
                 <tr class="detail-row">
-                  <td colspan="8">
+                  <td [attr.colspan]="viewMode === 'all' ? 9 : 8">
                     <div class="detail-panel">
                       <div class="detail-panel-grid">
                         <div class="detail-panel-item">
@@ -156,11 +165,11 @@
                         </div>
                         <div class="detail-panel-item">
                           <div class="detail-panel-label">Parts Replaced</div>
-                          <div class="detail-panel-value">{{ record.metadata?.parts_replaced || '—' }}</div>
+                          <div class="detail-panel-value">{{ record.parts_replaced || '—' }}</div>
                         </div>
                         <div class="detail-panel-item" style="grid-column: span 3;">
                           <div class="detail-panel-label">Service Notes</div>
-                          <div class="detail-panel-value">{{ record.metadata?.service_notes || '—' }}</div>
+                          <div class="detail-panel-value">{{ record.service_notes || '—' }}</div>
                         </div>
                         @if (record.disputed && record.dispute_reason) {
                           <div class="detail-panel-item" style="grid-column: span 3;">
@@ -199,7 +208,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
               </svg>
               <div>
-                <strong>{{ record.metadata?.service_type || 'Record' }} — Disputed by Owner</strong>
+                <strong>{{ record.service_type || 'Record' }}@if (viewMode === 'all') { &nbsp;·&nbsp; <span class="mono">{{ record.vin }}</span> } — Disputed by Owner</strong>
                 @if (record.dispute_reason) {
                   <div style="margin-top:4px;font-size:13px;">Reason: {{ record.dispute_reason }}</div>
                 }
@@ -207,9 +216,9 @@
             </div>
 
             <!-- Existing rebuttal -->
-            @if (record.metadata?.rebuttal_notes) {
+            @if (record.rebuttal_notes) {
               <div style="padding:10px 12px;background:var(--color-success-light);border-left:3px solid var(--color-success);border-radius:4px;font-size:13px;margin-bottom:8px;color:var(--text);">
-                <strong>Your rebuttal:</strong> {{ record.metadata?.rebuttal_notes }}
+                <strong>Your rebuttal:</strong> {{ record.rebuttal_notes }}
               </div>
             }
 
@@ -233,14 +242,14 @@
                   </button>
                 </div>
               </div>
-            } @else if (!record.metadata?.rebuttal_notes) {
+            } @else if (!record.rebuttal_notes) {
               <button class="btn btn-secondary btn-sm" (click)="openRebuttal(record)">
                 Submit Rebuttal
               </button>
             }
 
             <!-- Escalate to manufacturer -->
-            @if (record.metadata?.escalated) {
+            @if (record.escalated) {
               <div style="margin-top:10px;font-size:12px;color:var(--color-warning);display:flex;align-items:center;gap:6px;">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:14px;height:14px;flex-shrink:0;">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M3 3l1.664 9.149M3 3h18M3 3 1.5 1.5M21 3l-1.664 9.149M21 3l1.5-1.5M9.75 17.25v.008h.008v-.008H9.75Zm4.5 0v.008h.008v-.008h-.008ZM12 14.25a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
@@ -275,8 +284,8 @@
     </div>
   }
 
-  <!-- No results after search -->
-  @if (!loading && currentVin && pendingRecords.length === 0 && !error) {
+  <!-- No results -->
+  @if (!loading && pendingRecords.length === 0 && !error) {
     <div class="card">
       <div class="card-body">
         <div class="empty-state">
@@ -285,25 +294,13 @@
               <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
             </svg>
           </div>
-          <h3>No Pending Records</h3>
-          <p>All service records for this vehicle have been verified, or no services have been submitted yet.</p>
-        </div>
-      </div>
-    </div>
-  }
-
-  <!-- Initial state -->
-  @if (!currentVin && !loading) {
-    <div class="card">
-      <div class="card-body">
-        <div class="empty-state">
-          <div class="empty-state-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-            </svg>
-          </div>
-          <h3>Search by VIN</h3>
-          <p>Enter a vehicle VIN above to see its pending service records</p>
+          @if (viewMode === 'vin') {
+            <h3>No Pending Records</h3>
+            <p>All service records for VIN {{ currentVin }} have been verified, or no services have been submitted yet.</p>
+          } @else {
+            <h3>No Pending Records</h3>
+            <p>You have no service records awaiting owner verification right now.</p>
+          }
         </div>
       </div>
     </div>

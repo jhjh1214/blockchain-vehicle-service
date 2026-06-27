@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -14,11 +14,13 @@ type FilterTab = 'all' | 'pending' | 'disputed';
   templateUrl: './pending-records.html',
   styleUrls: ['./pending-records.css']
 })
-export class PendingRecordsComponent {
+export class PendingRecordsComponent implements OnInit {
   searchForm: FormGroup;
   loading = false;
   error = '';
   pendingRecords: ServiceRecord[] = [];
+  /** 'all' = every record this service centre has submitted; 'vin' = a specific VIN search result. */
+  viewMode: 'all' | 'vin' = 'all';
   currentVin = '';
   activeFilter: FilterTab = 'all';
   expandedIndex: number | null = null;
@@ -39,6 +41,29 @@ export class PendingRecordsComponent {
     });
   }
 
+  ngOnInit(): void {
+    this.loadAll();
+  }
+
+  loadAll(): void {
+    this.viewMode = 'all';
+    this.loading = true;
+    this.error = '';
+    this.activeFilter = 'all';
+    this.expandedIndex = null;
+    this.currentVin = '';
+    this.serviceService.getCenterPending().subscribe({
+      next: (data) => {
+        this.pendingRecords = data.pending_services || [];
+        this.loading = false;
+      },
+      error: (err) => {
+        this.error = err.error?.error || 'Failed to load pending records';
+        this.loading = false;
+      }
+    });
+  }
+
   escalateDispute(record: ServiceRecord): void {
     this.escalatingRecord = record;
     this.escalateSuccess = '';
@@ -47,7 +72,7 @@ export class PendingRecordsComponent {
       next: () => {
         this.escalateSuccess = 'Dispute escalated. The manufacturer will prioritise this review.';
         this.escalatingRecord = null;
-        if (record.metadata) record.metadata = { ...record.metadata, escalated: true };
+        record.escalated = true;
       },
       error: (err: any) => {
         this.escalateError = err.error?.error || 'Failed to escalate dispute';
@@ -79,6 +104,7 @@ export class PendingRecordsComponent {
     ).subscribe({
       next: () => {
         this.rebuttalSuccess = 'Rebuttal submitted. The manufacturer will review it before making a decision.';
+        if (this.rebuttalRecord) this.rebuttalRecord.rebuttal_notes = this.rebuttalText.trim();
         this.rebuttalRecord = null;
         this.rebuttalLoading = false;
       },
@@ -108,16 +134,30 @@ export class PendingRecordsComponent {
       return;
     }
 
+    const vin = this.searchForm.value.vin.toUpperCase();
+    this.viewMode = 'vin';
     this.loading = true;
     this.error = '';
     this.pendingRecords = [];
     this.activeFilter = 'all';
     this.expandedIndex = null;
-    this.currentVin = this.searchForm.value.vin;
+    this.currentVin = vin;
 
-    this.serviceService.getPendingServices(this.currentVin).subscribe({
+    this.serviceService.getPendingServices(vin).subscribe({
       next: (data) => {
-        this.pendingRecords = (data.pending_services || []).map((r: any, i: number) => ({ ...r, record_index: i }));
+        this.pendingRecords = (data.pending_services || []).map((r: any, i: number) => ({
+          ...r,
+          vin,
+          record_index: i,
+          service_type: r.metadata?.service_type,
+          service_date: r.metadata?.service_date,
+          mileage: r.metadata?.mileage,
+          technician_name: r.metadata?.technician_name,
+          parts_replaced: r.metadata?.parts_replaced,
+          service_notes: r.metadata?.service_notes,
+          rebuttal_notes: r.metadata?.rebuttal_notes,
+          escalated: r.metadata?.escalated,
+        }));
         this.loading = false;
       },
       error: (err) => {
