@@ -13,10 +13,12 @@ const POLL_MS = 10_000;
 export class NotificationBadgeService implements OnDestroy {
   private _warrantyBadge = new BehaviorSubject<number>(0);
   private _disputeBadge  = new BehaviorSubject<number>(0);
+  private _voidBadge     = new BehaviorSubject<number>(0);
   private _notifCount    = new BehaviorSubject<number>(0);
 
   readonly warrantyBadge$ = this._warrantyBadge.asObservable();
   readonly disputeBadge$  = this._disputeBadge.asObservable();
+  readonly voidBadge$     = this._voidBadge.asObservable();
   readonly notifCount$    = this._notifCount.asObservable();
 
   private sub = new Subscription();
@@ -34,6 +36,17 @@ export class NotificationBadgeService implements OnDestroy {
         switchMap(() => this.vehicleService.getDashboardStats().pipe(catchError(() => of(null)))),
       ).subscribe(stats => {
         if (stats) this._warrantyBadge.next(stats.warranty_claims ?? 0);
+      })
+    );
+    this.sub.add(
+      interval(POLL_MS).pipe(
+        startWith(0),
+        switchMap(() => this.serviceService.getVoidRequestsManufacturer().pipe(catchError(() => of(null)))),
+      ).subscribe(res => {
+        if (res) {
+          const openCount = (res.requests ?? []).filter((r: any) => r.status === 'pending' || r.status === 'disputed').length;
+          this._voidBadge.next(openCount);
+        }
       })
     );
     this._pollNotifCount();
@@ -93,6 +106,7 @@ export class NotificationBadgeService implements OnDestroy {
     this.sub = new Subscription();
     this._warrantyBadge.next(0);
     this._disputeBadge.next(0);
+    this._voidBadge.next(0);
     this._notifCount.next(0);
   }
 

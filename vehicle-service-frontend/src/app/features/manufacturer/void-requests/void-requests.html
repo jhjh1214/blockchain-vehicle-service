@@ -1,0 +1,114 @@
+<div class="page">
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Warranty Void Requests</h1>
+      <p class="page-subtitle">Review service centre requests to void a vehicle's warranty</p>
+    </div>
+    <button class="btn btn-ghost" (click)="load()" [disabled]="loading" style="display:flex;align-items:center;gap:6px;font-size:13px;">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:16px;height:16px;" [style.animation]="loading ? 'spin 1s linear infinite' : 'none'">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+      </svg>
+      Refresh
+    </button>
+  </div>
+
+  @if (error) {
+    <div class="alert alert-danger mb-16">{{ error }}</div>
+  }
+
+  <div class="card">
+    <div class="card-header" style="gap:8px;flex-wrap:wrap;">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="btn btn-sm" [class.btn-primary]="filter==='open'" [class.btn-ghost]="filter!=='open'" (click)="filter='open'">
+          Open ({{ count('open') }})
+        </button>
+        <button class="btn btn-sm" [class.btn-primary]="filter==='pending'" [class.btn-ghost]="filter!=='pending'" (click)="filter='pending'">
+          Pending ({{ count('pending') }})
+        </button>
+        <button class="btn btn-sm" [class.btn-primary]="filter==='disputed'" [class.btn-ghost]="filter!=='disputed'" (click)="filter='disputed'">
+          Disputed ({{ count('disputed') }})
+        </button>
+        <button class="btn btn-sm" [class.btn-primary]="filter==='resolved'" [class.btn-ghost]="filter!=='resolved'" (click)="filter='resolved'">
+          Resolved ({{ count('resolved') }})
+        </button>
+        <button class="btn btn-sm" [class.btn-primary]="filter==='all'" [class.btn-ghost]="filter!=='all'" (click)="filter='all'">
+          All ({{ count('all') }})
+        </button>
+      </div>
+    </div>
+
+    <div class="card-body" style="padding:0;">
+      @if (loading) {
+        @for (n of [1,2,3]; track n) {
+          <div style="padding:16px 20px;border-bottom:1px solid var(--border);">
+            <div class="sk-cell w-55" style="height:14px;margin-bottom:8px;"></div>
+            <div class="sk-cell w-85" style="height:12px;"></div>
+          </div>
+        }
+      } @else if (filtered.length === 0) {
+        <div class="empty-state" style="padding:48px;">
+          <div class="empty-state-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
+            </svg>
+          </div>
+          <h3>No void requests</h3>
+          <p>
+            @if (filter === 'open') { No pending or disputed void requests right now. }
+            @else { No void requests match this filter. }
+          </p>
+        </div>
+      } @else {
+        @for (r of filtered; track r.id) {
+          <div style="padding:16px 20px;border-bottom:1px solid var(--border);" [style.border-bottom]="$last?'none':''">
+            <div style="display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+              <div style="flex:1;min-width:240px;">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                  <span style="font-weight:600;font-family:monospace;font-size:13px;">{{ r.vin }}</span>
+                  <span [class]="badgeClass(r.status)">
+                    <span class="dot"></span>
+                    {{ statusLabel(r.status) }}
+                  </span>
+                </div>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">
+                  Submitted by <strong>{{ r.sc_name || r.sc_email || 'Unknown SC' }}</strong>@if (r.sc_brand) { ({{ r.sc_brand }}) }
+                  &nbsp;·&nbsp; {{ r.created_at | date:'mediumDate' }}
+                </div>
+                <div style="font-size:13px;color:var(--text-secondary);margin-top:6px;">{{ r.reason }}</div>
+                @if (r.mileage_submitted && r.last_authorized_mileage) {
+                  <div style="font-size:12px;color:var(--color-warning,#d97706);margin-top:4px;">
+                    Mileage gap: {{ (r.mileage_submitted - r.last_authorized_mileage) | number }} km
+                    (last authorised: {{ r.last_authorized_mileage | number }} km → submitted: {{ r.mileage_submitted | number }} km)
+                  </div>
+                }
+                @if (r.owner_dispute_reason) {
+                  <div style="margin-top:8px;padding:8px 10px;background:var(--color-info-light,#eff6ff);border-left:3px solid #3b82f6;border-radius:4px;font-size:12px;">
+                    <strong>Owner dispute:</strong> {{ r.owner_dispute_reason }}
+                  </div>
+                }
+                @if (r.manufacturer_notes) {
+                  <div style="margin-top:8px;padding:8px 10px;background:var(--bg-subtle,var(--bg-secondary));border-radius:4px;font-size:12px;color:var(--text-muted);">
+                    <strong>Your notes:</strong> {{ r.manufacturer_notes }}
+                  </div>
+                }
+              </div>
+
+              @if (r.status === 'pending' || r.status === 'disputed') {
+                <div style="display:flex;flex-direction:column;gap:6px;min-width:200px;">
+                  <input type="text" class="form-control" style="font-size:12px;" placeholder="Optional notes…"
+                         [(ngModel)]="voidNotes[r.id]" />
+                  <div style="display:flex;gap:6px;">
+                    <button class="btn btn-sm btn-danger" [disabled]="actionId===r.id" (click)="resolve(r.id, 'approved')">
+                      @if (actionId===r.id) { <span class="spinner"></span> } @else { Approve Void }
+                    </button>
+                    <button class="btn btn-sm btn-ghost" [disabled]="actionId===r.id" (click)="resolve(r.id, 'denied')">Deny</button>
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+        }
+      }
+    </div>
+  </div>
+</div>

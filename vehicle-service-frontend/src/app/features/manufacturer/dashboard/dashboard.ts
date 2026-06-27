@@ -57,8 +57,6 @@ export class ManufacturerDashboardComponent implements OnInit, OnDestroy {
   ethRequests: any[] = [];
   ethRequestsLoading = false;
   voidRequests: any[] = [];
-  voidRequestsLoading = false;
-  voidNotes: { [id: number]: string } = {};
   private subs = new Subscription();
 
   pieChartData: ChartData<'pie'> = { labels: [], datasets: [{ data: [] }] };
@@ -325,16 +323,8 @@ export class ManufacturerDashboardComponent implements OnInit, OnDestroy {
   }
 
   loadVoidRequests(): void {
-    this.voidRequestsLoading = true;
     this.serviceService.getVoidRequestsManufacturer().subscribe({
-      next: r => { this.voidRequests = r.requests.filter(x => x.status === 'pending' || x.status === 'disputed'); this.voidRequestsLoading = false; this.cdr.detectChanges(); },
-      error: () => { this.voidRequestsLoading = false; this.cdr.detectChanges(); }
-    });
-  }
-
-  resolveVoid(id: number, decision: 'approved' | 'denied'): void {
-    this.serviceService.resolveVoidRequest(id, decision, this.voidNotes[id] || '').subscribe({
-      next: () => { this.loadVoidRequests(); this.cdr.detectChanges(); },
+      next: r => { this.voidRequests = (r.requests || []).filter(x => x.status === 'pending' || x.status === 'disputed'); this.cdr.detectChanges(); },
       error: () => {}
     });
   }

@@ -18,6 +18,7 @@ import { ManufacturerShellComponent } from './shared/shell/manufacturer-shell';
 import { ManufacturerDashboardComponent } from './features/manufacturer/dashboard/dashboard';
 import { RegisterVehicleComponent } from './features/manufacturer/register-vehicle/register-vehicle';
 import { WarrantyClaimsComponent } from './features/manufacturer/warranty-claims/warranty-claims';
+import { VoidRequestsComponent } from './features/manufacturer/void-requests/void-requests';
 import { DisputeResolutionComponent } from './features/manufacturer/dispute-resolution/dispute-resolution';
 import { ServiceCentersComponent } from './features/manufacturer/service-centers/service-centers';
 import { ScDetailComponent } from './features/manufacturer/service-centers/detail/sc-detail';
@@ -66,6 +67,7 @@ export const routes: Routes = [
       { path: 'register-vehicle', component: RegisterVehicleComponent },
       { path: 'fleet', component: FleetComponent },
       { path: 'warranty-claims', component: WarrantyClaimsComponent },
+      { path: 'void-requests', component: VoidRequestsComponent },
       { path: 'dispute-resolution', component: DisputeResolutionComponent },
       { path: 'service-centers', component: ServiceCentersComponent },
       { path: 'service-centers/:id', component: ScDetailComponent },
