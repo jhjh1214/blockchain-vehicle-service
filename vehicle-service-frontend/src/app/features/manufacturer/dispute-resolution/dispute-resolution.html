@@ -249,9 +249,10 @@
                     <textarea
                       class="form-control thread-input"
                       rows="2"
-                      placeholder="Reply to this dispute thread…"
+                      placeholder="Reply to this dispute thread… (Enter to send, Shift+Enter for newline)"
                       [(ngModel)]="threadInput[threadKey(record.vin, record.record_index)]"
                       [disabled]="threadSending[threadKey(record.vin, record.record_index)]"
+                      (keydown.enter)="onThreadEnter($event, record.vin, record.record_index)"
                     ></textarea>
                     <button
                       class="btn btn-primary btn-sm thread-send-btn"

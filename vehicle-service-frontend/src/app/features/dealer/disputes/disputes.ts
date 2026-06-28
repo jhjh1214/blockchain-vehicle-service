@@ -1,10 +1,13 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { Subscription, interval } from 'rxjs';
 import { ServiceService } from '../../../core/services/service';
 import { ServiceRecord } from '../../../core/models/service.model';
 import { VehicleService } from '../../../core/services/vehicle';
+
+const THREAD_POLL_MS = 5_000;
 
 @Component({
   selector: 'app-dealer-disputes',
@@ -13,7 +16,7 @@ import { VehicleService } from '../../../core/services/vehicle';
   templateUrl: './disputes.html',
   styleUrl: './disputes.css'
 })
-export class DealerDisputesComponent implements OnInit {
+export class DealerDisputesComponent implements OnInit, OnDestroy {
   loading = true;
   error = '';
   rebuttalSuccess = '';
@@ -38,6 +41,7 @@ export class DealerDisputesComponent implements OnInit {
   recalls: any[] = [];
   recallsLoading = false;
   recallMarkLoading: { [key: number]: boolean } = {};
+  private threadPollSub?: Subscription;
 
   constructor(
     private serviceService: ServiceService,
@@ -48,6 +52,19 @@ export class DealerDisputesComponent implements OnInit {
   ngOnInit(): void {
     this.load();
     this.loadRecalls();
+    this.threadPollSub = interval(THREAD_POLL_MS).subscribe(() => this.pollOpenThreads());
+  }
+
+  ngOnDestroy(): void {
+    this.threadPollSub?.unsubscribe();
+  }
+
+  private pollOpenThreads(): void {
+    for (const key of Object.keys(this.threadOpen)) {
+      if (!this.threadOpen[key]) continue;
+      const [vin, recordIndexStr] = key.split('-');
+      this.loadThread(vin, Number(recordIndexStr), true);
+    }
   }
 
   loadRecalls(): void {
@@ -97,15 +114,15 @@ export class DealerDisputesComponent implements OnInit {
     }
   }
 
-  loadThread(vin: string, recordIndex: number): void {
+  loadThread(vin: string, recordIndex: number, silent = false): void {
     const key = this.threadKey(vin, recordIndex);
-    this.threadLoading[key] = true;
+    if (!silent) this.threadLoading[key] = true;
     this.serviceService.getDisputeMessages(vin, recordIndex).subscribe({
       next: (res) => {
         this.threadMessages[key] = res.messages || [];
-        this.threadLoading[key] = false;
+        if (!silent) this.threadLoading[key] = false;
       },
-      error: () => { this.threadLoading[key] = false; }
+      error: () => { if (!silent) this.threadLoading[key] = false; }
     });
   }
 

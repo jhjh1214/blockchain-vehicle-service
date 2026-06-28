@@ -1,7 +1,10 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { Subscription, interval } from 'rxjs';
 import { ServiceService } from '../../../core/services/service';
+
+const THREAD_POLL_MS = 5_000;
 
 interface DisputedRecord {
   record_index: number;
@@ -29,7 +32,7 @@ interface DisputedRecord {
   templateUrl: './dispute-resolution.html',
   styleUrl: './dispute-resolution.css'
 })
-export class DisputeResolutionComponent implements OnInit {
+export class DisputeResolutionComponent implements OnInit, OnDestroy {
   searchForm: FormGroup;
   resolveForm: FormGroup;
 
@@ -51,6 +54,7 @@ export class DisputeResolutionComponent implements OnInit {
   threadLoading: { [key: string]: boolean } = {};
   threadInput: { [key: string]: string } = {};
   threadSending: { [key: string]: boolean } = {};
+  private threadPollSub?: Subscription;
 
   constructor(private fb: FormBuilder, private serviceService: ServiceService) {
     this.searchForm = this.fb.group({
@@ -63,6 +67,19 @@ export class DisputeResolutionComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadAllDisputes();
+    this.threadPollSub = interval(THREAD_POLL_MS).subscribe(() => this.pollOpenThreads());
+  }
+
+  ngOnDestroy(): void {
+    this.threadPollSub?.unsubscribe();
+  }
+
+  private pollOpenThreads(): void {
+    for (const key of Object.keys(this.threadOpen)) {
+      if (!this.threadOpen[key]) continue;
+      const [vin, recordIndexStr] = key.split('-');
+      this.loadThread(vin, Number(recordIndexStr), true);
+    }
   }
 
   loadAllDisputes(): void {
@@ -97,15 +114,15 @@ export class DisputeResolutionComponent implements OnInit {
     }
   }
 
-  loadThread(vin: string, recordIndex: number): void {
+  loadThread(vin: string, recordIndex: number, silent = false): void {
     const key = this.threadKey(vin, recordIndex);
-    this.threadLoading[key] = true;
+    if (!silent) this.threadLoading[key] = true;
     this.serviceService.getDisputeMessages(vin, recordIndex).subscribe({
       next: (res) => {
         this.threadMessages[key] = res.messages || [];
-        this.threadLoading[key] = false;
+        if (!silent) this.threadLoading[key] = false;
       },
-      error: () => { this.threadLoading[key] = false; }
+      error: () => { if (!silent) this.threadLoading[key] = false; }
     });
   }
 
@@ -125,6 +142,14 @@ export class DisputeResolutionComponent implements OnInit {
         this.threadInput[key] = text;
       }
     });
+  }
+
+  onThreadEnter(event: Event, vin: string, recordIndex: number): void {
+    const ke = event as KeyboardEvent;
+    if (!ke.shiftKey) {
+      event.preventDefault();
+      this.sendThreadMessage(vin, recordIndex);
+    }
   }
 
   senderLabel(msg: any): string {
