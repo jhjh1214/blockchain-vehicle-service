@@ -227,9 +227,9 @@ class _IconNode extends StatelessWidget {
       width: 40,
       height: 40,
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         shape: BoxShape.circle,
-        border: Border.all(color: color.withOpacity(0.35), width: 1.5),
+        border: Border.all(color: color.withValues(alpha: 0.35), width: 1.5),
       ),
       child: Icon(_iconForType(serviceType), color: color, size: 20),
     );
@@ -361,7 +361,7 @@ class _StatusChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(99),
       ),
       child: Text(

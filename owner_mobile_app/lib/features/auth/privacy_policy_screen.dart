@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 /// Displays the Privacy Policy and Terms of Service inline.
 /// Can be opened from login, register, or profile screens.
@@ -45,12 +44,12 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen>
       body: widget.showTabs
           ? TabBarView(
               controller: _tabs,
-              children: [
+              children: const [
                 _PolicyView(sections: _privacySections),
                 _PolicyView(sections: _termsSections),
               ],
             )
-          : _PolicyView(sections: _privacySections),
+          : const _PolicyView(sections: _privacySections),
     );
   }
 }

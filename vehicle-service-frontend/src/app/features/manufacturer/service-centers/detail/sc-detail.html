@@ -105,7 +105,7 @@
               <div class="detail-label">ETH Balance</div>
               <div class="detail-value">
                 @if (sc.eth_balance !== null) {
-                  <span class="balance-value" [class.balance-low]="(sc.eth_balance ?? 0) < 0.05">
+                  <span class="balance-value" [class.balance-low]="sc.eth_balance! < 0.05">
                     {{ sc.eth_balance!.toFixed(4) }} ETH
                   </span>
                 } @else {

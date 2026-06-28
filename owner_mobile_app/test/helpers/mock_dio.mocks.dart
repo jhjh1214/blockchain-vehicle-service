@@ -1,5 +1,5 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
-// ignore_for_file: type=lint
+// ignore_for_file: type=lint, unused_import
 
 // Run the following command to regenerate:
 //   dart run build_runner build --delete-conflicting-outputs
