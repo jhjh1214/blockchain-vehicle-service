@@ -126,7 +126,18 @@ class _ShellScreenState extends State<ShellScreen> {
                 ),
               );
             }),
-          Expanded(child: widget.child),
+          Expanded(
+            // The banner above already consumes the top safe-area inset via
+            // its own SafeArea. MediaQuery.padding isn't reduced for sibling
+            // widgets just because something earlier in the tree accounted
+            // for it visually — without this, the child's own AppBar adds
+            // that same status-bar height again, on top of the banner,
+            // leaving a large empty gap above the screen title.
+            child: showBanner
+                ? MediaQuery.removePadding(
+                    context: context, removeTop: true, child: widget.child)
+                : widget.child,
+          ),
         ],
       ),
       bottomNavigationBar: Container(
