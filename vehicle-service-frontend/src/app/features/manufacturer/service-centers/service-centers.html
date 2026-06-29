@@ -105,21 +105,37 @@
         </button>
       </div>
       @if (reconcileResult) {
-        <div [class]="reconcileResult.tampered > 0 ? 'alert alert-danger' : 'alert alert-success'" style="margin-bottom:0;">
+        <div [class]="reconcileResult.tampered > 0 ? 'alert alert-danger' : (reconcileResult.unverified > 0 ? 'alert alert-warning' : 'alert alert-success')" style="margin-bottom:0;">
           <div style="font-weight:600;margin-bottom:4px;">
             Checked {{ reconcileResult.checked }} records —
-            @if (reconcileResult.tampered === 0) { All records match their blockchain hashes ✓ }
-            @else { ⚠ {{ reconcileResult.tampered }} record(s) have mismatched hashes — possible tampering detected }
+            @if (reconcileResult.tampered === 0 && reconcileResult.unverified === 0) {
+              All records match their blockchain hashes ✓
+            } @else {
+              @if (reconcileResult.tampered > 0) { ⚠ {{ reconcileResult.tampered }} record(s) have mismatched data — likely tampered. }
+              @if (reconcileResult.unverified > 0) { {{ reconcileResult.tampered > 0 ? ' Also: ' : '' }}{{ reconcileResult.unverified }} record(s) could not be re-verified on-chain. }
+            }
           </div>
           @if (reconcileResult.tampered > 0) {
             <div style="margin-top:8px;font-size:13px;">
-              <strong>What this means:</strong> The stored metadata no longer matches what was hashed at submission time.
-              This could indicate database tampering. These records are now flagged as <code>tampered</code> in the system
-              and will show a warning badge on the vehicle history.
+              <strong>Tampered:</strong> The stored metadata no longer matches what was hashed at submission time.
+              This indicates the database row was edited after submission. These records are flagged as
+              <code>tampered</code> and show a warning badge on the vehicle history.
             </div>
+          }
+          @if (reconcileResult.unverified > 0) {
+            <div style="margin-top:8px;font-size:13px;">
+              <strong>Unverified:</strong> The stored data is internally consistent (its hash matches), but that hash
+              wasn't found in the current on-chain pending/finalized records. This usually means the blockchain node
+              or contract was redeployed/reset since these records were submitted — not that the data was tampered with.
+            </div>
+          }
+          @if (reconcileResult.records.length > 0) {
             <ul style="margin:8px 0 0 16px;font-size:12px;font-family:monospace;">
               @for (r of reconcileResult.records; track r.metadata_hash) {
-                <li>{{ r.vin }} — {{ r.service_type }} ({{ r.service_date | date:'mediumDate' }}) — hash: {{ r.metadata_hash | slice:0:18 }}…</li>
+                <li>
+                  <span [style.color]="r.integrity === 'tampered' ? 'var(--color-danger,#dc2626)' : 'var(--color-warning,#d97706)'">{{ r.integrity || 'error' }}</span>
+                  — {{ r.vin }} — {{ r.service_type }} ({{ r.service_date | date:'mediumDate' }}) — hash: {{ r.metadata_hash | slice:0:18 }}…
+                </li>
               }
             </ul>
           }

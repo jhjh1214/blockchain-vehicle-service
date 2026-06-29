@@ -76,7 +76,7 @@ export class VehicleService {
     return this.http.get<{ recalls: any[] }>(`${environment.apiUrl}/vehicle/recalls/check/${vin}`);
   }
 
-  reconcileRecords(vin?: string): Observable<{ checked: number; ok: number; tampered: number; records: any[] }> {
+  reconcileRecords(vin?: string): Observable<{ checked: number; ok: number; tampered: number; unverified: number; records: any[] }> {
     return this.http.post<any>(`${environment.apiUrl}/vehicle/reconcile`, vin ? { vin } : {});
   }
 

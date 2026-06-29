@@ -1119,18 +1119,29 @@ def reconcile_records():
         brand_vins = {row.vin for row in sc_vins_query.all()}
 
     if not brand_vins:
-        return jsonify({'checked': 0, 'ok': 0, 'tampered': 0, 'records': []}), 200
+        return jsonify({'checked': 0, 'ok': 0, 'tampered': 0, 'unverified': 0, 'records': []}), 200
 
     rows = _SM.query.filter(_SM.vin.in_(brand_vins)).all()
-    checked = ok_count = tampered_count = 0
+    checked = ok_count = tampered_count = unverified_count = 0
     records_out = []
 
     for row in rows:
         checked += 1
-        # Reconstruct exactly what submit_service() hashed
+        # Reconstruct exactly what submit_service() hashed. The frontend always sends
+        # service_date via JS Date.toISOString() — e.g. '2026-02-27T00:00:00.000Z' — and
+        # that raw string (not the parsed datetime) is what got hashed at submission time.
+        # The DateTime column has no timezone, so Postgres/SQLite both strip the tzinfo
+        # on storage — row.service_date always comes back naive. isoformat() alone also
+        # drops milliseconds when they're zero, so a plain `row.service_date.isoformat()
+        # + 'Z'` produced a different string than what was originally hashed for almost
+        # every record, flagging every untampered record as tampered.
+        service_date_str = (
+            row.service_date.isoformat(timespec='milliseconds') + 'Z'
+            if row.service_date else ''
+        )
         meta = {
             'service_type':    row.service_type or '',
-            'service_date':    (row.service_date.isoformat() + 'Z') if row.service_date else '',
+            'service_date':    service_date_str,
             'mileage':         row.mileage,
             'parts_replaced':  row.parts_replaced or '',
             'technician_name': row.technician_name or '',
@@ -1160,10 +1171,18 @@ def reconcile_records():
             except Exception:
                 chain_match = None  # blockchain unreachable — skip on-chain check
 
-        if db_fields_match and chain_match is not False:
-            status = 'ok'
-        else:
+        # Two genuinely different failure modes, kept distinct rather than both
+        # labelled 'tampered': a DB field mismatch means the stored data was edited
+        # after the hash was anchored — definite tampering. A DB match with no
+        # corresponding on-chain hash usually means the chain/contract was redeployed
+        # or reset (common during development) and lost its history — the record
+        # itself was never altered, it just can't be re-proven against the chain.
+        if not db_fields_match:
             status = 'tampered'
+        elif chain_match is False:
+            status = 'unverified'
+        else:
+            status = 'ok'
 
         row.integrity_status     = status
         row.integrity_checked_at = _dt.utcnow()
@@ -1171,7 +1190,10 @@ def reconcile_records():
         if status == 'ok':
             ok_count += 1
         else:
-            tampered_count += 1
+            if status == 'tampered':
+                tampered_count += 1
+            else:
+                unverified_count += 1
             records_out.append({
                 'vin':              row.vin,
                 'metadata_hash':    db_hash,
@@ -1184,8 +1206,9 @@ def reconcile_records():
 
     _db.session.commit()
     return jsonify({
-        'checked':  checked,
-        'ok':       ok_count,
-        'tampered': tampered_count,
-        'records':  records_out,
+        'checked':    checked,
+        'ok':         ok_count,
+        'tampered':   tampered_count,
+        'unverified': unverified_count,
+        'records':    records_out,
     }), 200

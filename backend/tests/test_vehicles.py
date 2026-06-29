@@ -621,3 +621,97 @@ class TestVehicleDetailServiceStats:
         _register_with_owner(client, mfr_token, owner['email'])
         r = client.get(f'/api/vehicle/{VIN}', headers=auth(owner_token))
         assert 'service_count' in r.get_json()
+
+
+class TestReconcileIntegrityCheck:
+    """The reconcile endpoint recomputes each record's hash from the stored DB fields
+    and compares it to the hash anchored at submission time. The frontend always sends
+    service_date via JS Date.toISOString() (e.g. '...T00:00:00.000Z'), and that exact
+    raw string — not the parsed datetime — is what gets hashed at submission. Regression
+    coverage for the bug where reconcile rebuilt the date differently and flagged every
+    untampered record as tampered."""
+
+    def _iso_now(self):
+        from datetime import datetime
+        return datetime.utcnow().isoformat(timespec='milliseconds') + 'Z'
+
+    def test_untampered_record_is_not_flagged(self, client):
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        owner_token, owner = register_and_login(client, 'OWNER')
+        _, sc_user = register_and_login(client, 'SERVICE_CENTER')
+        _register_with_owner(client, mfr_token, owner['email'])
+        sc_token = _activate_sc_vehicle(client, mfr_token, sc_user)
+
+        r = client.post('/api/service/submit', headers=auth(sc_token), json={
+            'vin': VIN, 'service_type': 'Oil Change',
+            'service_date': self._iso_now(), 'mileage': 8000,
+        })
+        assert r.status_code == 200
+        submitted_hash = r.get_json()['metadata_hash']
+
+        # The reconcile endpoint also cross-checks the DB hash against on-chain pending/
+        # finalized records. The default test mock returns [] for both regardless of what
+        # was "submitted", which would fail that check for any record — simulate a chain
+        # that actually has this record, matching real production behaviour.
+        from blockchain.adapters.service_log import service_log as sl
+        sl.get_pending_services.return_value = [{'metadata_hash': submitted_hash}]
+        try:
+            recon = client.post('/api/vehicle/reconcile', headers=auth(mfr_token), json={'vin': VIN})
+        finally:
+            sl.get_pending_services.return_value = []
+        assert recon.status_code == 200
+        data = recon.get_json()
+        assert data['checked'] == 1
+        assert data['tampered'] == 0
+        assert data['ok'] == 1
+        assert data['records'] == []
+
+    def test_actually_tampered_record_is_still_flagged(self, client, app):
+        """Make sure the fix didn't accidentally make the check incapable of detecting
+        real tampering — directly mutate a stored field after submission."""
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        owner_token, owner = register_and_login(client, 'OWNER')
+        _, sc_user = register_and_login(client, 'SERVICE_CENTER')
+        _register_with_owner(client, mfr_token, owner['email'])
+        sc_token = _activate_sc_vehicle(client, mfr_token, sc_user)
+
+        client.post('/api/service/submit', headers=auth(sc_token), json={
+            'vin': VIN, 'service_type': 'Oil Change',
+            'service_date': self._iso_now(), 'mileage': 8000,
+        })
+
+        with app.app_context():
+            from db.models import ServiceMetadata, db as _db
+            record = ServiceMetadata.query.filter_by(vin=VIN).first()
+            record.mileage = 999999  # simulate DB tampering after the fact
+            _db.session.commit()
+
+        recon = client.post('/api/vehicle/reconcile', headers=auth(mfr_token), json={'vin': VIN})
+        data = recon.get_json()
+        assert data['tampered'] == 1
+        assert data['ok'] == 0
+        assert data['unverified'] == 0
+
+    def test_db_consistent_but_not_on_chain_is_unverified_not_tampered(self, client):
+        """A hash that matches the DB but isn't found in pending/finalized on-chain records
+        (e.g. the contract was redeployed/reset) must be labelled 'unverified', not
+        'tampered' — the data itself was never altered."""
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        owner_token, owner = register_and_login(client, 'OWNER')
+        _, sc_user = register_and_login(client, 'SERVICE_CENTER')
+        _register_with_owner(client, mfr_token, owner['email'])
+        sc_token = _activate_sc_vehicle(client, mfr_token, sc_user)
+
+        client.post('/api/service/submit', headers=auth(sc_token), json={
+            'vin': VIN, 'service_type': 'Oil Change',
+            'service_date': self._iso_now(), 'mileage': 8000,
+        })
+        # Default test mock already returns [] for get_pending_services/get_finalized_services
+        # — i.e. "nothing on-chain", simulating a reset/redeployed contract.
+
+        recon = client.post('/api/vehicle/reconcile', headers=auth(mfr_token), json={'vin': VIN})
+        data = recon.get_json()
+        assert data['unverified'] == 1
+        assert data['tampered'] == 0
+        assert data['ok'] == 0
+        assert data['records'][0]['integrity'] == 'unverified'

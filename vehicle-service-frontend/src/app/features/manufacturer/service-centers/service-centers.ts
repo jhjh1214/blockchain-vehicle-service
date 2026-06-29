@@ -51,7 +51,7 @@ export class ServiceCentersComponent implements OnInit, AfterViewInit, OnDestroy
   // Integrity reconciliation
   reconcileVin = '';
   reconcileLoading = false;
-  reconcileResult: { checked: number; ok: number; tampered: number; records: any[] } | null = null;
+  reconcileResult: { checked: number; ok: number; tampered: number; unverified: number; records: any[] } | null = null;
 
   states = [...new Set(MY_CITIES.map(c => c.state))].sort();
 
@@ -197,7 +197,7 @@ export class ServiceCentersComponent implements OnInit, AfterViewInit, OnDestroy
     this.vehicleService.reconcileRecords(vin).subscribe({
       next: r => { this.reconcileResult = r; this.reconcileLoading = false; this.cdr.detectChanges(); },
       error: e => {
-        this.reconcileResult = { checked: 0, ok: 0, tampered: 0, records: [{ vin: 'Error', service_type: e.error?.error || 'Check failed', service_date: '', metadata_hash: '' }] };
+        this.reconcileResult = { checked: 0, ok: 0, tampered: 0, unverified: 0, records: [{ vin: 'Error', service_type: e.error?.error || 'Check failed', service_date: '', metadata_hash: '' }] };
         this.reconcileLoading = false;
         this.cdr.detectChanges();
       }
