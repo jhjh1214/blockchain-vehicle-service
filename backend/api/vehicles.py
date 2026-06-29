@@ -1121,7 +1121,19 @@ def reconcile_records():
     if not brand_vins:
         return jsonify({'checked': 0, 'ok': 0, 'tampered': 0, 'unverified': 0, 'records': []}), 200
 
-    rows = _SM.query.filter(_SM.vin.in_(brand_vins)).all()
+    # A rejected dispute is removed from the contract's pending array and never added
+    # to finalized — by design, since an invalid/rejected service shouldn't persist in
+    # on-chain history. Its hash can never be found on-chain again, redeploy or not, so
+    # it would always show as unverifiable here for a reason that has nothing to do with
+    # tampering or a chain reset. Excluded entirely rather than surfaced as a confusing
+    # status the manufacturer has no way to act on.
+    rows = _SM.query.filter(
+        _SM.vin.in_(brand_vins),
+        # resolution_decision is NULL for every non-disputed record — a plain
+        # `!= 'rejected'` would exclude those too, since SQL NULL comparisons
+        # are never true. Must explicitly allow NULL through.
+        _db.or_(_SM.resolution_decision.is_(None), _SM.resolution_decision != 'rejected'),
+    ).all()
     checked = ok_count = tampered_count = unverified_count = 0
     records_out = []
 

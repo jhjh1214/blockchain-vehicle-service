@@ -715,3 +715,54 @@ class TestReconcileIntegrityCheck:
         assert data['tampered'] == 0
         assert data['ok'] == 0
         assert data['records'][0]['integrity'] == 'unverified'
+
+    def test_rejected_dispute_excluded_from_check(self, client):
+        """A rejected dispute is removed from the contract's pending array and never
+        added to finalized — by design, not because anything is wrong. It would always
+        show as 'unverified' regardless of redeployment, which the manufacturer has no
+        way to act on, so it must be excluded entirely rather than surfaced."""
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        owner_token, owner = register_and_login(client, 'OWNER')
+        _, sc_user = register_and_login(client, 'SERVICE_CENTER')
+        _register_with_owner(client, mfr_token, owner['email'])
+        sc_token = _activate_sc_vehicle(client, mfr_token, sc_user)
+
+        r = client.post('/api/service/submit', headers=auth(sc_token), json={
+            'vin': VIN, 'service_type': 'Oil Change',
+            'service_date': self._iso_now(), 'mileage': 8000,
+        })
+        metadata_hash = r.get_json()['metadata_hash']
+
+        client.post('/api/service/dispute', headers=auth(owner_token), json={
+            'vin': VIN, 'metadata_hash': metadata_hash, 'reason': 'Unauthorized parts',
+        })
+        client.post('/api/service/resolve-dispute', headers=auth(mfr_token), json={
+            'vin': VIN, 'metadata_hash': metadata_hash, 'decision': 2,  # reject
+        })
+
+        recon = client.post('/api/vehicle/reconcile', headers=auth(mfr_token), json={'vin': VIN})
+        data = recon.get_json()
+        assert data['checked'] == 0
+        assert data['ok'] == 0
+        assert data['tampered'] == 0
+        assert data['unverified'] == 0
+        assert data['records'] == []
+
+    def test_normal_record_not_accidentally_excluded_by_null_resolution(self, client):
+        """resolution_decision is NULL for every record that was never disputed — a naive
+        `!= 'rejected'` filter would silently exclude all of them, since SQL NULL
+        comparisons are never true. Regression guard for that exact mistake."""
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        owner_token, owner = register_and_login(client, 'OWNER')
+        _, sc_user = register_and_login(client, 'SERVICE_CENTER')
+        _register_with_owner(client, mfr_token, owner['email'])
+        sc_token = _activate_sc_vehicle(client, mfr_token, sc_user)
+
+        client.post('/api/service/submit', headers=auth(sc_token), json={
+            'vin': VIN, 'service_type': 'Oil Change',
+            'service_date': self._iso_now(), 'mileage': 8000,
+        })
+
+        recon = client.post('/api/vehicle/reconcile', headers=auth(mfr_token), json={'vin': VIN})
+        data = recon.get_json()
+        assert data['checked'] == 1
