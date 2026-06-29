@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'auth_provider.dart';
+import 'biometric_setup_prompt.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -49,7 +50,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
     if (!mounted) return;
     if (ok) {
-      context.go('/home');
+      await offerBiometricSetup(context, force: true);
+      if (mounted) context.go('/home');
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

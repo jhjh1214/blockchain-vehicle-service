@@ -31,7 +31,15 @@ class AuthProvider extends ChangeNotifier {
     // Biometric login is the gate the user opted into — resuming the session
     // silently here would skip it entirely. Leave _user unset so the router
     // stays on /login, where LoginScreen prompts for fingerprint instead.
-    if (await TokenStorage.isBiometricEnabled()) return;
+    // Only defer if there's actually a saved credential to unlock with —
+    // an enabled flag with nothing to pair it with (e.g. left over from a
+    // different account on the same device, since logging into a new
+    // account doesn't clear a stale flag from a previous one) would strand
+    // the user on a blank login screen with no way to resume at all.
+    if (await TokenStorage.isBiometricEnabled() &&
+        await TokenStorage.loadCredentials() != null) {
+      return;
+    }
     try {
       final res = await ApiClient.instance.dio.get(ApiEndpoints.me);
       final user = User.fromJson(res.data);
@@ -88,6 +96,7 @@ class AuthProvider extends ChangeNotifier {
             if (phone != null) 'phone': phone,
           });
       await TokenStorage.save(res.data['access_token'], res.data['refresh_token']);
+      await TokenStorage.saveCredentials(email, password);
       _user = User.fromJson(res.data['user']);
       PushNotificationService.instance.init();
       return true;

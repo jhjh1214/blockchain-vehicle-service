@@ -6,6 +6,7 @@ import 'package:local_auth/local_auth.dart';
 import 'package:provider/provider.dart';
 import '../../core/storage/token_storage.dart';
 import 'auth_provider.dart';
+import 'biometric_setup_prompt.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -98,39 +99,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  /// After first remembered login, ask once if the user wants biometric login.
-  Future<void> _offerBiometricSetup() async {
-    try {
-      final alreadyDecided = await TokenStorage.hasBiometricDecision();
-      if (alreadyDecided || !mounted) return;
-      final canCheck = await _localAuth.canCheckBiometrics;
-      final isSupported = await _localAuth.isDeviceSupported();
-      if (!canCheck || !isSupported || !mounted) return;
-
-      final enable = await showDialog<bool>(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Enable Biometric Login?'),
-          content: const Text(
-              'Sign in faster next time using your fingerprint or face ID.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Not now'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Enable'),
-            ),
-          ],
-        ),
-      );
-
-      await TokenStorage.setBiometricEnabled(enable == true);
-    } catch (_) {}
-  }
-
   @override
   void dispose() {
     _emailCtrl.dispose();
@@ -149,7 +117,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
     if (ok) {
       if (_rememberMe) {
-        await _offerBiometricSetup();
+        await offerBiometricSetup(context);
       }
       if (mounted) context.go('/home');
     } else {

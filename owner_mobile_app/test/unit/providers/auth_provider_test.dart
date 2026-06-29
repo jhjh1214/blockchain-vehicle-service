@@ -136,6 +136,22 @@ void main() {
       expect(result, isFalse);
       expect(provider.error, 'Email already registered');
     });
+
+    test('saves credentials so a later restart can resume the session',
+        () async {
+      when(mockDio.post(ApiEndpoints.register, data: anyNamed('data')))
+          .thenAnswer((_) async => mockResponse({
+                'access_token': 'access123',
+                'refresh_token': 'refresh123',
+                'user': userJson,
+              }));
+
+      await provider.register('owner@test.com', 'Pass1234!', 'Test Owner');
+
+      final creds = await TokenStorage.loadCredentials();
+      expect(creds?.email, 'owner@test.com');
+      expect(creds?.password, 'Pass1234!');
+    });
   });
 
   group('logout', () {
@@ -222,16 +238,36 @@ void main() {
     });
 
     test(
-        'does NOT auto-resume when biometric login is enabled — regression '
-        'guard for remembered sessions silently bypassing the fingerprint gate',
+        'does NOT auto-resume when biometric login is enabled and a saved '
+        'credential exists to unlock with — regression guard for remembered '
+        'sessions silently bypassing the fingerprint gate',
         () async {
       await TokenStorage.save('access123', 'refresh123', rememberMe: true);
       await TokenStorage.setBiometricEnabled(true);
+      await TokenStorage.saveCredentials('owner@test.com', 'pass');
 
       await provider.tryAutoLogin();
 
       expect(provider.isAuthenticated, isFalse);
       verifyNever(mockDio.get(ApiEndpoints.me));
+    });
+
+    test(
+        'still auto-resumes when biometric is enabled but no saved credential '
+        'exists — regression guard for a stale enabled flag (e.g. left over '
+        'from a different account on the same device) stranding the user on '
+        'a blank login screen with nothing to unlock',
+        () async {
+      await TokenStorage.save('access123', 'refresh123', rememberMe: true);
+      await TokenStorage.setBiometricEnabled(true);
+      // No saveCredentials call — simulates a stale flag with nothing paired.
+      when(mockDio.get(ApiEndpoints.me))
+          .thenAnswer((_) async => mockResponse(userJson));
+
+      await provider.tryAutoLogin();
+
+      expect(provider.isAuthenticated, isTrue);
+      expect(provider.user?.email, 'owner@test.com');
     });
   });
 }
