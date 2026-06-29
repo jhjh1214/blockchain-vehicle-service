@@ -98,6 +98,11 @@ class PushNotificationService {
   /// Shared type→route mapping used both when a push notification is tapped
   /// from the system tray and when a notification is tapped inside the app's
   /// in-app notification list.
+  ///
+  /// Uses push, not go — go() replaces the entire navigation stack with the
+  /// target location, leaving nothing for the back button/swipe-back to
+  /// return to, so it exits the app instead of going back to wherever the
+  /// user actually was.
   static void navigateForData(GoRouter router, Map<String, dynamic> data) {
     final type = data['type'] ?? '';
     final vin = data['vin'] ?? '';
@@ -105,27 +110,27 @@ class PushNotificationService {
     switch (type) {
       case 'dispute_message':
         if (vin.isNotEmpty && recordIndex.isNotEmpty) {
-          router.go('/services/dispute-chat/$vin/$recordIndex');
+          router.push('/services/dispute-chat/$vin/$recordIndex');
         } else {
-          router.go('/services/pending');
+          router.push('/services/pending');
         }
       case 'pending_service':
       case 'dispute_filed':
       case 'rebuttal_submitted':
-        router.go('/services/pending');
+        router.push('/services/pending');
       case 'dispute_resolved':
       case 'service_completed':
-        router.go('/services/history');
+        router.push('/services/history');
       case 'warranty_claim':
-        router.go('/warranties');
+        router.push('/warranties');
       case 'recall':
-        router.go('/vehicles/recalls');
+        router.push('/vehicles/recalls');
       case 'warranty_void':
       case 'warranty_void_resolved':
-        router.go('/services/void-requests');
+        router.push('/services/void-requests');
       default:
         if (vin.isNotEmpty) {
-          router.go('/vehicles/$vin');
+          router.push('/vehicles/$vin');
         }
     }
   }

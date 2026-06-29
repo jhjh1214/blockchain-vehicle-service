@@ -173,7 +173,7 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen>
         }),
         const SizedBox(height: 16),
         OutlinedButton.icon(
-          onPressed: () => context.go('/services/history'),
+          onPressed: () => context.push('/services/history'),
           icon: const Icon(Icons.history),
           label: const Text('View Service History'),
         ),
@@ -250,7 +250,7 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen>
         ],
         const SizedBox(height: 12),
         OutlinedButton.icon(
-          onPressed: () => context.go('/warranties'),
+          onPressed: () => context.push('/warranties'),
           icon: const Icon(Icons.list),
           label: const Text('View All My Claims'),
         ),
