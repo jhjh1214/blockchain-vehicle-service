@@ -61,7 +61,7 @@
   text-align: center;
 }
 
-[data-theme="dark"] .chart-card {
+:host-context([data-theme="dark"]) .chart-card {
   background: var(--surface);
   border-color: var(--border);
 }

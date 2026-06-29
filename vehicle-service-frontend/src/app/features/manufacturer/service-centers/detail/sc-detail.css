@@ -144,9 +144,9 @@
 .sc-status-pending   { background: rgba(245,158,11,.12); color: #b45309; }
 .sc-status-suspended { background: rgba(239,68,68,.12);  color: #dc2626; }
 
-[data-theme="dark"] .sc-status-active    { background: rgba(34,197,94,.15);  color: #86efac; }
-[data-theme="dark"] .sc-status-pending   { background: rgba(245,158,11,.15); color: #fcd34d; }
-[data-theme="dark"] .sc-status-suspended { background: rgba(239,68,68,.15);  color: #fca5a5; }
+:host-context([data-theme="dark"]) .sc-status-active    { background: rgba(34,197,94,.15);  color: #86efac; }
+:host-context([data-theme="dark"]) .sc-status-pending   { background: rgba(245,158,11,.15); color: #fcd34d; }
+:host-context([data-theme="dark"]) .sc-status-suspended { background: rgba(239,68,68,.15);  color: #fca5a5; }
 
 @media (max-width: 900px) {
   .detail-layout {

@@ -92,8 +92,8 @@
 .warranty-badge.valid   { background: rgba(22,163,74,.12);  color: #16a34a; }
 .warranty-badge.expired { background: rgba(239,68,68,.12);  color: #dc2626; }
 
-[data-theme="dark"] .warranty-badge.valid   { background: rgba(34,197,94,.15);  color: #86efac; }
-[data-theme="dark"] .warranty-badge.expired { background: rgba(239,68,68,.15);  color: #fca5a5; }
+:host-context([data-theme="dark"]) .warranty-badge.valid   { background: rgba(34,197,94,.15);  color: #86efac; }
+:host-context([data-theme="dark"]) .warranty-badge.expired { background: rgba(239,68,68,.15);  color: #fca5a5; }
 
 .verify-detail-grid {
   display: grid;
