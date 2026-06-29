@@ -28,6 +28,10 @@ class AuthProvider extends ChangeNotifier {
   Future<void> tryAutoLogin() async {
     final hasToken = await TokenStorage.hasToken();
     if (!hasToken) return;
+    // Biometric login is the gate the user opted into — resuming the session
+    // silently here would skip it entirely. Leave _user unset so the router
+    // stays on /login, where LoginScreen prompts for fingerprint instead.
+    if (await TokenStorage.isBiometricEnabled()) return;
     try {
       final res = await ApiClient.instance.dio.get(ApiEndpoints.me);
       final user = User.fromJson(res.data);

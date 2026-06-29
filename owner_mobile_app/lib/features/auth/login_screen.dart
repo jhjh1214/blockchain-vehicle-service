@@ -20,6 +20,8 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
   bool _rememberMe = true;
   bool _biometricAvailable = false;
+  bool _biometricInProgress = false;
+  String? _savedPassword;
   final _localAuth = LocalAuthentication();
 
   @override
@@ -29,13 +31,17 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   /// Pre-fill saved credentials and show biometric button if user opted in.
+  /// If biometric login is enabled, prompt for fingerprint immediately —
+  /// it's the gate guarding the remembered session, not an optional shortcut.
   Future<void> _initCredentials() async {
     try {
       final creds = await TokenStorage.loadCredentials();
       if (creds == null || !mounted) return;
-      // Pre-fill email only — password must be entered or biometrics used
+      // Pre-fill email only — the password stays hidden, used only internally
+      // to complete a successful biometric unlock.
       setState(() {
         _emailCtrl.text = creds.email;
+        _savedPassword = creds.password;
         _rememberMe = true;
       });
 
@@ -43,21 +49,41 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!enabled || !mounted) return;
       final canCheck = await _localAuth.canCheckBiometrics;
       final isSupported = await _localAuth.isDeviceSupported();
-      if (mounted && canCheck && isSupported) {
-        setState(() => _biometricAvailable = true);
-      }
+      if (!mounted || !canCheck || !isSupported) return;
+      setState(() => _biometricAvailable = true);
+      _biometricLogin();
     } catch (_) {}
   }
 
   Future<void> _biometricLogin() async {
+    if (_biometricInProgress || _savedPassword == null) return;
+    setState(() => _biometricInProgress = true);
     try {
       final authenticated = await _localAuth.authenticate(
         localizedReason: 'Authenticate to sign in to VehicleChain',
         options: const AuthenticationOptions(biometricOnly: false),
       );
       if (!authenticated || !mounted) return;
-      await _submit(fromBiometric: true);
-    } catch (_) {}
+      final auth = context.read<AuthProvider>();
+      final ok = await auth.login(
+        _emailCtrl.text.trim(),
+        _savedPassword!,
+        rememberMe: true,
+      );
+      if (!mounted) return;
+      if (ok) {
+        context.go('/home');
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(auth.error ?? 'Biometric sign-in failed'),
+              backgroundColor: Colors.red),
+        );
+      }
+    } catch (_) {
+    } finally {
+      if (mounted) setState(() => _biometricInProgress = false);
+    }
   }
 
   /// After first remembered login, ask once if the user wants biometric login.
@@ -100,7 +126,7 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  Future<void> _submit({bool fromBiometric = false}) async {
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     final auth = context.read<AuthProvider>();
     final ok = await auth.login(
@@ -110,7 +136,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
     if (!mounted) return;
     if (ok) {
-      if (_rememberMe && !fromBiometric) {
+      if (_rememberMe) {
         await _offerBiometricSetup();
       }
       if (mounted) context.go('/home');
@@ -212,9 +238,18 @@ class _LoginScreenState extends State<LoginScreen> {
                 if (_biometricAvailable) ...[
                   const SizedBox(height: 12),
                   OutlinedButton.icon(
-                    onPressed: auth.loading ? null : _biometricLogin,
-                    icon: const Icon(Icons.fingerprint),
-                    label: const Text('Sign in with Biometrics'),
+                    onPressed: (auth.loading || _biometricInProgress)
+                        ? null
+                        : _biometricLogin,
+                    icon: _biometricInProgress
+                        ? const SizedBox(
+                            height: 18,
+                            width: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.fingerprint),
+                    label: Text(_biometricInProgress
+                        ? 'Waiting for fingerprint…'
+                        : 'Sign in with Biometrics'),
                     style: OutlinedButton.styleFrom(
                       minimumSize: const Size.fromHeight(48),
                     ),

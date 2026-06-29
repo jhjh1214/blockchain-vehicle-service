@@ -3,17 +3,45 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
 import 'package:owner_mobile_app/core/api/api_client.dart';
 import 'package:owner_mobile_app/core/api/api_endpoints.dart';
+import 'package:owner_mobile_app/core/storage/token_storage.dart';
 import 'package:owner_mobile_app/features/auth/auth_provider.dart';
 
 import '../../helpers/mock_dio.dart';
 
+const _secureStorageChannel =
+    MethodChannel('plugins.it_nomads.com/flutter_secure_storage');
+
+/// Backs the secure storage channel with an in-memory map keyed by storage
+/// key, so tests can seed values (e.g. a persisted access token, or the
+/// biometric_enabled flag) and have TokenStorage actually read them back.
+void _stubSecureStorage(Map<String, String> seed) {
+  final values = Map<String, String>.from(seed);
+  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .setMockMethodCallHandler(_secureStorageChannel, (MethodCall call) async {
+    switch (call.method) {
+      case 'read':
+        return values[call.arguments['key']];
+      case 'write':
+        values[call.arguments['key']] = call.arguments['value'];
+        return null;
+      case 'delete':
+        values.remove(call.arguments['key']);
+        return null;
+      default:
+        return null;
+    }
+  });
+}
+
 void main() {
   setUpAll(() {
     TestWidgetsFlutterBinding.ensureInitialized();
-    // Stub flutter_secure_storage platform channel so unit tests don't need a real device.
-    const channel = MethodChannel('plugins.it_nomads.com/flutter_secure_storage');
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (MethodCall call) async => null);
+  });
+
+  setUp(() {
+    // Default: empty secure storage, like a fresh install. Individual tests
+    // override this via _stubSecureStorage when they need specific values.
+    _stubSecureStorage({});
   });
 
   late MockDio mockDio;
@@ -170,6 +198,40 @@ void main() {
 
       provider.clearError();
       expect(provider.error, isNull);
+    });
+  });
+
+  group('tryAutoLogin', () {
+    test('does nothing when no token is persisted', () async {
+      await provider.tryAutoLogin();
+
+      expect(provider.isAuthenticated, isFalse);
+      verifyNever(mockDio.get(ApiEndpoints.me));
+    });
+
+    test('resumes the session when a token exists and biometric is off',
+        () async {
+      await TokenStorage.save('access123', 'refresh123', rememberMe: true);
+      when(mockDio.get(ApiEndpoints.me))
+          .thenAnswer((_) async => mockResponse(userJson));
+
+      await provider.tryAutoLogin();
+
+      expect(provider.isAuthenticated, isTrue);
+      expect(provider.user?.email, 'owner@test.com');
+    });
+
+    test(
+        'does NOT auto-resume when biometric login is enabled — regression '
+        'guard for remembered sessions silently bypassing the fingerprint gate',
+        () async {
+      await TokenStorage.save('access123', 'refresh123', rememberMe: true);
+      await TokenStorage.setBiometricEnabled(true);
+
+      await provider.tryAutoLogin();
+
+      expect(provider.isAuthenticated, isFalse);
+      verifyNever(mockDio.get(ApiEndpoints.me));
     });
   });
 }
