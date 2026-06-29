@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:provider/provider.dart';
@@ -80,7 +81,18 @@ class _LoginScreenState extends State<LoginScreen> {
               backgroundColor: Colors.red),
         );
       }
-    } catch (_) {
+    } on PlatformException catch (e) {
+      // A simple user cancellation comes back as `authenticated == false`,
+      // not an exception — anything thrown here is a real failure (no
+      // hardware, nothing enrolled, lockout, etc.) and should be visible
+      // rather than silently doing nothing.
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(e.message ?? 'Biometric authentication unavailable'),
+              backgroundColor: Colors.red),
+        );
+      }
     } finally {
       if (mounted) setState(() => _biometricInProgress = false);
     }
