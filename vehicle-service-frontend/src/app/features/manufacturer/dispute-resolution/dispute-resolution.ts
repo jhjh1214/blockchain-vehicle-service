@@ -267,14 +267,14 @@ export class DisputeResolutionComponent implements OnInit, OnDestroy {
 
   formatDate(ts: number): string {
     if (!ts) return '—';
-    return new Date(ts * 1000).toLocaleDateString('en-GB', {
+    return new Date(ts * 1000).toLocaleDateString('en-MY', {
       day: '2-digit', month: 'short', year: 'numeric'
     });
   }
 
   formatDateTime(val: string): string {
     if (!val) return '—';
-    return new Date(val).toLocaleDateString('en-GB', {
+    return new Date(val).toLocaleDateString('en-MY', {
       day: '2-digit', month: 'short', year: 'numeric'
     });
   }

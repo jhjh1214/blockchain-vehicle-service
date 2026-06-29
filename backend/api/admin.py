@@ -212,10 +212,14 @@ def reconcile():
 
     for row in query.all():
         checked += 1
-        # Reconstruct the metadata dict exactly as submit_service() built it
+        # Reconstruct the metadata dict exactly as submit_service() built it.
+        # The frontend always sends service_date via JS Date.toISOString() —
+        # e.g. '2026-02-27T00:00:00.000Z' — and that raw string (not the parsed
+        # datetime) is what got hashed at submission time. Plain isoformat()
+        # drops milliseconds when zero and never matches.
         recomputed_meta = {
             'service_type':    row.service_type or '',
-            'service_date':    row.service_date.isoformat() if row.service_date else '',
+            'service_date':    row.service_date.isoformat(timespec='milliseconds') + 'Z' if row.service_date else '',
             'mileage':         row.mileage,
             'parts_replaced':  row.parts_replaced or '',
             'technician_name': row.technician_name or '',

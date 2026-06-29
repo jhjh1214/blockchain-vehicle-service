@@ -1182,6 +1182,60 @@ class TestAdminResetDbHmac:
 
 
 # ---------------------------------------------------------------------------
+# admin/reconcile — same hash-reconstruction date bug as /vehicle/reconcile,
+# fixed in api/vehicles.py; this is the separate admin diagnostic endpoint's
+# own copy of the same logic and needed the identical fix.
+# ---------------------------------------------------------------------------
+
+class TestAdminReconcile:
+    SECRET = 'admin-reconcile-secret'
+
+    def _iso_now(self):
+        from datetime import datetime
+        return datetime.utcnow().isoformat(timespec='milliseconds') + 'Z'
+
+    def test_untampered_record_not_flagged(self, client, monkeypatch):
+        from config import Config
+        monkeypatch.setattr(Config, 'ADMIN_SECRET', self.SECRET)
+
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        _, owner = register_and_login(client, 'OWNER')
+        _, sc_user = register_and_login(client, 'SERVICE_CENTER')
+        _register_vehicle(client, mfr_token, owner_email=owner['email'])
+        sc_token = _activate_sc(client, mfr_token, sc_user)
+        _submit_service(client, sc_token, service_date=self._iso_now())
+
+        r = client.get(f'/api/admin/reconcile?vin={VIN}', headers=_admin_headers(self.SECRET))
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data['checked'] == 1
+        assert data['mismatches'] == 0
+        assert data['results'] == []
+
+    def test_actually_tampered_record_still_flagged(self, client, monkeypatch, app):
+        from config import Config
+        monkeypatch.setattr(Config, 'ADMIN_SECRET', self.SECRET)
+
+        mfr_token, _ = register_and_login(client, 'MANUFACTURER')
+        _, owner = register_and_login(client, 'OWNER')
+        _, sc_user = register_and_login(client, 'SERVICE_CENTER')
+        _register_vehicle(client, mfr_token, owner_email=owner['email'])
+        sc_token = _activate_sc(client, mfr_token, sc_user)
+        _submit_service(client, sc_token, service_date=self._iso_now())
+
+        with app.app_context():
+            from db.models import ServiceMetadata, db as _db
+            record = ServiceMetadata.query.filter_by(vin=VIN).first()
+            record.mileage = 999999
+            _db.session.commit()
+
+        r = client.get(f'/api/admin/reconcile?vin={VIN}', headers=_admin_headers(self.SECRET))
+        data = r.get_json()
+        assert data['mismatches'] == 1
+        assert data['results'][0]['hash_match'] is False
+
+
+# ---------------------------------------------------------------------------
 # MIME magic byte validation on uploads
 # ---------------------------------------------------------------------------
 

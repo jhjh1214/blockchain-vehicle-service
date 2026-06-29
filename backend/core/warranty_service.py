@@ -34,7 +34,7 @@ def submit_claim(vin: str, issue_description: str, photos: list, from_address: s
     claim_details = {
         'issue_description': issue_description,
         'photos': photos or [],
-        'submitted_date': datetime.now().isoformat()
+        'submitted_date': datetime.utcnow().isoformat()
     }
     claim_hash = compute_metadata_hash(claim_details)
 
