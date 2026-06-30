@@ -433,34 +433,6 @@ class _ServiceCard extends StatelessWidget {
                   ),
                 ),
               ],
-              if (record.resolutionDecision == 'modify') ...[
-                const SizedBox(height: 8),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.purple.shade50,
-                    border: Border.all(color: Colors.purple.shade200),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(children: [
-                        Icon(Icons.edit_note, size: 14, color: Colors.purple.shade700),
-                        const SizedBox(width: 6),
-                        Text('Manufacturer requested modification',
-                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.purple.shade800)),
-                      ]),
-                      if (record.resolutionNotes != null && record.resolutionNotes!.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Text(record.resolutionNotes!,
-                            style: TextStyle(fontSize: 13, color: Colors.purple.shade900)),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
               const SizedBox(height: 12),
               OutlinedButton.icon(
                 onPressed: () => context.push(

@@ -122,18 +122,6 @@ def broadcast_recall(title: str, body: str, issued_by: str) -> int:
         return 0
 
 
-def notify_modification_requested(user_id: int, vin: str, notes: str = '') -> None:
-    body = f'The manufacturer has requested modifications to the disputed service record for {vin}.'
-    if notes:
-        body += f' Notes: {notes}'
-    send_to_user(
-        user_id,
-        title='Modification Requested',
-        body=body,
-        data={'type': 'modification_requested', 'vin': vin},
-    )
-
-
 def notify_dispute_resolved(owner_user_id: int, vin: str, decision: int) -> None:
     labels = {1: 'accepted', 2: 'rejected', 3: 'modified'}
     label = labels.get(decision, 'resolved')

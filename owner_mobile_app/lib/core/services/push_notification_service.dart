@@ -84,7 +84,6 @@ class PushNotificationService {
     const serviceTypes = {
       'pending_service', 'dispute_filed', 'rebuttal_submitted',
       'dispute_message', 'dispute_resolved', 'service_completed',
-      'modification_requested',
     };
     if (serviceTypes.contains(message.data['type'])) {
       _services?.loadPending();
@@ -118,7 +117,6 @@ class PushNotificationService {
         } else {
           router.push('/services/pending');
         }
-      case 'modification_requested':
       case 'pending_service':
       case 'dispute_filed':
       case 'rebuttal_submitted':

@@ -155,15 +155,6 @@
             </div>
           }
 
-          @if (record.resolution_decision === 'modify') {
-            <div class="info-box info-box-warning" style="margin-top:8px;">
-              <strong>Modification Requested:</strong> The manufacturer has requested modifications to this service record.
-              @if (record.resolution_notes) {
-                <div style="margin-top:4px;">{{ record.resolution_notes }}</div>
-              }
-            </div>
-          }
-
           <!-- Rebuttal form (inline) -->
           @if (rebuttalRecord === record) {
             <div class="rebuttal-form">
@@ -205,7 +196,7 @@
                 @if (record.ecu_modules?.length) {
                   <div class="detail-item" style="grid-column:span 2;">
                     <div class="detail-label">ECU / Module IDs</div>
-                    <div class="detail-value" style="font-size:13px;font-weight:400;">{{ record.ecu_modules?.join(', ') }}</div>
+                    <div class="detail-value" style="font-size:13px;font-weight:400;">{{ record.ecu_modules!.join(', ') }}</div>
                   </div>
                 }
                 @if (!record.parts_replaced && !record.service_notes && !record.ecu_modules?.length) {

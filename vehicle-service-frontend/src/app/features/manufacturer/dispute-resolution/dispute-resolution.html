@@ -148,12 +148,6 @@
                       </svg>
                       Approve Record
                     </button>
-                    <button class="btn btn-warning btn-sm" (click)="startResolve(i, 'modify')" [disabled]="actionLoading">
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
-                      </svg>
-                      Request Modification
-                    </button>
                     <button class="btn btn-danger btn-sm" (click)="startResolve(i, 'reject')" [disabled]="actionLoading">
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -274,32 +268,20 @@
               @if (resolvingIndex === i) {
                 <div class="resolve-form"
                      [class.resolve-approve]="resolvingDecision === 'approve'"
-                     [class.resolve-reject]="resolvingDecision === 'reject'"
-                     [class.resolve-modify]="resolvingDecision === 'modify'">
+                     [class.resolve-reject]="resolvingDecision === 'reject'">
                   <div class="resolve-form-title">
                     @if (resolvingDecision === 'approve') {
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                      </svg>
-                    } @else if (resolvingDecision === 'modify') {
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
                       </svg>
                     } @else {
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
                       </svg>
                     }
-                    @if (resolvingDecision === 'approve') { Approve Record }
-                    @else if (resolvingDecision === 'modify') { Request Modification }
-                    @else { Reject Record }
+                    @if (resolvingDecision === 'approve') { Approve Record } @else { Reject Record }
                     — Add Resolution Notes
                   </div>
-                  @if (resolvingDecision === 'modify') {
-                    <div class="info-box" style="margin-bottom:12px;font-size:12px;">
-                      The record will remain pending. The service centre will be notified to amend and resubmit.
-                    </div>
-                  }
                   <form [formGroup]="resolveForm" (ngSubmit)="confirmResolve()">
                     <div class="form-group mb-16">
                       <label class="form-label">Resolution Notes <span class="required">*</span></label>
@@ -318,12 +300,10 @@
                       <button type="button" class="btn btn-secondary btn-sm" (click)="cancelResolve()">Cancel</button>
                       <button type="submit" class="btn btn-sm"
                               [class.btn-success]="resolvingDecision === 'approve'"
-                              [class.btn-warning]="resolvingDecision === 'modify'"
                               [class.btn-danger]="resolvingDecision === 'reject'"
                               [disabled]="actionLoading">
                         @if (actionLoading) { <span class="spinner"></span> }
                         @else if (resolvingDecision === 'approve') { Confirm Approval }
-                        @else if (resolvingDecision === 'modify') { Confirm Modification Request }
                         @else { Confirm Rejection }
                       </button>
                     </div>

@@ -47,7 +47,7 @@ export class DisputeResolutionComponent implements OnInit, OnDestroy {
   currentVin = '';
   disputedRecords: DisputedRecord[] = [];
   resolvingIndex: number | null = null;
-  resolvingDecision: 'approve' | 'reject' | 'modify' | null = null;
+  resolvingDecision: 'approve' | 'reject' | null = null;
 
   threadOpen: { [key: string]: boolean } = {};
   threadMessages: { [key: string]: any[] } = {};
@@ -207,7 +207,7 @@ export class DisputeResolutionComponent implements OnInit, OnDestroy {
       .filter((r: any) => r.disputed);
   }
 
-  startResolve(index: number, decision: 'approve' | 'reject' | 'modify'): void {
+  startResolve(index: number, decision: 'approve' | 'reject'): void {
     this.resolvingIndex = index;
     this.resolvingDecision = decision;
     this.resolveForm.reset();
@@ -227,7 +227,7 @@ export class DisputeResolutionComponent implements OnInit, OnDestroy {
     if (this.resolvingIndex === null || !this.resolvingDecision) return;
 
     const record = this.disputedRecords[this.resolvingIndex];
-    const decision = this.resolvingDecision === 'approve' ? 1 : this.resolvingDecision === 'reject' ? 2 : 3;
+    const decision = this.resolvingDecision === 'approve' ? 1 : 2;
     const notes = this.resolveForm.value.resolution_notes;
 
     this.actionLoading = true;
@@ -236,7 +236,7 @@ export class DisputeResolutionComponent implements OnInit, OnDestroy {
 
     this.serviceService.resolveDispute(record.vin, record.metadata_hash, decision, notes).subscribe({
       next: () => {
-        const label = this.resolvingDecision === 'approve' ? 'approved' : this.resolvingDecision === 'reject' ? 'rejected' : 'flagged for modification';
+        const label = this.resolvingDecision === 'approve' ? 'approved' : 'rejected';
         this.actionSuccess = `Dispute ${label} successfully for ${record.service_type || 'record'}.`;
         this.resolvingIndex = null;
         this.resolvingDecision = null;
