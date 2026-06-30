@@ -76,6 +76,12 @@
   color: var(--text);
 }
 
+.info-box-warning {
+  background: var(--color-warning-light, #fefce8);
+  border-color: var(--color-warning, #ca8a04);
+  color: var(--text);
+}
+
 .rebuttal-form {
   background: var(--surface-2);
   border: 1px solid var(--border);
