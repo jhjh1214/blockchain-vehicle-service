@@ -18,6 +18,8 @@ export interface ServiceRecord {
   ecu_modules?: string[];
   rebuttal_notes?: string;
   rebuttal_submitted_at?: string;
+  resolution_decision?: string;
+  resolution_notes?: string;
   escalated?: boolean;
   escalated_at?: string;
   // Owner-enriched fields
@@ -39,6 +41,8 @@ export interface ServiceMetadata {
   photos: string[];
   rebuttal_notes?: string;
   rebuttal_submitted_at?: string;
+  resolution_decision?: string;
+  resolution_notes?: string;
   escalated?: boolean;
   escalated_at?: string;
 }

@@ -132,7 +132,14 @@ class _FilterChips extends StatelessWidget {
               label: '${entry.value} filter',
               selected: isSelected,
               child: FilterChip(
-                label: Text(entry.value),
+                label: Text(
+                  entry.value,
+                  style: TextStyle(
+                    color: isSelected
+                        ? colorScheme.onPrimaryContainer
+                        : colorScheme.onSurface,
+                  ),
+                ),
                 selected: isSelected,
                 onSelected: (_) => onSelected(entry.key),
                 selectedColor: colorScheme.primaryContainer,

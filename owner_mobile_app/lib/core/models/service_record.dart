@@ -17,6 +17,8 @@ class ServiceRecord {
   final String? scBrand;
   final String? rebuttalNotes;
   final String? rebuttalSubmittedAt;
+  final String? resolutionDecision;
+  final String? resolutionNotes;
   final bool escalated;
 
   const ServiceRecord({
@@ -38,6 +40,8 @@ class ServiceRecord {
     this.scBrand,
     this.rebuttalNotes,
     this.rebuttalSubmittedAt,
+    this.resolutionDecision,
+    this.resolutionNotes,
     this.escalated = false,
   });
 
@@ -60,6 +64,8 @@ class ServiceRecord {
         scBrand: j['sc_brand'],
         rebuttalNotes: j['rebuttal_notes'],
         rebuttalSubmittedAt: j['rebuttal_submitted_at'],
+        resolutionDecision: j['resolution_decision'],
+        resolutionNotes: j['resolution_notes'],
         escalated: j['escalated'] == true,
       );
 

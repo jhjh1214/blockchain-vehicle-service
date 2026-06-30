@@ -159,17 +159,13 @@ def revoke_all_refresh_tokens(user_id: int) -> None:
 # ── Device tokens ─────────────────────────────────────────────
 
 def upsert_device_token(user_id: int, token: str, platform: str) -> None:
-    existing = DeviceToken.query.filter_by(user_id=user_id, platform=platform).first()
-    if existing:
-        existing.token = token
-        existing.updated_at = datetime.utcnow()
-    else:
-        db.session.add(DeviceToken(user_id=user_id, token=token, platform=platform))
+    DeviceToken.query.filter_by(user_id=user_id, platform=platform).delete()
+    db.session.add(DeviceToken(user_id=user_id, token=token, platform=platform))
     db.session.commit()
 
 
 def get_device_tokens(user_id: int) -> list[str]:
-    return [dt.token for dt in DeviceToken.query.filter_by(user_id=user_id).all()]
+    return list({dt.token for dt in DeviceToken.query.filter_by(user_id=user_id).all()})
 
 
 def get_all_owner_device_tokens() -> list[str]:

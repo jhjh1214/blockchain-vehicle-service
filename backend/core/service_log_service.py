@@ -140,6 +140,9 @@ def _enrich_records(records: list) -> list:
     return records
 
 
+
+
+
 def get_pending_services(vin: str) -> list:
     return _enrich_records(service_log.get_pending_services(vin))
 
@@ -173,6 +176,8 @@ def get_sc_pending_services(sc_address: str) -> list:
                     'photos': metadata.photos or [],
                     'rebuttal_notes': metadata.rebuttal_notes,
                     'rebuttal_submitted_at': metadata.rebuttal_submitted_at.isoformat() if metadata.rebuttal_submitted_at else None,
+                    'resolution_decision': metadata.resolution_decision,
+                    'resolution_notes': metadata.resolution_notes,
                     'escalated': metadata.escalated,
                     'escalated_at': metadata.escalated_at.isoformat() if metadata.escalated_at else None,
                 }
@@ -244,10 +249,13 @@ def _finalized_from_db(vin: str) -> list:
 
 def _load_sc_user_cache(raw_records: list) -> dict:
     """Batch-load service center users to avoid per-record DB queries."""
+    from sqlalchemy import func as _sqla_func
     addresses = {r.get('service_center', '').lower() for r in raw_records if r.get('service_center')}
     if not addresses:
         return {}
-    users = _User.query.filter(_User.blockchain_address.in_(list(addresses))).all()
+    # Use func.lower for case-insensitive match — blockchain addresses may be stored
+    # in mixed case (e.g. checksum form) but compared as lowercase throughout.
+    users = _User.query.filter(_sqla_func.lower(_User.blockchain_address).in_(list(addresses))).all()
     return {u.blockchain_address.lower(): u for u in users}
 
 
@@ -290,6 +298,8 @@ def _flatten_owner_record(record, index: int, mapping, sc_user_cache=None) -> di
         'metadata_hash': record.get('metadata_hash', ''),
         'rebuttal_notes': meta.get('rebuttal_notes'),
         'rebuttal_submitted_at': meta.get('rebuttal_submitted_at'),
+        'resolution_decision': meta.get('resolution_decision'),
+        'resolution_notes': meta.get('resolution_notes'),
         'escalated': meta.get('escalated', False),
         'escalated_at': meta.get('escalated_at'),
         'integrity_status': record.get('integrity_status'),
@@ -324,6 +334,8 @@ def get_mfr_disputed_services(mfr_address: str) -> list:
                     'photos': metadata.photos or [],
                     'rebuttal_notes': metadata.rebuttal_notes,
                     'rebuttal_submitted_at': metadata.rebuttal_submitted_at.isoformat() if metadata.rebuttal_submitted_at else None,
+                    'resolution_decision': metadata.resolution_decision,
+                    'resolution_notes': metadata.resolution_notes,
                     'escalated': metadata.escalated,
                     'escalated_at': metadata.escalated_at.isoformat() if metadata.escalated_at else None,
                 }
@@ -369,6 +381,8 @@ def get_owner_finalized_services(owner_address: str, filters: dict = None) -> li
                     'photos': metadata.photos or [],
                     'rebuttal_notes': metadata.rebuttal_notes,
                     'rebuttal_submitted_at': metadata.rebuttal_submitted_at.isoformat() if metadata.rebuttal_submitted_at else None,
+                    'resolution_decision': metadata.resolution_decision,
+                    'resolution_notes': metadata.resolution_notes,
                     'escalated': metadata.escalated,
                     'escalated_at': metadata.escalated_at.isoformat() if metadata.escalated_at else None,
                 }
@@ -431,6 +445,8 @@ def get_owner_pending_services(owner_address: str) -> list:
                     'photos': metadata.photos or [],
                     'rebuttal_notes': metadata.rebuttal_notes,
                     'rebuttal_submitted_at': metadata.rebuttal_submitted_at.isoformat() if metadata.rebuttal_submitted_at else None,
+                    'resolution_decision': metadata.resolution_decision,
+                    'resolution_notes': metadata.resolution_notes,
                     'escalated': metadata.escalated,
                     'escalated_at': metadata.escalated_at.isoformat() if metadata.escalated_at else None,
                 }

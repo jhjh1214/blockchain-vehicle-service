@@ -368,24 +368,35 @@ def resolve_dispute():
         )
         log_event('dispute_resolved', user_id=request.user.get('user_id'),
                   detail={'vin': vin, 'metadata_hash': metadata_hash, 'decision': decision_int})
-        # Notify owner via FCM
+        # Notify parties via FCM
         from db.repositories import vehicles as vehicle_repo, users as user_repo
-        from core.notifications import notify_dispute_resolved
+        from core.notifications import notify_dispute_resolved, notify_modification_requested
         from core.email import send_email
+        _resolution_notes = sanitize(data.get('resolution_notes', ''), 500)
         _mapping = vehicle_repo.find_by_vin(vin)
-        if _mapping and _mapping.owner_address:
-            _owner = user_repo.find_by_blockchain_address(_mapping.owner_address)
-            if _owner:
-                notify_dispute_resolved(_owner.id, vin, decision_int)
-        # Email the service centre that submitted the disputed record
         from db.models import ServiceMetadata
         _sm = ServiceMetadata.query.filter_by(vin=vin, disputed=True).order_by(
             ServiceMetadata.id.desc()
         ).first()
+        _sc = None
         if _sm and _sm.service_center_address:
             _sc = user_repo.find_by_blockchain_address(_sm.service_center_address)
+        if decision_int == 3:
+            # MODIFY — record stays pending; route both parties to pending screen
+            if _mapping and _mapping.owner_address:
+                _owner = user_repo.find_by_blockchain_address(_mapping.owner_address)
+                if _owner:
+                    notify_modification_requested(_owner.id, vin, _resolution_notes)
             if _sc:
-                decision_labels = {1: 'accepted', 2: 'rejected', 3: 'modified'}
+                notify_modification_requested(_sc.id, vin, _resolution_notes)
+        else:
+            # ACCEPT (1) or REJECT (2) — record finalised; route owner to history
+            if _mapping and _mapping.owner_address:
+                _owner = user_repo.find_by_blockchain_address(_mapping.owner_address)
+                if _owner:
+                    notify_dispute_resolved(_owner.id, vin, decision_int)
+            if _sc:
+                decision_labels = {1: 'accepted', 2: 'rejected'}
                 _label = decision_labels.get(decision_int, 'resolved')
                 send_email(
                     _sc.email,

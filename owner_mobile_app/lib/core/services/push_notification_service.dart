@@ -1,4 +1,5 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 import 'package:dio/dio.dart';
 import '../api/api_client.dart';
@@ -83,6 +84,7 @@ class PushNotificationService {
     const serviceTypes = {
       'pending_service', 'dispute_filed', 'rebuttal_submitted',
       'dispute_message', 'dispute_resolved', 'service_completed',
+      'modification_requested',
     };
     if (serviceTypes.contains(message.data['type'])) {
       _services?.loadPending();
@@ -92,7 +94,9 @@ class PushNotificationService {
   void _handleTap(RemoteMessage message) {
     final router = _router;
     if (router == null) return;
-    navigateForData(router, message.data);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      navigateForData(router, message.data);
+    });
   }
 
   /// Shared type→route mapping used both when a push notification is tapped
@@ -114,6 +118,7 @@ class PushNotificationService {
         } else {
           router.push('/services/pending');
         }
+      case 'modification_requested':
       case 'pending_service':
       case 'dispute_filed':
       case 'rebuttal_submitted':

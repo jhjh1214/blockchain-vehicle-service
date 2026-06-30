@@ -155,6 +155,15 @@
             </div>
           }
 
+          @if (record.resolution_decision === 'modify') {
+            <div class="info-box info-box-warning" style="margin-top:8px;">
+              <strong>Modification Requested:</strong> The manufacturer has requested modifications to this service record.
+              @if (record.resolution_notes) {
+                <div style="margin-top:4px;">{{ record.resolution_notes }}</div>
+              }
+            </div>
+          }
+
           <!-- Rebuttal form (inline) -->
           @if (rebuttalRecord === record) {
             <div class="rebuttal-form">
