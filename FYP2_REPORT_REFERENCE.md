@@ -1,6 +1,6 @@
 # VehicleChain — FYP2 Report Reference
 
-This document is the single source of truth for writing the FYP2 report in a separate Claude chat.
+This document is the single source of truth for writing the FYP2 report.
 Refer to it for all technical claims, workflows, endpoints, and framing decisions.
 
 ---

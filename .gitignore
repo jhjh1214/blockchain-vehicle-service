@@ -20,7 +20,6 @@ backend/keystore/encryption.key
 
 # IDE / tools
 .vscode/
-.claude/
 
 # OS
 .DS_Store
